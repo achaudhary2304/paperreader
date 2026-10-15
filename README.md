@@ -4,7 +4,23 @@ A local research paper reader with a PDF viewer and a separate AI conversation f
 
 The question workflow uses LangGraph and LangChain. Three local MCP servers provide paper retrieval, academic/concept lookup, and math tools. Answers show paper pages and outside sources when available.
 
-## Run locally
+## Download the desktop app
+
+Download PaperLens from [GitHub Releases](https://github.com/achaudhary2304/paperreader/releases):
+
+| System | Download |
+| --- | --- |
+| Windows | `.exe` installer |
+| macOS | `.dmg` |
+| Linux | `.deb` or `.AppImage` |
+
+Open PaperLens from your applications menu. No Node.js or terminal is needed for the downloaded app. It runs a local service inside the desktop app, so you see a normal application window rather than a localhost tab. AI answers and external research still need internet access unless you configure a local model.
+
+Enter a Groq key in **Settings** for the quickest start. To use OpenRouter or another model, open **File → Provider settings…**, fill in one provider, save the file, and choose **File → Restart PaperLens**. For a local Ollama endpoint, set `LLM_BASE_URL=http://localhost:11434/v1` and `LLM_MODEL=<your installed model>`; no API key is required. `LLM_VISION_MODEL` is optional for image questions. Desktop settings and the paper library are stored in your computer's app data directory.
+
+If you used the browser version before, choose **Export library** there and **Import library** in the desktop app to transfer papers, projects, annotations, and doubts. The two editions use separate browser storage. These installers are currently unsigned, so your operating system may ask you to confirm that you trust the downloaded app.
+
+## Run from source
 
 Install [Node.js](https://nodejs.org/) **20.19+ or 22.12+** and npm. Then:
 
@@ -42,7 +58,7 @@ You can enter a Groq key in Settings instead of `.env`; that key stays in the cu
 - Export an annotated PDF, or export/import the entire library as a ZIP. Papers and reading data are stored in this browser (IndexedDB and local storage); API keys are not included in library exports.
 - Press `?` in the reader for keyboard shortcuts. PDF text extraction is required for search and paper-grounded answers; scanned PDFs need OCR first.
 
-The third-party Guide Labs PDF is intentionally not bundled in this repository. Your uploaded papers stay on your computer; inference requests send relevant excerpts and any attached images to your chosen provider. External research uses public APIs, so internet access is needed for those lookups.
+The third-party Guide Labs PDF is intentionally not bundled in this repository or the desktop app. Your uploaded papers stay on your computer; inference requests send relevant excerpts and any attached images to your chosen provider. External research uses public APIs, so internet access is needed for those lookups.
 
 ## Optional Linux startup
 
@@ -53,7 +69,11 @@ On Linux with systemd user services, `npm run service:install` builds the app an
 ```bash
 npm test
 npm run build
+npm run desktop           # Run the desktop app from source
+npm run desktop:package   # Build an installer for your current operating system
 ```
+
+Tagged versions (`v*`) run the [desktop release workflow](.github/workflows/desktop-release.yml), which builds Windows, macOS, and Linux downloads and attaches them to a GitHub Release.
 
 The server binds to loopback by default. `HOST` can change that for a private network, but this app has no user accounts or API authentication; do not expose a server with your API key to untrusted users. See [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) for current limitations and proposed work.
 

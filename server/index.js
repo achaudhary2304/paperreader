@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { importArxiv, parseArxivId } from './arxiv.js';
 import { createResearchGraph } from './researchGraph.js';
 import { callLocalTool } from './mcp/client.js';
@@ -12,7 +14,7 @@ import { answerEvidence } from './evidence.js';
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '20mb' }));
-const PORT = Number(process.env.PORT || 3001);
+const distDir = fileURLToPath(new URL('../dist', import.meta.url));
 const MODEL = 'openai/gpt-oss-120b';
 const ANSWER_MODELS = new Set(FALLBACK_MODELS);
 const groqClient = createGroqClient();
@@ -121,7 +123,7 @@ const researchGraph = createResearchGraph({
   callTool: callLocalTool, systemPrompt: `${ANSWER_SYSTEM_PROMPT} If the provided context labels papers P1, P2, etc., cite claims with the exact label and page as [P1 p. N]. Do not use [Paper p. N] for project-wide questions. Ground each comparison in excerpts from the corresponding papers and say when a paper lacks relevant evidence.`,
 });
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, serverKeyConfigured: Boolean(compatibleConfigured() || process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY), compatibleConfigured: compatibleConfigured(), openRouterConfigured: freeOnly(), groqFallbackConfigured: Boolean(process.env.GROQ_API_KEY), freeOnly: freeOnly() }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, desktop: process.env.PAPERLENS_DESKTOP === '1', serverKeyConfigured: Boolean(compatibleConfigured() || process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY), compatibleConfigured: compatibleConfigured(), openRouterConfigured: freeOnly(), groqFallbackConfigured: Boolean(process.env.GROQ_API_KEY), freeOnly: freeOnly() }));
 app.get('/api/free-usage', async (_req, res) => {
   if (!freeOnly()) return res.status(404).json({ error: 'OpenRouter is not configured.' });
   try {
@@ -211,6 +213,16 @@ app.post('/api/ask', async (req, res) => {
   }
 });
 
-app.use(express.static('dist'));
-app.get('/{*path}', (_req, res) => res.sendFile('index.html', { root: 'dist' }));
-app.listen(PORT, process.env.HOST || '127.0.0.1', () => console.log(`PaperLens API listening on http://${process.env.HOST || '127.0.0.1'}:${PORT}`));
+app.use(express.static(distDir));
+app.get('/{*path}', (_req, res) => res.sendFile('index.html', { root: distDir }));
+
+export function startServer({ port = Number(process.env.PORT || 3001), host = process.env.HOST || '127.0.0.1' } = {}) {
+  return new Promise((resolveServer, reject) => {
+    const server = app.listen(port, host, () => resolveServer(server));
+    server.once('error', reject);
+  });
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  startServer().then(server => console.log(`PaperLens API listening on http://${server.address().address}:${server.address().port}`));
+}
