@@ -179,6 +179,9 @@
 .react-pdf__Page__textContent .paper-annotation.search-hit{outline:2px solid #d4a728}
 .embedded-annotation-hit{position:absolute;z-index:3;cursor:help;background:transparent;border-radius:2px}
 .embedded-annotation-hit:hover{outline:2px solid #7c5bdb}
+.figure-region{position:absolute;z-index:3;border:2px solid #7b5ad8;background:#8061db12;border-radius:2px;cursor:pointer;pointer-events:auto}.figure-region:hover{background:#8061db25}
+.annotation-comment-hit{position:absolute;z-index:4;width:19px;height:19px;border:1px solid white;border-radius:5px;background:#6e51d2;box-shadow:0 1px 5px #24164655;cursor:pointer}.annotation-comment-hit:after{content:'…';display:grid;place-items:center;color:white;font:bold 12px/17px sans-serif}
+.reader-scroll.region-mode{cursor:crosshair}.region-drag-box{position:fixed;z-index:12;border:2px solid #7554d5;background:#795ad51a;pointer-events:none}
 .annotation-preview{position:fixed;z-index:12;width:min(300px,calc(100vw - 24px));max-height:220px;overflow:auto;pointer-events:none;text-align:left;line-height:1.45;background:#fff;border:1px solid #e7dfb8;border-left:4px solid #e2bd48;border-radius:9px;box-shadow:0 12px 32px #25202d36;padding:11px 13px;color:#3e3a42}
 .annotation-preview.annotation-green{border-left-color:#6eb88b}
 .annotation-preview.annotation-blue{border-left-color:#68a7d3}

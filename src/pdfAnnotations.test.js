@@ -33,7 +33,7 @@ test('reads standard PDF highlights and comments with usable page positions', as
   }
 });
 
-test('PDF export preserves imported annotations and adds standard highlights once', async () => {
+test('PDF export preserves imported annotations and adds standard markup, region and comment annotations', async () => {
   const source = await PDFDocument.create();
   const page = source.addPage([300, 300]);
   page.node.addAnnot(source.context.register(source.context.obj({
@@ -52,13 +52,19 @@ test('PDF export preserves imported annotations and adds standard highlights onc
       ...imported,
       { id: 'local-one', page: 1, text: 'A point', note: 'My comment', color: 'green', kind: 'Underline', tags: ['method'],
         rects: [{ x: .1, y: .1, w: .3, h: .06 }] },
+      { id: 'figure-one', page: 1, text: 'Figure region', note: 'The main result diagram', color: 'yellow', kind: 'Region', tags: ['result'],
+        rects: [{ x: .2, y: .25, w: .45, h: .3 }] },
+      { id: 'comment-one', page: 1, text: 'Selected passage', note: 'Explain this later', color: 'blue', kind: 'Comment', tags: ['question'],
+        rects: [{ x: .7, y: .5, w: .1, h: .05 }] },
     ]);
     const reopened = await pdfjs.getDocument({ data: new Uint8Array(exported) }).promise;
     try {
       const records = await (await reopened.getPage(1)).getAnnotations({ intent: 'display' });
-      assert.equal(records.length, 2);
-      assert.deepEqual(records.map(item => item.annotationType), [1, 10]);
-      assert.deepEqual(records.map(item => item.contentsObj.str), ['Revised comment', 'My comment']);
+      assert.equal(records.length, 4);
+      assert.deepEqual(records.slice(0, 2).map(item => item.annotationType), [1, 10]);
+      assert.deepEqual(records.slice(0, 2).map(item => item.contentsObj.str), ['Revised comment', 'My comment']);
+      assert.deepEqual(records.slice(2).map(item => item.contentsObj.str), ['The main result diagram', 'Explain this later']);
+      assert.ok(records.slice(2).every(item => item.rect?.length === 4));
       assert.equal(records[0].color[2] > records[0].color[0], true);
     } finally { await reopened.destroy(); }
   } finally { await original.destroy(); }

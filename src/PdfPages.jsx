@@ -46,7 +46,7 @@ function highlightText(element, query, annotations) {
       }
     }
   };
-  for (const annotation of annotations) if (!annotation.embedded) markMatches(annotation.text, annotation);
+  for (const annotation of annotations) if (!annotation.embedded && annotation.kind === 'Highlight') markMatches(annotation.text, annotation);
   markMatches(query, null);
   for (const record of records) {
     let html = ''; let open = '';
@@ -89,9 +89,15 @@ function PdfPage({ number, total, width, ratio, scrollRoot, searchQuery, matchin
         onRenderTextLayerSuccess={textReady}
         loading={<div className="page-placeholder" style={{ height: Math.ceil(width * pageRatio) }}><span className="spinner" />Rendering page {number}…</div>} />
         : <div className="page-placeholder" style={{ height: Math.ceil(width * pageRatio) }}>Page {number}</div>}
-      {visible && annotations.filter(item => item.embedded).flatMap(item => item.rects.map((rect, index) =>
+      {visible && annotations.filter(item => item.embedded && item.kind !== 'Region').flatMap(item => item.rects.map((rect, index) =>
         <span key={`${item.id}:${index}`} className="embedded-annotation-hit" data-annotation-id={item.id}
           style={{ left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.w * 100}%`, height: `${rect.h * 100}%` }} />))}
+      {visible && annotations.filter(item => item.kind === 'Region').flatMap(item => item.rects.map((rect, index) =>
+        <span key={`${item.id}:${index}`} className={`figure-region${item.embedded ? ' embedded-annotation-hit' : ''}`} data-annotation-id={item.id}
+          style={{ left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.w * 100}%`, height: `${rect.h * 100}%` }} />))}
+      {visible && annotations.filter(item => item.kind === 'Comment').flatMap(item => item.rects.slice(0, 1).map((rect, index) =>
+        <span key={`${item.id}:${index}`} className="annotation-comment-hit" data-annotation-id={item.id}
+          style={{ left: `${(rect.x + rect.w) * 100 - 1.5}%`, top: `${rect.y * 100}%` }} title="Open comment" />))}
     </div>
     <div className="pdf-page-label">{number} / {total}</div>
   </section>;

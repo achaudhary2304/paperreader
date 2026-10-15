@@ -12,13 +12,13 @@ import {
   ArrowDownToLine, ArrowRight, BookOpenText, Check,
   ChevronDown, ChevronLeft, ChevronRight, Command, FileText,
   Highlighter, LibraryBig, Lightbulb, Menu, MessageCircleQuestion,
-  Plus, Search, Send, Settings2, Sigma, Sparkles, Trash2, UploadCloud, X,
+  Plus, Search, Send, Settings2, Sigma, Sparkles, Trash2, UploadCloud, X, Share2,
   ZoomIn, ZoomOut, ExternalLink, PanelRightClose, PanelRightOpen, Layers3,
-  FolderKanban, StickyNote, Save, GripVertical, ImagePlus, ScanEye, Keyboard, Maximize2,
+  FolderKanban, StickyNote, Save, GripVertical, ImagePlus, ScanEye, Keyboard, Maximize2, ChevronUp,
 } from 'lucide-react';
 import { savePdf, getPdf, deletePdf, saveImage, getImage, deleteImage } from './storage.js';
 import { projectReadme } from './projectNotes.js';
-import { BACKUP_KEYS, createLibraryBackup, readLibraryBackup } from './libraryBackup.js';
+import { BACKUP_KEYS, createLibraryBackup, readLibraryBackup, createProjectExport, readProjectExport } from './libraryBackup.js';
 import { createAnnotatedPdf } from './annotatedPdf.js';
 import { readPdfAnnotations } from './pdfAnnotations.js';
 
@@ -137,6 +137,7 @@ export default function App() {
   const [threads, setThreads] = useState(() => readJSON('paperlens:threads', []).map(thread => ({ ...thread, busy: false })));
   const [annotations, setAnnotations] = useState(() => readJSON('paperlens:annotations', []));
   const [annotationDraft, setAnnotationDraft] = useState(null);
+  const [readerToolbarCollapsed, setReaderToolbarCollapsed] = useState(false);
   const [annotationProjectId, setAnnotationProjectId] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [askProject, setAskProject] = useState(false);
@@ -146,6 +147,9 @@ export default function App() {
   const [pdfExportBusy, setPdfExportBusy] = useState(false);
   const [threadId, setThreadId] = useState(() => readJSON('paperlens:reading', {})[docId]?.threadId || null);
   const [selection, setSelection] = useState(null);
+  const [regionMode, setRegionMode] = useState(false);
+  const [regionDrag, setRegionDrag] = useState(null);
+  const regionStart = useRef(null);
   const [draftSelection, setDraftSelection] = useState(() => readJSON('paperlens:reading', {})[docId]?.draftSelection || null);
   const [composer, setComposer] = useState(() => readJSON('paperlens:reading', {})[docId]?.composer || '');
   const [attachments, setAttachments] = useState([]);
@@ -335,7 +339,7 @@ export default function App() {
       const actions = {
         j: () => goToPage(page + 1), k: () => goToPage(page - 1),
         '/': () => { setPaperSearchOpen(true); setTimeout(() => document.querySelector('.paper-find input')?.focus(), 0); },
-        n: () => startBlank('explain'), h: () => startAnnotation('Highlight'), u: () => startAnnotation('Underline'),
+        n: () => startBlank('explain'), h: () => startAnnotation('Highlight'),
         '[': () => setLeftOpen(open => !open), ']': () => setSidebarOpen(open => !open),
         z: () => setZenMode(active => !active),
         '?': () => setShortcutsOpen(true),
@@ -393,6 +397,26 @@ export default function App() {
   const downloadProjectReadme = project => {
     const blob = new Blob([projectReadme(project, docs)], { type: 'text/markdown;charset=utf-8' });
     downloadBlob(blob, 'README.md');
+  };
+  const shareProject = async () => {
+    if (!activeProject || backupBusy) return;
+    setBackupBusy(true); setBackupError('');
+    try {
+      const ids = new Set(activeProject.paperIds || []);
+      const projectDocs = docs.filter(doc => ids.has(doc.id));
+      const papers = [];
+      for (const doc of projectDocs) {
+        let blob = doc.id === SAMPLE.id ? await fetch('/sample-paper.pdf').then(response => response.blob()) : await getPdf(doc.id);
+        if (!blob && doc.id === GUIDE_PAPER.id) { const response = await fetch('/scaling-inherently-interpretable-language-models.pdf'); if (response.ok) blob = await response.blob(); }
+        if (!blob) throw new Error(`The PDF for ${doc.name} is missing.`);
+        papers.push({ id: doc.id, blob });
+      }
+      const sharedProject = { ...activeProject, paperIds: projectDocs.map(doc => doc.id), entries: (activeProject.entries || []).map(({ messageId, ...entry }) => entry), readme: projectReadme(activeProject, projectDocs) };
+      const state = { 'paperlens:docs': JSON.stringify(projectDocs), 'paperlens:projects': JSON.stringify([sharedProject]), 'paperlens:annotations': JSON.stringify(annotations.filter(item => ids.has(item.docId))) };
+      const bundle = await createProjectExport(state, papers, sharedProject);
+      downloadBlob(bundle, `${activeProject.name.replace(/[^a-z0-9_-]+/gi, '-')}-project.zip`);
+    } catch (error) { setBackupError(error.message || 'Could not export this project.'); }
+    finally { setBackupBusy(false); }
   };
 
   const openPaper = id => {
@@ -459,6 +483,7 @@ export default function App() {
   };
 
   const captureSelection = useCallback(() => {
+    if (regionMode) return;
     const selected = window.getSelection();
     const text = selected?.toString().replace(/\s+/g, ' ').trim();
     if (!text || text.length < 3 || !readerRef.current?.contains(selected.anchorNode)) return;
@@ -472,7 +497,37 @@ export default function App() {
     const box = pdfPage?.getBoundingClientRect();
     const rects = box ? [...selected.getRangeAt(0).getClientRects()].filter(part => part.width > 1 && part.height > 1 && part.left >= box.left - 2 && part.right <= box.right + 2 && part.top >= box.top - 2 && part.bottom <= box.bottom + 2).map(part => ({ x: (part.left - box.left) / box.width, y: (part.top - box.top) / box.height, w: part.width / box.width, h: part.height / box.height })) : [];
     setSelection({ text: text.slice(0, 1800), page: sourcePage, anchorSpanIndex, anchorCharOffset: selected.getRangeAt(0).startOffset, rects, x: Math.max(12, Math.min(rect.left, window.innerWidth - 300)), y: Math.max(72, Math.min(rect.top - 56, window.innerHeight - 265)) });
-  }, [page]);
+  }, [page, regionMode]);
+
+  const startRegion = event => {
+    if (!regionMode || event.button !== 0) return;
+    const frame = event.target.closest?.('.react-pdf__Page');
+    const pageBlock = frame?.closest('[data-pdf-page]');
+    const bounds = frame?.getBoundingClientRect();
+    if (!frame || !pageBlock || !bounds) return;
+    event.preventDefault();
+    window.getSelection()?.removeAllRanges();
+    regionStart.current = { bounds, page: Number(pageBlock.dataset.pdfPage), x: event.clientX, y: event.clientY };
+    setRegionDrag({ left: event.clientX, top: event.clientY, width: 0, height: 0 });
+  };
+  const moveRegion = event => {
+    const start = regionStart.current;
+    if (!start) return;
+    const left = Math.min(start.x, event.clientX), top = Math.min(start.y, event.clientY);
+    setRegionDrag({ left, top, width: Math.abs(event.clientX - start.x), height: Math.abs(event.clientY - start.y) });
+  };
+  const finishRegion = event => {
+    const start = regionStart.current;
+    if (!start) return;
+    regionStart.current = null; setRegionDrag(null); setRegionMode(false);
+    const x = Math.max(0, Math.min(start.x, event.clientX) - start.bounds.left);
+    const y = Math.max(0, Math.min(start.y, event.clientY) - start.bounds.top);
+    const right = Math.min(start.bounds.width, Math.max(start.x, event.clientX) - start.bounds.left);
+    const bottom = Math.min(start.bounds.height, Math.max(start.y, event.clientY) - start.bounds.top);
+    if (right - x < 8 || bottom - y < 8) return;
+    setAnnotationDraft({ docId, page: start.page, text: 'Figure or table region', rects: [{ x: x / start.bounds.width, y: y / start.bounds.height, w: (right - x) / start.bounds.width, h: (bottom - y) / start.bounds.height }], note: '', color: 'yellow', kind: 'Region', tags: [] });
+    setAnnotationProjectId(projectId || '');
+  };
 
   const pageContextFor = async targetId => {
     if (paperTextCache.current.has(targetId)) return paperTextCache.current.get(targetId);
@@ -621,6 +676,12 @@ export default function App() {
   };
   const startAnnotation = (kind = 'Highlight') => {
     if (!selection) return;
+    if (kind === 'Highlight') {
+      const item = { docId, text: selection.text, page: selection.page, anchorSpanIndex: selection.anchorSpanIndex, anchorCharOffset: selection.anchorCharOffset, rects: selection.rects, note: '', color: 'yellow', kind: 'Highlight', tags: [], id: uid(), createdAt: Date.now() };
+      setAnnotations(current => [...current, item]);
+      setSelection(null); window.getSelection()?.removeAllRanges();
+      return;
+    }
     setAnnotationDraft({ docId, text: selection.text, page: selection.page, anchorSpanIndex: selection.anchorSpanIndex, anchorCharOffset: selection.anchorCharOffset, rects: selection.rects, note: '', color: 'yellow', kind, tags: [] });
     setAnnotationProjectId(projectId || '');
     setSelection(null); window.getSelection()?.removeAllRanges();
@@ -715,6 +776,27 @@ export default function App() {
     if (!file || backupBusy) return;
     setBackupBusy(true); setBackupError('');
     try {
+      const projectBundle = await readProjectExport(file);
+      if (projectBundle) {
+        const project = projectBundle.projects[0];
+        if (!window.confirm(`Import project “${project.name}” with ${projectBundle.docs.length} papers and ${projectBundle.annotations.length} annotations? Chats and doubts are not included.`)) return;
+        const docIds = new Map();
+        for (const doc of projectBundle.docs) {
+          let id = doc.id;
+          if (docs.some(existing => existing.id === id)) id = uid();
+          docIds.set(doc.id, id);
+        }
+        for (const paper of projectBundle.papers) await savePdf(docIds.get(paper.id), paper.blob);
+        const importedDocs = projectBundle.docs.map(doc => ({ ...doc, id: docIds.get(doc.id) }));
+        const annotationIds = new Map(projectBundle.annotations.map(item => [item.id, uid()]));
+        const importedProject = { ...project, id: uid(), paperIds: (project.paperIds || []).map(id => docIds.get(id)).filter(Boolean), entries: (project.entries || []).map(entry => ({ ...entry, paperId: docIds.get(entry.paperId) || entry.paperId, ...(annotationIds.has(entry.annotationId) ? { annotationId: annotationIds.get(entry.annotationId) } : {}) })) };
+        const importedAnnotations = projectBundle.annotations.map(item => ({ ...item, id: annotationIds.get(item.id), docId: docIds.get(item.docId) || item.docId }));
+        setDocs(current => [...current, ...importedDocs]);
+        setProjects(current => [importedProject, ...current]);
+        setAnnotations(current => [...current, ...importedAnnotations]);
+        setProjectId(importedProject.id);
+        return;
+      }
       const backup = await readLibraryBackup(file);
       if (!window.confirm(`Restore this backup? It contains ${backup.counts.papers} papers, ${backup.counts.projects} projects, ${backup.counts.annotations} annotations, and ${backup.counts.doubts} doubts. Your current PaperLens library in this browser will be replaced.`)) return;
       for (const paper of backup.papers) if (paper.id !== SAMPLE.id) await savePdf(paper.id, paper.blob);
@@ -816,7 +898,7 @@ export default function App() {
           <button className={`project-item ${!projectId ? 'active' : ''}`} onClick={() => setProjectId('')}><Layers3 size={15} /><span>All papers</span><small>{docs.length}</small></button>
           {projects.map(project => <button className={`project-item ${project.id === projectId ? 'active' : ''}`} key={project.id} onClick={() => { setProjectId(project.id); setSidebarSections(current => ({ ...current, notes: true })); }}><FolderKanban size={15} /><span>{project.name}</span><small>{project.paperIds?.length || 0}</small></button>)}
         </div>}
-        {activeProject && <section className="project-notes-panel"><div className="project-notes-heading"><button onClick={() => toggleSection('notes')} aria-expanded={sectionOpen('notes')}><StickyNote size={14} /> Notes <ChevronDown size={13} className={sectionOpen('notes') ? '' : 'notes-collapsed'} /></button><div className="project-note-actions"><button onClick={() => downloadProjectReadme(activeProject)} title="Download project README.md" aria-label="Download project README.md"><ArrowDownToLine size={14} /> README.md</button><button onClick={() => setManageProjectId(activeProject.id)} title="Manage papers in project" aria-label="Manage papers in project"><Layers3 size={14} /></button></div></div>{sectionOpen('notes') && <><textarea aria-label={`${activeProject.name} project notes`} value={activeProject.notes || ''} onChange={event => updateProjectNotes(activeProject.id, event.target.value)} placeholder={`Your own notes for ${activeProject.name}…`} />{(activeProject.entries || []).length > 0 && <div className="project-saved-answers"><button className="saved-answers-toggle" onClick={() => toggleSection('savedAnswers')} aria-expanded={sectionOpen('savedAnswers')}><ChevronDown size={13} className={sectionOpen('savedAnswers') ? '' : 'notes-collapsed'} /> SAVED ANSWERS · {activeProject.entries.length}</button>{sectionOpen('savedAnswers') && activeProject.entries.map(entry => <article key={entry.id} className="project-note-entry"><div><span>{docs.find(doc => doc.id === entry.paperId)?.name || 'Paper'} · p. {entry.page}</span><button aria-label="Remove saved answer" title="Remove saved answer" onClick={() => setProjects(current => current.map(project => project.id === activeProject.id ? { ...project, entries: (project.entries || []).filter(item => item.id !== entry.id) } : project))}><X size={12} /></button></div><b>{entry.question}</b>{entry.annotationId && <button className="note-source-link" onClick={() => jumpToEvidence({ docId: entry.paperId, page: entry.page, quote: annotations.find(item => item.id === entry.annotationId)?.text || "" })}>Open annotation · p. {entry.page}</button>}<div className="project-note-summary" dangerouslySetInnerHTML={{ __html: html(entry.summary) }} /></article>)}</div>}</>}</section>}
+        {activeProject && <section className="project-notes-panel"><div className="project-notes-heading"><button onClick={() => toggleSection('notes')} aria-expanded={sectionOpen('notes')}><StickyNote size={14} /> Notes <ChevronDown size={13} className={sectionOpen('notes') ? '' : 'notes-collapsed'} /></button><div className="project-note-actions"><button onClick={shareProject} disabled={backupBusy} title="Export project with papers, annotations and README notes" aria-label="Export project"><Share2 size={14} /> Share</button><button onClick={() => backupInput.current?.click()} title="Import a shared project" aria-label="Import project"><UploadCloud size={14} /> Import</button><button onClick={() => downloadProjectReadme(activeProject)} title="Download project README.md" aria-label="Download project README.md"><ArrowDownToLine size={14} /> README.md</button><button onClick={() => setManageProjectId(activeProject.id)} title="Manage papers in project" aria-label="Manage papers in project"><Layers3 size={14} /></button></div></div>{sectionOpen('notes') && <><textarea aria-label={`${activeProject.name} project notes`} value={activeProject.notes || ''} onChange={event => updateProjectNotes(activeProject.id, event.target.value)} placeholder={`Your own notes for ${activeProject.name}…`} />{(activeProject.entries || []).length > 0 && <div className="project-saved-answers"><button className="saved-answers-toggle" onClick={() => toggleSection('savedAnswers')} aria-expanded={sectionOpen('savedAnswers')}><ChevronDown size={13} className={sectionOpen('savedAnswers') ? '' : 'notes-collapsed'} /> SAVED ANSWERS · {activeProject.entries.length}</button>{sectionOpen('savedAnswers') && activeProject.entries.map(entry => <article key={entry.id} className="project-note-entry"><div><span>{docs.find(doc => doc.id === entry.paperId)?.name || 'Paper'} · p. {entry.page}</span><button aria-label="Remove saved answer" title="Remove saved answer" onClick={() => setProjects(current => current.map(project => project.id === activeProject.id ? { ...project, entries: (project.entries || []).filter(item => item.id !== entry.id) } : project))}><X size={12} /></button></div><b>{entry.question}</b>{entry.annotationId && <button className="note-source-link" onClick={() => jumpToEvidence({ docId: entry.paperId, page: entry.page, quote: annotations.find(item => item.id === entry.annotationId)?.text || "" })}>Open annotation · p. {entry.page}</button>}<div className="project-note-summary" dangerouslySetInnerHTML={{ __html: html(entry.summary) }} /></article>)}</div>}</>}</section>}
         <div className="section-heading"><button className="section-toggle" onClick={() => toggleSection('library')} aria-expanded={sectionOpen('library')}><ChevronDown size={14} /> YOUR LIBRARY <small>{filteredDocs.length}</small></button></div>
         {sectionOpen('library') && <><div className="library-search"><Search size={16} /><input value={fileSearch} onChange={e => setFileSearch(e.target.value)} placeholder="Find a paper..." /></div>
         <div className="paper-list">{filteredDocs.map(doc => <div key={doc.id} className={`paper-item ${docId === doc.id ? 'active' : ''}`}><button onClick={() => openPaper(doc.id)}><span className="paper-icon"><FileText size={17} /></span><span className="paper-meta"><strong>{doc.name}</strong><small>{doc.subtitle}</small></span></button>{activeProject && <button className="project-paper-toggle" onClick={() => toggleProjectPaper(activeProject.id, doc.id)} title="Remove paper from project"><X size={13} /></button>}{!activeProject && <button className="project-paper-toggle" onClick={() => projects.length ? setManageProjectId(projects[0].id) : setProjectModalOpen(true)} title="Add paper to a project"><FolderKanban size={13} /></button>}{doc.id !== 'sample' && <button className="delete-item" onClick={() => removeDoc(doc.id)} title="Remove paper"><X size={14} /></button>}</div>)}</div>
@@ -831,20 +913,21 @@ export default function App() {
     </aside>
 
     <main className="reader-column">
-      <header className="topbar"><div className="crumb">{!leftOpen && <button className="icon-button" title="Show library" onClick={() => setLeftOpen(true)}><Menu size={19} /></button>}<span className="crumb-muted">Library</span><ChevronRight size={14} /><strong>{ellipsis(activeDoc.name, 37)}</strong></div><div className="top-actions"><button className="icon-button" title="Zen mode (Z)" aria-label="Enter Zen mode" onClick={() => setZenMode(true)}><Maximize2 size={18} /></button><Appearance /><span className="saved-badge"><Check size={13} /> Saved locally</span><button className="icon-button top-settings" onClick={() => setSettingsOpen(true)} title="Settings"><Settings2 size={18} /></button><button className="sidebar-toggle" onClick={() => setSidebarOpen(o => !o)} title={sidebarOpen ? 'Hide companion' : 'Show companion'}>{sidebarOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}</button></div></header>
+      <header className="topbar"><div className="crumb">{!leftOpen && <button className="icon-button" title="Show library" onClick={() => setLeftOpen(true)}><Menu size={19} /></button>}<span className="crumb-muted">Library</span><ChevronRight size={14} /><strong>{ellipsis(activeDoc.name, 37)}</strong></div><div className="top-actions"><button className="icon-button" title={readerToolbarCollapsed ? 'Show paper toolbar' : 'Collapse paper toolbar'} aria-label={readerToolbarCollapsed ? 'Show paper toolbar' : 'Collapse paper toolbar'} onClick={() => setReaderToolbarCollapsed(value => !value)}><ChevronUp size={18} style={{ transform: readerToolbarCollapsed ? 'rotate(180deg)' : undefined }} /></button><button className="icon-button" title="Zen mode (Z)" aria-label="Enter Zen mode" onClick={() => setZenMode(true)}><Maximize2 size={18} /></button><Appearance /><span className="saved-badge"><Check size={13} /> Saved locally</span><button className="icon-button top-settings" onClick={() => setSettingsOpen(true)} title="Settings"><Settings2 size={18} /></button><button className="sidebar-toggle" onClick={() => setSidebarOpen(o => !o)} title={sidebarOpen ? 'Hide companion' : 'Show companion'}>{sidebarOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}</button></div></header>
       <div className="paper-tabs" role="tablist" aria-label="Open papers">
         {openTabs.map(id => { const doc = docs.find(item => item.id === id); if (!doc) return null; return <div className={`paper-tab ${id === docId ? 'active' : ''}`} key={id}><button role="tab" aria-selected={id === docId} onClick={() => openPaper(id)} title={doc.name}><FileText size={14} /><span>{doc.name}</span></button><button className="close-tab" title={`Close ${doc.name} tab`} aria-label={`Close ${doc.name} tab`} disabled={openTabs.length === 1} onClick={() => closeTab(id)}><X size={12} /></button></div>; })}
         <button className="add-tab" title="Add a paper" aria-label="Add a paper" onClick={() => { setImportError(''); setAddPaperOpen(true); }}><Plus size={16} /></button>
       </div>
-      <div className="reader-toolbar"><div className="reader-doc-icon"><FileText size={18} /></div><div className="reader-title"><strong>{activeDoc.name}</strong><span>{activeDoc.subtitle}</span></div><div className="toolbar-spacer" /><div className="page-controls"><button onClick={() => goToPage(page - 1)} disabled={page <= 1} title="Previous page"><ChevronLeft size={17} /></button><span><strong>{page}</strong> / {pages}</span><button onClick={() => goToPage(page + 1)} disabled={page >= pages} title="Next page"><ChevronRight size={17} /></button></div><div className="toolbar-separator" /><div className="zoom-controls"><button title="Zoom out (Ctrl −)" disabled={zoom <= 0.5} onClick={() => changeZoom(-1)}><ZoomOut size={17} /></button><span>{Math.round(zoom * 100)}%</span><button title="Zoom in (Ctrl +)" disabled={zoom >= 3} onClick={() => changeZoom(1)}><ZoomIn size={17} /></button></div><div className="toolbar-separator" /><button className="tool-icon" title="Search in paper" onClick={() => setPaperSearchOpen(o => !o)}><Search size={18} /></button><button className="tool-icon" title="Keyboard shortcuts (?)" onClick={() => setShortcutsOpen(true)}><Keyboard size={18} /></button><button className="tool-icon" title="Download original PDF" onClick={download}><ArrowDownToLine size={18} /></button><button className="tool-icon" title="Download PDF with highlights and notes" onClick={downloadAnnotatedPdf} disabled={pdfExportBusy || !pdf}><Highlighter size={18} /></button></div>
+      {!readerToolbarCollapsed && <div className="reader-toolbar"><div className="reader-doc-icon"><FileText size={18} /></div><div className="reader-title"><strong>{activeDoc.name}</strong><span>{activeDoc.subtitle}</span></div><div className="toolbar-spacer" /><div className="page-controls"><button onClick={() => goToPage(page - 1)} disabled={page <= 1} title="Previous page"><ChevronLeft size={17} /></button><span><strong>{page}</strong> / {pages}</span><button onClick={() => goToPage(page + 1)} disabled={page >= pages} title="Next page"><ChevronRight size={17} /></button></div><div className="toolbar-separator" /><div className="zoom-controls"><button title="Zoom out (Ctrl −)" disabled={zoom <= 0.5} onClick={() => changeZoom(-1)}><ZoomOut size={17} /></button><span>{Math.round(zoom * 100)}%</span><button title="Zoom in (Ctrl +)" disabled={zoom >= 3} onClick={() => changeZoom(1)}><ZoomIn size={17} /></button></div><div className="toolbar-separator" /><button className={`tool-icon ${regionMode ? 'active' : ''}`} title="Draw a box around a figure or table" onClick={() => { setRegionMode(value => !value); setSelection(null); }}><ScanEye size={18} /></button><button className="tool-icon" title="Search in paper" onClick={() => setPaperSearchOpen(o => !o)}><Search size={18} /></button><button className="tool-icon" title="Keyboard shortcuts (?)" onClick={() => setShortcutsOpen(true)}><Keyboard size={18} /></button><button className="tool-icon" title="Download original PDF" onClick={download}><ArrowDownToLine size={18} /></button><button className="tool-icon" title="Download PDF with highlights and notes" onClick={downloadAnnotatedPdf} disabled={pdfExportBusy || !pdf}><Highlighter size={18} /></button></div>}
       {paperSearchOpen && <div className="paper-find"><Search size={17} /><input autoFocus placeholder="Search this paper" value={paperSearch} onChange={event => setPaperSearch(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); if (searchMatches.length) goToSearchMatch(searchMatchIndex + (event.shiftKey ? -1 : 1)); else searchInPaper(); } }} /><span className="find-status">{searchBusy ? 'Searching…' : searchError ? 'Search failed' : !paperSearch.trim() ? '' : searchMatches.length ? `${searchMatchIndex + 1}/${searchMatches.length} pages` : 'No matches'}</span><button className="icon-button" title="Previous matching page" disabled={!searchMatches.length} onClick={() => goToSearchMatch(searchMatchIndex - 1)}><ChevronLeft size={16} /></button><button className="icon-button" title="Next matching page" disabled={!searchMatches.length} onClick={() => goToSearchMatch(searchMatchIndex + 1)}><ChevronRight size={16} /></button><button className="icon-button" title="Close search" onClick={() => setPaperSearchOpen(false)}><X size={16} /></button>{searchError && <div className="find-error" role="alert">{searchError}</div>}</div>}
-      <div className="reader-scroll" ref={readerRef} onScroll={event => { setHoveredAnnotation(null); handleReaderScroll(event); }} onMouseOver={previewAnnotation} onMouseLeave={() => setHoveredAnnotation(null)} onMouseUp={captureSelection} onKeyUp={captureSelection} onClick={event => { if (window.getSelection()?.toString()) return; const mark = event.target.closest?.('[data-annotation-id]'); const item = annotations.find(entry => entry.id === mark?.dataset.annotationId); if (item) { setHoveredAnnotation(null); setAnnotationProjectId(projectId || ''); setAnnotationDraft({ ...item }); } }}>
+      <div className={`reader-scroll${regionMode ? ' region-mode' : ''}`} ref={readerRef} onPointerDown={startRegion} onPointerMove={moveRegion} onPointerUp={finishRegion} onScroll={event => { setHoveredAnnotation(null); handleReaderScroll(event); }} onMouseOver={previewAnnotation} onMouseLeave={() => setHoveredAnnotation(null)} onMouseUp={captureSelection} onKeyUp={captureSelection} onClick={event => { if (window.getSelection()?.toString()) return; const mark = event.target.closest?.('[data-annotation-id]'); const item = annotations.find(entry => entry.id === mark?.dataset.annotationId); if (item) { setHoveredAnnotation(null); setAnnotationProjectId(projectId || ''); setAnnotationDraft({ ...item }); } }}>
         {docError && <div className="reader-error">{docError}<button onClick={() => setDocError('')}><X size={14} /></button></div>}
         <div className="paper-surface">{pdfFile ? <Document key={`${docId}:${pdfRevision}`} file={pdfFile} onLoadSuccess={async loaded => { if (currentDocId.current !== docId) return; const first = await loaded.getPage(1); if (currentDocId.current !== docId) return; const viewport = first.getViewport({ scale: 1 }); setPageRatio(viewport.height / viewport.width); setPdf(loaded); setPages(loaded.numPages); setPage(n => Math.min(loaded.numPages, Math.max(1, n))); setDocError(''); const scanKey = `${docId}:${pdfRevision}`; if (!scannedPdfAnnotations.current.has(scanKey)) { scannedPdfAnnotations.current.add(scanKey); readPdfAnnotations(loaded, docId).then(imported => { if (!imported.length) return; setAnnotations(current => { const known = new Set(current.map(item => item.id)); return [...current, ...imported.filter(item => !known.has(item.id))]; }); }).catch(() => scannedPdfAnnotations.current.delete(scanKey)); } }} onLoadError={err => setDocError(`Unable to render PDF: ${err.message}`)} loading={<div className="pdf-loading"><div className="spinner" />Opening paper…</div>}>{pdf && <PdfPages total={pages} width={pageWidth * zoom} ratio={pageRatio} scrollRoot={readerRef} searchQuery={paperSearchOpen ? paperSearch : ''} matchingPages={matchingPages} evidenceFocus={evidenceFocus?.docId === docId ? evidenceFocus : null} annotationsByPage={annotationsByPage} onTextReady={onPageTextReady} />}</Document> : <div className="pdf-loading"><div className="spinner" />Opening paper…</div>}</div>
+        {regionDrag && <div className="region-drag-box" style={{ left: regionDrag.left, top: regionDrag.top, width: regionDrag.width, height: regionDrag.height }} />}
         <div className="reading-tip"><Highlighter size={16} /><span>Select any text to open a doubt. Your place in the paper stays right here.</span></div>
       </div>
       {hoveredAnnotation && !annotationDraft && <div className={`annotation-preview annotation-${hoveredAnnotation.item.color}`} style={{ left: hoveredAnnotation.left, top: hoveredAnnotation.above ? hoveredAnnotation.top - 16 : hoveredAnnotation.top, transform: hoveredAnnotation.above ? 'translateY(-100%)' : undefined }} role="tooltip"><strong>{hoveredAnnotation.item.embedded ? `PDF ${hoveredAnnotation.item.kind.toUpperCase()}` : 'YOUR ANNOTATION'} · PAGE {hoveredAnnotation.item.page}</strong><p>{hoveredAnnotation.item.note || 'Highlight only'}</p><small>Click to edit · {hoveredAnnotation.item.tags?.join(', ') || 'No tags'}</small></div>}
-      {selection && <div className="selection-popover" style={{ left: selection.x, top: selection.y }} onMouseDown={e => e.preventDefault()}><div className="selection-popover-label"><Highlighter size={14} /> Selected passage <button onClick={() => setSelection(null)}><X size={13} /></button></div><div className="selection-actions">{Object.entries(MODES).map(([name, item]) => { const Icon = item.icon; return <button key={name} onClick={() => startMode(name)} title={item.hint}><span className={item.color}><Icon size={15} /></span>{item.short}</button>; })}<button onClick={() => startAnnotation('Highlight')} title="Highlight and annotate this passage"><span className="yellow"><Highlighter size={15} /></span>Highlight</button><button onClick={() => startAnnotation('Underline')} title="Underline and annotate this passage"><span className="blue"><Highlighter size={15} /></span>Underline</button></div></div>}
+      {selection && <div className="selection-popover" style={{ left: selection.x, top: selection.y }} onMouseDown={e => e.preventDefault()}><div className="selection-popover-label"><Highlighter size={14} /> Selected passage <button onClick={() => setSelection(null)}><X size={13} /></button></div><div className="selection-actions">{Object.entries(MODES).map(([name, item]) => { const Icon = item.icon; return <button key={name} onClick={() => startMode(name)} title={item.hint}><span className={item.color}><Icon size={15} /></span>{item.short}</button>; })}<button onClick={() => startAnnotation('Highlight')} title="Highlight selected passage"><span className="yellow"><Highlighter size={15} /></span>Highlight</button><button onClick={() => startAnnotation('Comment')} title="Add a comment to selected passage"><span className="blue"><StickyNote size={15} /></span>Comment</button></div></div>}
     </main>
 
     <aside className={`companion-panel ${sidebarOpen ? '' : 'closed'}`} style={{ '--explanation-font-size': `${answerFontSize}px`, '--companion-width': `${companionWidth}px` }}>
@@ -857,18 +940,17 @@ export default function App() {
 
     {annotationDraft && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setAnnotationDraft(null)}><form className="settings-modal annotation-modal" onSubmit={saveAnnotation}>
       <div className="modal-header"><span className="modal-icon"><Highlighter size={20} /></span><button type="button" aria-label="Close annotation" onClick={() => setAnnotationDraft(null)}><X size={19} /></button></div>
-      <h2>{annotationDraft.id ? 'Edit annotation' : 'Annotate passage'}</h2>
+      <h2>{annotationDraft.id ? 'Edit annotation' : annotationDraft.kind === 'Comment' ? 'Comment on passage' : annotationDraft.kind === 'Region' ? 'Annotate figure or table' : 'Annotate passage'}</h2>
       <p className="annotation-quote">“{annotationDraft.text}” <span>PDF page {annotationDraft.page}</span></p>
       <label htmlFor="annotation-note">YOUR NOTE · OPTIONAL</label>
-      <textarea id="annotation-note" autoFocus rows={5} value={annotationDraft.note} onChange={event => setAnnotationDraft(current => ({ ...current, note: event.target.value }))} placeholder="Your own thought about this passage…" />
+      <textarea id="annotation-note" autoFocus rows={5} value={annotationDraft.note} onChange={event => setAnnotationDraft(current => ({ ...current, note: event.target.value }))} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Your own thought about this passage… (Enter to save, Shift+Enter for a new line)" />
       <label htmlFor="annotation-tags">TAGS · COMMA SEPARATED</label>
       <input id="annotation-tags" value={annotationDraft.tagsText ?? (annotationDraft.tags || []).join(', ')} onChange={event => setAnnotationDraft(current => ({ ...current, tagsText: event.target.value }))} placeholder="method, question, result" />
-      {['Highlight', 'Underline'].includes(annotationDraft.kind || 'Highlight') && <><label htmlFor="annotation-kind">MARKUP STYLE</label><select id="annotation-kind" value={annotationDraft.kind || 'Highlight'} onChange={event => setAnnotationDraft(current => ({ ...current, kind: event.target.value }))}><option value="Highlight">Highlight</option><option value="Underline">Underline</option></select></>}
       <div className="annotation-colors" role="group" aria-label="Annotation color">{['yellow', 'green', 'blue'].map(color => <button key={color} type="button" className={`annotation-swatch annotation-${color} ${annotationDraft.color === color ? 'selected' : ''}`} onClick={() => setAnnotationDraft(current => ({ ...current, color }))} aria-label={`${color} annotation`} aria-pressed={annotationDraft.color === color} />)}</div>
       {projects.length > 0 && <div className="annotation-project"><label htmlFor="annotation-project-select">LINK TO PROJECT NOTES</label><select id="annotation-project-select" value={annotationProjectId} onChange={event => setAnnotationProjectId(event.target.value)}><option value="">Choose project…</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select><label className="annotation-project-check"><input type="checkbox" checked={Boolean(annotationDraft.linkToProject)} disabled={!annotationProjectId} onChange={event => setAnnotationDraft(current => ({ ...current, linkToProject: event.target.checked }))} /> Add this annotation to the project's README notes</label></div>}
-      <div className="annotation-modal-actions">{annotationDraft.id && !annotationDraft.embedded && <button type="button" className="annotation-delete" onClick={() => { setAnnotations(current => current.filter(item => item.id !== annotationDraft.id)); setProjects(current => current.map(project => ({ ...project, entries: (project.entries || []).filter(entry => entry.annotationId !== annotationDraft.id) }))); setAnnotationDraft(null); }}><Trash2 size={15} /> Delete</button>}<button className="primary-action" type="submit"><Check size={15} /> Save annotation</button></div>
+      <div className="annotation-modal-actions">{annotationDraft.id && !annotationDraft.embedded && <button type="button" className="annotation-delete" onClick={() => { setAnnotations(current => current.filter(item => item.id !== annotationDraft.id)); setProjects(current => current.map(project => ({ ...project, entries: (project.entries || []).filter(entry => entry.annotationId !== annotationDraft.id) }))); setAnnotationDraft(null); }}><Trash2 size={15} /> Delete</button>}<button className="primary-action" type="submit"><Check size={15} /> Save annotation · Enter</button></div>
     </form></div>}
-    {shortcutsOpen && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setShortcutsOpen(false)}><div className="settings-modal shortcuts-modal" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts"><div className="modal-header"><span className="modal-icon"><Keyboard size={20} /></span><button aria-label="Close shortcuts" onClick={() => setShortcutsOpen(false)}><X size={19} /></button></div><h2>Keyboard shortcuts</h2><dl>{[['Z / Esc', 'Enter / exit Zen mode'], ['Ctrl or ⌘ + / −', 'Zoom PDF in / out'], ['Ctrl or ⌘ + 0', 'Reset PDF zoom'], ['J / K', 'Next / previous page'], ['/', 'Search this paper'], ['H / U', 'Highlight / underline selected text'], ['N', 'New doubt'], ['[ / ]', 'Toggle library / companion'], ['Ctrl or ⌘ + K', 'Search this paper'], ['Esc', 'Close a panel or dialog'], ['?', 'Show shortcuts']].map(([key, action]) => <React.Fragment key={key}><dt><kbd>{key}</kbd></dt><dd>{action}</dd></React.Fragment>)}</dl></div></div>}
+    {shortcutsOpen && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setShortcutsOpen(false)}><div className="settings-modal shortcuts-modal" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts"><div className="modal-header"><span className="modal-icon"><Keyboard size={20} /></span><button aria-label="Close shortcuts" onClick={() => setShortcutsOpen(false)}><X size={19} /></button></div><h2>Keyboard shortcuts</h2><dl>{[['Z / Esc', 'Enter / exit Zen mode'], ['Ctrl or ⌘ + / −', 'Zoom PDF in / out'], ['Ctrl or ⌘ + 0', 'Reset PDF zoom'], ['J / K', 'Next / previous page'], ['/', 'Search this paper'], ['H', 'Highlight selected text'], ['N', 'New doubt'], ['[ / ]', 'Toggle library / companion'], ['Ctrl or ⌘ + K', 'Search this paper'], ['Esc', 'Close a panel or dialog'], ['?', 'Show shortcuts']].map(([key, action]) => <React.Fragment key={key}><dt><kbd>{key}</kbd></dt><dd>{action}</dd></React.Fragment>)}</dl></div></div>}
     {projectModalOpen && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setProjectModalOpen(false)}><form className="settings-modal project-modal" onSubmit={createProject}><div className="modal-header"><span className="modal-icon"><FolderKanban size={20} /></span><button type="button" aria-label="Close new project" onClick={() => setProjectModalOpen(false)}><X size={19} /></button></div><h2>New project</h2><p>Group papers together and keep durable notes for this research project.</p><label htmlFor="project-name">PROJECT NAME</label><input id="project-name" autoFocus maxLength={80} value={projectName} onChange={event => setProjectName(event.target.value)} placeholder="e.g. Interpretability reading" /><button className="primary-action import-button" type="submit" disabled={!projectName.trim()}><Plus size={16} /> Create project</button></form></div>}
     {manageProjectId && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setManageProjectId('')}><div className="settings-modal project-manage-modal"><div className="modal-header"><span className="modal-icon"><Layers3 size={20} /></span><button aria-label="Close project papers" onClick={() => setManageProjectId('')}><X size={19} /></button></div><h2>Papers in {projects.find(project => project.id === manageProjectId)?.name || 'project'}</h2><p>Choose which library papers belong to this project. Imported papers are added automatically to the selected project.</p><div className="project-check-list">{docs.map(doc => <label key={doc.id}><input type="checkbox" checked={projects.find(project => project.id === manageProjectId)?.paperIds?.includes(doc.id) || false} onChange={() => toggleProjectPaper(manageProjectId, doc.id)} /><span><strong>{doc.name}</strong><small>{doc.subtitle}</small></span></label>)}</div><button className="primary-action" onClick={() => setManageProjectId('')}>Done <ArrowRight size={16} /></button></div></div>}
     {addPaperOpen && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !importBusy) setAddPaperOpen(false); }}><form className="settings-modal add-paper-modal" onSubmit={importPaper}><div className="modal-header"><span className="modal-icon"><BookOpenText size={20} /></span><button type="button" aria-label="Close add paper" disabled={importBusy} onClick={() => setAddPaperOpen(false)}><X size={19} /></button></div><h2>Add a paper</h2><p>Paste an arXiv link or paper ID. The PDF opens in a new tab and stays in your library.</p><label htmlFor="arxiv-input">ARXIV LINK OR PAPER ID</label><input id="arxiv-input" autoFocus disabled={importBusy} value={arxivInput} onChange={event => { setArxivInput(event.target.value); setImportError(''); }} placeholder="https://arxiv.org/abs/2502.09992" /><div className="import-hint">Abstract, PDF and HTML links work, including specific versions.</div>{importError && <div className="import-error" role="alert">{importError}</div>}<button className="primary-action import-button" type="submit" disabled={importBusy || !arxivInput.trim()}>{importBusy ? <><span className="spinner" /> Fetching paper…</> : <><Plus size={16} /> Import from arXiv</>}</button><div className="import-divider"><span>or use a file</span></div><button className="upload-pdf-button" type="button" disabled={importBusy} onClick={() => fileInput.current?.click()}><UploadCloud size={18} /> Upload PDF</button><small className="import-footer">Your page and doubt threads are saved separately for each paper.</small></form></div>}
