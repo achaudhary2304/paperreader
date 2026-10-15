@@ -1,0 +1,40 @@
+{
+  "name": "paperlens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "node --watch server/index.js",
+    "dev:client": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "test": "node --test server/*.test.js src/*.test.js",
+    "start": "node server/index.js",
+    "service:install": "node scripts/install-service.mjs",
+    "open": "node scripts/open.mjs"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.2.17",
+    "@langchain/langgraph": "^1.5.0",
+    "@modelcontextprotocol/client": "^2.3.1",
+    "@modelcontextprotocol/server": "^2.3.1",
+    "dompurify": "^3.4.17",
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "jszip": "^3.10.2",
+    "katex": "^0.19.0",
+    "lucide-react": "^1.57.0",
+    "marked": "^18.1.1",
+    "mathjs": "^15.2.0",
+    "pdf-lib": "^1.17.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-pdf": "^10.2.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^10.0.6",
+    "vite": "^8.3.4"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+credentials.env
+*.log
+.DS_Store
+public/scaling-inherently-interpretable-language-models.pdf
+server/data/guide-pages.json

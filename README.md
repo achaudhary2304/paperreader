@@ -1,0 +1,62 @@
+# PaperLens
+
+A local research paper reader with a PDF viewer and a separate AI conversation for each doubt. Select text, ask about a concept, equation, related work, or an image, and return to the paper without losing your place. Projects group papers and notes; the library can be exported and imported.
+
+The question workflow uses LangGraph and LangChain. Three local MCP servers provide paper retrieval, academic/concept lookup, and math tools. Answers show paper pages and outside sources when available.
+
+## Run locally
+
+Install [Node.js](https://nodejs.org/) **20.19+ or 22.12+** and npm. Then:
+
+```bash
+git clone https://github.com/achaudhary2304/paperreader.git
+cd paperreader
+npm ci
+cp .env.example .env
+```
+
+Edit `.env` and configure **one** provider from the table below. Then:
+
+```bash
+npm run build
+npm start
+```
+
+Open **http://127.0.0.1:3001**. For development, use `npm run dev` and open **http://127.0.0.1:5173**. Windows users can copy `.env.example` to `.env` using File Explorer or `Copy-Item .env.example .env` in PowerShell.
+
+| Provider | `.env` values | Notes |
+| --- | --- | --- |
+| OpenRouter | `OPENROUTER_API_KEY=...` | Restricts requests to verified free models. Available free models and quotas can change. |
+| Groq | `GROQ_API_KEY=...` | Uses available Groq models. Also serves as fallback if OpenRouter is configured. |
+| Other OpenAI-compatible API | `LLM_BASE_URL=...`, `LLM_MODEL=...`, `LLM_API_KEY=...` | Takes priority over the two options above. Set `LLM_VISION_MODEL` to ask about images. `LLM_PROVIDER_NAME` changes the label shown in answers. |
+
+For a local Ollama endpoint, use `LLM_BASE_URL=http://localhost:11434/v1`, `LLM_MODEL=<your installed model>`, and leave `LLM_API_KEY` empty. The endpoint must support OpenAI-style `/chat/completions`. A vision model is optional but required for pasted images with this provider. Provider pricing is your responsibility outside OpenRouter's free-only mode.
+
+You can enter a Groq key in Settings instead of `.env`; that key stays in the current browser session. Restart `npm start` after changing `.env`.
+
+## Use it
+
+- Add a PDF or import an arXiv link. The small sample paper is for trying the reader. [Download the Guide Labs paper](https://www.guidelabs.ai/papers/scaling-inherently-interpretable-language-models.pdf) yourself and upload it if you want to read that paper.
+- Select text to highlight, underline, annotate, or start a doubt. The companion also accepts images and can attach the current PDF page when the provider has a vision model.
+- Create projects, ask across their papers, save concise answers to project notes, and download those notes as Markdown.
+- Export an annotated PDF, or export/import the entire library as a ZIP. Papers and reading data are stored in this browser (IndexedDB and local storage); API keys are not included in library exports.
+- Press `?` in the reader for keyboard shortcuts. PDF text extraction is required for search and paper-grounded answers; scanned PDFs need OCR first.
+
+The third-party Guide Labs PDF is intentionally not bundled in this repository. Your uploaded papers stay on your computer; inference requests send relevant excerpts and any attached images to your chosen provider. External research uses public APIs, so internet access is needed for those lookups.
+
+## Optional Linux startup
+
+On Linux with systemd user services, `npm run service:install` builds the app and installs a login-started service at **http://127.0.0.1:5173**. Put provider values in `~/.config/paperlens/credentials.env` and run `./paperlens --restart` after changing them. This helper is optional; the `npm start` steps above work without it.
+
+## Development
+
+```bash
+npm test
+npm run build
+```
+
+The server binds to loopback by default. `HOST` can change that for a private network, but this app has no user accounts or API authentication; do not expose a server with your API key to untrusted users. See [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) for current limitations and proposed work.
+
+## License
+
+MIT for the PaperLens code and the included original sample paper. Imported PDFs retain their own rights.
