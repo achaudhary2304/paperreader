@@ -6,14 +6,16 @@ The question workflow uses LangGraph and LangChain. Three local MCP servers prov
 
 ## Download the desktop app
 
-**Release status:** Linux packages include the latest arXiv import fix. Windows and macOS installers are paused while the reader is tested further; their older preview downloads may lag behind `main`.
+Tagged releases build Linux, Windows, and macOS installers using native GitHub runners.
 
 Download PaperLens from [GitHub Releases](https://github.com/achaudhary2304/paperreader/releases):
 
 | System | Download |
 | --- | --- |
 | Linux | `.deb` for Debian/Ubuntu, or `.AppImage` for other distributions |
-| Windows and macOS | Older preview installers only; no new builds in this release |
+| Windows | `PaperLens-<version>-Setup.exe` for 64-bit Windows |
+| macOS (Apple Silicon) | `PaperLens-<version>-arm64.dmg` |
+| macOS (Intel) | `PaperLens-<version>-x64.dmg` |
 
 Install the `.deb` and open PaperLens from your applications menu, or launch the AppImage file. No Node.js or terminal is needed for the downloaded app. It runs a local service inside the desktop app, so you see a normal application window rather than a localhost tab. AI answers and external research still need internet access unless you configure a local model.
 
@@ -80,7 +82,7 @@ npm run desktop           # Run the desktop app from source
 npm run desktop:package   # Build an installer for your current operating system
 ```
 
-Tagged versions (`v*`) run the [Linux release workflow](.github/workflows/desktop-release.yml), which builds the `.deb` and AppImage, generates build attestations and SHA-256 checksums, and attaches the downloads to a GitHub Release.
+Tagged versions (`v*`) run the [desktop release workflow](.github/workflows/desktop-release.yml), which builds the Linux `.deb` and AppImage, Windows installer, and separate Intel/Apple Silicon macOS DMGs. It generates build attestations and SHA-256 checksums and attaches the downloads to a GitHub Release. The Windows and macOS installers are unsigned; manual testing on those systems is still needed before treating them as fully validated releases.
 
 The server binds to loopback by default. `HOST` can change that for a private network, but this app has no user accounts or API authentication; do not expose a server with your API key to untrusted users. See [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) for current limitations and proposed work.
 

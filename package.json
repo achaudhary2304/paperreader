@@ -1,6 +1,6 @@
 {
   "name": "paperlens",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "A local research paper reader and AI companion",
   "author": { "name": "Aryan Chaudhary", "email": "f20230651@pilani.bits-pilani.ac.in" },
   "license": "MIT",
@@ -60,7 +60,7 @@
       "!dist/scaling-inherently-interpretable-language-models.pdf"
     ],
     "linux": { "target": ["AppImage", "deb"], "icon": "desktop/icon.png", "category": "Education", "syncDesktopName": true },
-    "win": { "target": ["nsis"], "icon": "desktop/icon.png" },
-    "mac": { "target": ["dmg"], "icon": "desktop/icon.png", "category": "public.app-category.education" }
+    "win": { "target": ["nsis"], "icon": "desktop/icon.png", "artifactName": "${productName}-${version}-Setup.${ext}" },
+    "mac": { "target": ["dmg"], "icon": "desktop/icon.png", "category": "public.app-category.education", "artifactName": "${productName}-${version}-${arch}.${ext}" }
   }
 }

@@ -1,4 +1,4 @@
-name: Linux release
+name: Desktop release
 on:
   push:
     tags: ['v*']
@@ -6,7 +6,28 @@ on:
 
 jobs:
   package:
-    runs-on: ubuntu-latest
+    name: Package ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            os: ubuntu-latest
+            build_args: --linux --x64
+            assets: |
+              release/*.AppImage
+              release/*.deb
+          - platform: windows
+            os: windows-latest
+            build_args: --win --x64
+            assets: release/*.exe
+          - platform: macos
+            os: macos-latest
+            build_args: --mac --x64 --arm64
+            assets: release/*.dmg
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     permissions:
       contents: read
       id-token: write
@@ -19,18 +40,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npm run desktop:package
+      - run: npm run desktop:package -- ${{ matrix.build_args }}
       - uses: actions/attest@v4
         with:
-          subject-path: |
-            release/*.AppImage
-            release/*.deb
+          subject-path: ${{ matrix.assets }}
       - uses: actions/upload-artifact@v4
         with:
-          name: paperlens-linux
-          path: |
-            release/*.AppImage
-            release/*.deb
+          name: paperlens-${{ matrix.platform }}
+          path: ${{ matrix.assets }}
           if-no-files-found: error
 
   publish:
@@ -42,7 +59,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: paperlens-linux
+          pattern: paperlens-*
+          merge-multiple: true
           path: release
       - name: Create GitHub release
         env:
@@ -50,4 +68,4 @@ jobs:
         run: |
           cd release
           sha256sum * > SHA256SUMS.txt
-          gh release create "$GITHUB_REF_NAME" * --repo "$GITHUB_REPOSITORY" --title "PaperLens $GITHUB_REF_NAME for Linux" --generate-notes
+          gh release create "$GITHUB_REF_NAME" * --repo "$GITHUB_REPOSITORY" --title "PaperLens $GITHUB_REF_NAME" --generate-notes
