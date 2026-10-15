@@ -11,7 +11,7 @@ Download PaperLens from [GitHub Releases](https://github.com/achaudhary2304/pape
 | System | Download |
 | --- | --- |
 | Windows | `.exe` installer |
-| macOS | `.dmg` |
+| macOS | `arm64.dmg` for Apple Silicon or `x64.dmg` for Intel |
 | Linux | `.deb` or `.AppImage` |
 
 Open PaperLens from your applications menu. No Node.js or terminal is needed for the downloaded app. It runs a local service inside the desktop app, so you see a normal application window rather than a localhost tab. AI answers and external research still need internet access unless you configure a local model.
