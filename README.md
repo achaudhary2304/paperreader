@@ -60,6 +60,8 @@ For the browser version, a Groq key entered in Settings lasts only for the curre
 - Create projects, ask across their papers, save concise answers to project notes, and download those notes as Markdown.
 - Export an annotated PDF, or export/import the entire library as a ZIP. Papers and reading data are stored in this browser (IndexedDB and local storage); API keys are not included in library exports.
 - Press `?` in the reader for keyboard shortcuts. PDF text extraction is required for search and paper-grounded answers; scanned PDFs need OCR first.
+- Use the palette button to choose from 15 bundled fonts and eight color styles. Changes apply throughout the app and are saved locally.
+- Enter Zen mode with the expand button or `Z`; press `Esc` to return to your sidebars. Use `Ctrl`/`⌘` with `+` or `−` to zoom the PDF, and `Ctrl`/`⌘` + `0` to reset it. PDF zoom ranges from 50% to 300%.
 
 The third-party Guide Labs PDF is intentionally not bundled in this repository or the desktop app. Your uploaded papers stay on your computer; inference requests send relevant excerpts and any attached images to your chosen provider. External research uses public APIs, so internet access is needed for those lookups.
 

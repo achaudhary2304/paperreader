@@ -41,6 +41,10 @@ app.whenReady().then(async () => {
     backgroundColor: '#f7f7f5', icon: join(app.getAppPath(), 'desktop/icon.png'),
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: join(app.getAppPath(), 'desktop/preload.cjs') },
   });
+  ipcMain.handle('reader:zen', (event, active) => {
+    if (!trusted(event) || typeof active !== 'boolean') throw new Error('Invalid Zen mode request.');
+    window.setMenuBarVisibility(!active);
+  });
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: [`${origin}/*`] }, (details, callback) => {
     details.requestHeaders['X-PaperLens-Desktop'] = desktopToken;
     callback({ requestHeaders: details.requestHeaders });
