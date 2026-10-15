@@ -4,6 +4,13 @@ export function isFreeModel(model) {
     && Object.values(model.pricing).every(value => value !== null && value !== '' && Number.isFinite(Number(value)) && Number(value) === 0);
 }
 
+export function smallestFreeTextModel(models) {
+  return models.filter(model => !model.vision).map(model => ({
+    id: model.id,
+    size: Number(model.id.match(/(?:^|[-/])(\d+(?:\.\d+)?)b/i)?.[1]) || Number.POSITIVE_INFINITY,
+  })).sort((a, b) => a.size - b.size || a.id.localeCompare(b.id))[0]?.id || 'openrouter/free';
+}
+
 export function createOpenRouterClient({ fetchImpl = fetch, now = Date.now } = {}) {
   let cached;
   async function freeUsage(key) {

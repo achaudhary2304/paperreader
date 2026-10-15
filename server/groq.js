@@ -41,6 +41,7 @@ export function createGroqClient({ fetchImpl = fetch, now = Date.now } = {}) {
     const candidates = key ? [...new Set([vision && !VISION_MODELS.has(preferred) ? 'qwen/qwen3.8-27b' : preferred, ...FALLBACK_MODELS])].filter(model => (!listed || listed.has(model)) && (!browser || BROWSER_MODELS.has(model)) && (!vision || VISION_MODELS.has(model))) : [];
     const attempted = [];
     let limited = false;
+    let emptyResponse = false;
     let lastError;
     let nextRetry = Infinity;
     for (const model of candidates) {
@@ -61,7 +62,11 @@ export function createGroqClient({ fetchImpl = fetch, now = Date.now } = {}) {
       const data = await response.json().catch(() => ({}));
       if (response.ok) {
         const content = data.choices?.[0]?.message?.content;
-        if (!content) throw new Error(`${model} returned an empty response. Please try again.`);
+        if (typeof content !== 'string' || !content.trim()) {
+          emptyResponse = true;
+          lastError = new Error(`${model} returned an empty response.`);
+          continue;
+        }
         return { content, model, provider: 'Groq', requestedModel: preferred, switched: model !== preferred, reason: limited ? 'rate_limit' : vision && model !== preferred ? 'vision_model' : model !== preferred ? 'model_unavailable' : null, attemptedModels: attempted };
       }
       lastError = new Error(data.error?.message || `Groq request failed (${response.status})`);
@@ -88,6 +93,7 @@ export function createGroqClient({ fetchImpl = fetch, now = Date.now } = {}) {
       error.status = 429;
       throw error;
     }
+    if (emptyResponse) throw new Error('Available Groq models returned no answer. Please try again in a moment.');
     throw lastError || new Error(vision ? 'No Groq vision model is available for this key right now.' : 'No supported Groq models are available for this request.');
   }
   async function status(key) {

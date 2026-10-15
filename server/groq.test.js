@@ -43,6 +43,19 @@ test('all models limited produces an explicit retry message instead of an infini
   await assert.rejects(client.complete('test-key', []), error => error.status === 429 && /20 seconds/.test(error.message));
 });
 
+test('an empty primary response falls through to the next Groq model', async () => {
+  const calls = [];
+  const client = createGroqClient({ fetchImpl: async (url, options) => {
+    if (url.endsWith('/models')) return listed('openai/gpt-oss-120b', 'openai/gpt-oss-20b');
+    const model = JSON.parse(options.body).model;
+    calls.push(model);
+    return model.endsWith('120b') ? response(200, { choices: [{ message: { content: '' } }] }) : success();
+  } });
+  const result = await client.complete('test-key', []);
+  assert.equal(result.model, 'openai/gpt-oss-20b');
+  assert.deepEqual(calls, ['openai/gpt-oss-120b', 'openai/gpt-oss-20b']);
+});
+
 test('invalid API keys do not trigger model switching', async () => {
   let count = 0;
   const client = createGroqClient({ fetchImpl: async url => {

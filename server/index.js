@@ -6,7 +6,7 @@ import { importArxiv, parseArxivId } from './arxiv.js';
 import { createResearchGraph } from './researchGraph.js';
 import { callLocalTool } from './mcp/client.js';
 import { createGroqClient, FALLBACK_MODELS } from './groq.js';
-import { createOpenRouterClient } from './openrouter.js';
+import { createOpenRouterClient, smallestFreeTextModel } from './openrouter.js';
 import { createCompatibleClient } from './compatible.js';
 import { completeWithFallback } from './inference.js';
 import { answerEvidence } from './evidence.js';
@@ -154,7 +154,7 @@ app.post('/api/notes/summarize', async (req, res) => {
     const answer = clean(req.body.answer, 7000);
     const question = clean(req.body.question, 1000);
     if (!answer || !question) return res.status(400).json({ error: 'A question and answer are required.' });
-    const model = compatibleConfigured() ? process.env.LLM_MODEL : freeOnly() ? (req.body.model?.endsWith(':free') || req.body.model === 'openrouter/free' ? req.body.model : 'openrouter/free') : ANSWER_MODELS.has(req.body.model) ? req.body.model : MODEL;
+    const model = compatibleConfigured() ? process.env.LLM_MODEL : freeOnly() ? smallestFreeTextModel(await openRouterClient.models()) : 'openai/gpt-oss-20b';
     const raw = await infer(key, [
       { role: 'system', content: 'Condense the supplied research-paper answer into a note for later reading. Write 1 to 3 short Markdown bullets, at most 90 words total. State the direct answer and crucial qualifier or numeric result. Preserve the distinction between what the paper measures and what it does not. Keep citations exactly as they appear in the supplied answer when relevant. Do not add facts, sources, claims, headings, introductions, or conclusions. If the answer is uncertain, keep that uncertainty explicit.' },
       { role: 'user', content: `Question: ${question}\nPaper: ${clean(req.body.paper, 250)}\nPDF page: ${Math.max(1, Number(req.body.page) || 1)}\nAnswer to shorten:\n${answer}` },

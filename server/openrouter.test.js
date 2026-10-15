@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createOpenRouterClient, isFreeModel } from './openrouter.js';
+import { createOpenRouterClient, isFreeModel, smallestFreeTextModel } from './openrouter.js';
 
 const free = id => ({ id, name: id, pricing: { prompt: '0', completion: '0', request: '0' }, context_length: 128000 });
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -11,6 +11,14 @@ test('a free label is insufficient if any published price is nonzero or absent',
   assert.equal(isFreeModel({ id: 'x:free', pricing: {} }), false);
   assert.equal(isFreeModel({ ...free('x:free'), pricing: { prompt: '0', completion: '0', web_search: '1' } }), false);
   assert.equal(isFreeModel(free('paid-model')), false);
+});
+
+test('note summaries select the smallest listed text model and skip vision-only models', () => {
+  assert.equal(smallestFreeTextModel([
+    { id: 'openai/gpt-oss-120b:free' },
+    { id: 'google/gemma-4-26b-a4b-it:free' },
+    { id: 'small-3b:free', vision: true },
+  ]), 'google/gemma-4-26b-a4b-it:free');
 });
 
 test('routing uses at most three verified free models and a zero-price cap', async () => {
