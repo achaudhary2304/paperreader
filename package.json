@@ -1,6 +1,6 @@
 {
   "name": "paperlens",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "A local research paper reader and AI companion",
   "author": { "name": "Aryan Chaudhary", "email": "f20230651@pilani.bits-pilani.ac.in" },
   "license": "MIT",

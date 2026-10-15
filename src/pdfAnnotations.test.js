@@ -60,10 +60,11 @@ test('PDF export preserves imported annotations and adds standard markup, region
     const reopened = await pdfjs.getDocument({ data: new Uint8Array(exported) }).promise;
     try {
       const records = await (await reopened.getPage(1)).getAnnotations({ intent: 'display' });
-      assert.equal(records.length, 4);
+      assert.equal(records.length, 5);
       assert.deepEqual(records.slice(0, 2).map(item => item.annotationType), [1, 10]);
       assert.deepEqual(records.slice(0, 2).map(item => item.contentsObj.str), ['Revised comment', 'My comment']);
-      assert.deepEqual(records.slice(2).map(item => item.contentsObj.str), ['The main result diagram', 'Explain this later']);
+      assert.deepEqual(records.slice(2).map(item => item.contentsObj.str), ['The main result diagram', '', 'Explain this later']);
+      assert.deepEqual(records.slice(2).map(item => item.annotationType), [5, 9, 1]);
       assert.ok(records.slice(2).every(item => item.rect?.length === 4));
       assert.equal(records[0].color[2] > records[0].color[0], true);
     } finally { await reopened.destroy(); }

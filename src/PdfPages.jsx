@@ -46,7 +46,7 @@ function highlightText(element, query, annotations) {
       }
     }
   };
-  for (const annotation of annotations) if (!annotation.embedded && annotation.kind === 'Highlight') markMatches(annotation.text, annotation);
+  for (const annotation of annotations) if (!annotation.embedded && ['Highlight', 'Comment'].includes(annotation.kind)) markMatches(annotation.text, annotation);
   markMatches(query, null);
   for (const record of records) {
     let html = ''; let open = '';
