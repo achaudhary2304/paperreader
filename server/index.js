@@ -12,7 +12,17 @@ import { completeWithFallback } from './inference.js';
 import { answerEvidence } from './evidence.js';
 
 const app = express();
+let desktopToken;
 app.disable('x-powered-by');
+app.use((req, res, next) => {
+  if (process.env.PAPERLENS_DESKTOP === '1') {
+    const origin = 'http://127.0.0.1:37841';
+    if (req.get('host') !== '127.0.0.1:37841' || (req.get('origin') && req.get('origin') !== origin)) return res.sendStatus(403);
+    if (!desktopToken || req.get('x-paperlens-desktop') !== desktopToken) return res.sendStatus(403);
+    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'none'");
+  }
+  next();
+});
 app.use(express.json({ limit: '20mb' }));
 const distDir = fileURLToPath(new URL('../dist', import.meta.url));
 const MODEL = 'openai/gpt-oss-120b';
@@ -218,7 +228,8 @@ app.post('/api/ask', async (req, res) => {
 app.use(express.static(distDir));
 app.get('/{*path}', (_req, res) => res.sendFile('index.html', { root: distDir }));
 
-export function startServer({ port = Number(process.env.PORT || 3001), host = process.env.HOST || '127.0.0.1' } = {}) {
+export function startServer({ port = Number(process.env.PORT || 3001), host = process.env.HOST || '127.0.0.1', desktopToken: token } = {}) {
+  desktopToken = token;
   return new Promise((resolveServer, reject) => {
     const server = app.listen(port, host, () => resolveServer(server));
     server.once('error', reject);

@@ -17,7 +17,9 @@ Download PaperLens from [GitHub Releases](https://github.com/achaudhary2304/pape
 
 Install the `.deb` and open PaperLens from your applications menu, or launch the AppImage file. No Node.js or terminal is needed for the downloaded app. It runs a local service inside the desktop app, so you see a normal application window rather than a localhost tab. AI answers and external research still need internet access unless you configure a local model.
 
-Enter a Groq key in **Settings** for the quickest start. To use OpenRouter or another model, open **File → Provider settings…**, fill in one provider, save the file, and choose **File → Restart PaperLens**. For a local Ollama endpoint, set `LLM_BASE_URL=http://localhost:11434/v1` and `LLM_MODEL=<your installed model>`; no API key is required. `LLM_VISION_MODEL` is optional for image questions. Desktop settings and the paper library are stored in your computer's app data directory.
+Open **Settings** in the desktop app to enter Groq, OpenRouter, or another OpenAI-compatible provider. Click **Save settings** once; the keys persist across launches. OpenRouter uses verified free models first and Groq is its fallback. A custom endpoint takes priority when configured. For Ollama, enter `http://localhost:11434/v1` as the base URL and your installed model name; a key is optional. A separate vision model can be set for image questions.
+
+Desktop keys are stored locally in an encrypted file protected by the system keyring (GNOME Keyring or KWallet on Linux). The app never displays saved key values. An available, unlocked keyring is required to save new keys. Existing plaintext keys in the old `provider-settings.txt` are migrated automatically when the keyring is available. Papers and reading data remain in the app's local browser storage. Provider requests send the excerpts or images needed for an answer to the provider you configure.
 
 If you used the browser version before, choose **Export library** there and **Import library** in the desktop app to transfer papers, projects, annotations, and doubts. The two editions use separate browser storage. These installers are currently unsigned, so your operating system may ask you to confirm that you trust the downloaded app.
 
@@ -49,7 +51,7 @@ Open **http://127.0.0.1:3001**. For development, use `npm run dev` and open **ht
 
 For a local Ollama endpoint, use `LLM_BASE_URL=http://localhost:11434/v1`, `LLM_MODEL=<your installed model>`, and leave `LLM_API_KEY` empty. The endpoint must support OpenAI-style `/chat/completions`. A vision model is optional but required for pasted images with this provider. Provider pricing is your responsibility outside OpenRouter's free-only mode.
 
-You can enter a Groq key in Settings instead of `.env`; that key stays in the current browser session. Restart `npm start` after changing `.env`.
+For the browser version, a Groq key entered in Settings lasts only for the current browser session. Configure `.env` for persistence and restart `npm start` after changing it. The desktop version saves keys in the system keyring instead.
 
 ## Use it
 
@@ -74,7 +76,7 @@ npm run desktop           # Run the desktop app from source
 npm run desktop:package   # Build an installer for your current operating system
 ```
 
-Tagged versions (`v*`) run the [Linux release workflow](.github/workflows/desktop-release.yml), which builds the `.deb` and AppImage and attaches them to a GitHub Release.
+Tagged versions (`v*`) run the [Linux release workflow](.github/workflows/desktop-release.yml), which builds the `.deb` and AppImage, generates build attestations and SHA-256 checksums, and attaches the downloads to a GitHub Release.
 
 The server binds to loopback by default. `HOST` can change that for a private network, but this app has no user accounts or API authentication; do not expose a server with your API key to untrusted users. See [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) for current limitations and proposed work.
 

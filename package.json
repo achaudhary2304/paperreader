@@ -1,6 +1,6 @@
 {
   "name": "paperlens",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "A local research paper reader and AI companion",
   "author": { "name": "Aryan Chaudhary", "email": "f20230651@pilani.bits-pilani.ac.in" },
   "license": "MIT",
@@ -14,7 +14,7 @@
     "dev:server": "node --watch server/index.js",
     "dev:client": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test": "node --test server/*.test.js src/*.test.js",
+    "test": "node --test server/*.test.js src/*.test.js desktop/*.test.js",
     "start": "node server/index.js",
     "desktop": "npm run build && electron .",
     "desktop:package": "npm run build && electron-builder --publish never",
