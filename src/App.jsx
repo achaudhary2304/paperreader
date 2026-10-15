@@ -362,7 +362,10 @@ export default function App() {
       const response = await fetch('/api/arxiv/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input: arxivInput.trim() }) });
       if (!response.ok) throw new Error((await response.json()).error || 'Could not import this paper.');
       const paper = JSON.parse(decodeURIComponent(response.headers.get('X-Paper-Metadata')));
-      const blob = await response.blob();
+      if (response.headers.get('X-PaperLens-PDF') !== 'PPL1') throw new Error('The local app returned an unsupported PDF response. Restart PaperLens and try again.');
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.length < 9 || String.fromCharCode(...bytes.subarray(0, 4)) !== 'PPL1' || String.fromCharCode(...bytes.subarray(4, 9)) !== '%PDF-') throw new Error('The downloaded paper is not a readable PDF.');
+      const blob = new Blob([bytes.subarray(4)], { type: 'application/pdf' });
       await savePdf(paper.id, blob);
       paperTextCache.current.delete(paper.id);
       setDocs(current => [paper, ...current.filter(doc => doc.id !== paper.id)]);

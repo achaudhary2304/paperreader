@@ -170,10 +170,12 @@ app.post('/api/arxiv/import', async (req, res) => {
   catch (error) { return res.status(400).json({ error: error.message }); }
   try {
     const { pdf, paper } = await importArxiv(id);
-    res.set('Content-Type', 'application/pdf');
+    // A short prefix prevents Chromium from treating the fetch body as an inline PDF.
+    res.set('Content-Type', 'application/octet-stream');
+    res.set('X-PaperLens-PDF', 'PPL1');
     res.set('X-Paper-Metadata', encodeURIComponent(JSON.stringify(paper)));
     res.set('Cache-Control', 'no-store');
-    res.send(pdf);
+    res.send(Buffer.concat([Buffer.from('PPL1'), pdf]));
   } catch (error) {
     res.status(error.status || 502).json({ error: error.name === 'TimeoutError' ? 'arXiv took too long to respond. Try again or upload the PDF.' : error.message || 'Could not import this arXiv paper.' });
   }

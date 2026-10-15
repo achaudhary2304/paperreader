@@ -6,6 +6,8 @@ The question workflow uses LangGraph and LangChain. Three local MCP servers prov
 
 ## Download the desktop app
 
+**Preview status:** desktop installers are paused while import and reader issues are tested. The downloads below may lag behind fixes on `main`.
+
 Download PaperLens from [GitHub Releases](https://github.com/achaudhary2304/paperreader/releases):
 
 | System | Download |
