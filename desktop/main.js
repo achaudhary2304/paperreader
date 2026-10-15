@@ -42,7 +42,7 @@ app.whenReady().then(async () => {
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: join(app.getAppPath(), 'desktop/preload.cjs') },
   });
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: [`${origin}/*`] }, (details, callback) => {
-    if (details.webContentsId === window.webContents.id) details.requestHeaders['X-PaperLens-Desktop'] = desktopToken;
+    details.requestHeaders['X-PaperLens-Desktop'] = desktopToken;
     callback({ requestHeaders: details.requestHeaders });
   });
   window.loadURL(origin);
