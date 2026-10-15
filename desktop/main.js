@@ -15,6 +15,7 @@ app.whenReady().then(async () => {
   try { await providerSettings.load(); }
   catch (error) { dialog.showErrorBox('Provider settings could not load', `${error.message}\n\nYour saved keys were not deleted.`); }
   process.env.PAPERLENS_DESKTOP = '1';
+  process.env.PAPERLENS_CACHE_DIR = join(app.getPath('userData'), 'cache');
 
   try {
     const { startServer } = await import('../server/index.js');

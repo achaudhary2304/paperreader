@@ -32,9 +32,13 @@ const input = { key: 'dummy', question: 'Explain ELBO', selection: '', title: 'T
 test('supervisor routes concept and math agents before teaching and citation validation', async () => {
   const { graph, visited } = harness({ concept: true, math: true });
   const result = await graph.invoke({ input: { ...input, question: 'Simplify `2*x+3*x` and explain ELBO' } });
-  assert.deepEqual(visited.filter(item => ['paper:search_paper', 'concept', 'math:inspect_expression', 'math', 'literature', 'teaching', 'validate'].includes(item)), ['paper:search_paper', 'concept', 'math:inspect_expression', 'math', 'literature', 'teaching', 'validate']);
+  assert.deepEqual(visited.filter(item => ['paper:search_paper', 'concept', 'math:inspect_expression', 'math', 'literature', 'teaching', 'validate'].includes(item)), ['literature', 'paper:search_paper', 'concept', 'math:inspect_expression', 'math', 'teaching', 'validate']);
   assert.equal(result.answer, 'The ELBO is a lower bound. [Paper p. 1]');
   assert.equal(result.inferenceResult.provider, 'Groq');
+  assert.ok(result.timings['Supervisor + query planning'] >= 0);
+  assert.ok(result.timings['Paper retrieval (BM25 + MCP)'] >= 0);
+  assert.ok(result.timings['Teaching + final answer'] >= 0);
+  assert.ok(result.timings['Citation validation'] >= 0);
   assert.deepEqual(result.sources.map(source => source.title), ['Original paper', 'Variational inference']);
 });
 

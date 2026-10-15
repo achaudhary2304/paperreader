@@ -227,3 +227,8 @@
 .annotation-modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:19px}
 .annotation-delete{display:flex;align-items:center;gap:5px;background:transparent;border:0;color:#ad5761;font-size:11px}
 .annotation-modal-actions .primary-action{margin-left:auto}
+.answer-timings{margin:0 0 12px;color:#85828f;font-size:10px}
+.answer-timings summary{cursor:pointer;width:max-content;font-size:10px;color:#8a829b}
+.answer-timings>div{display:flex;flex-direction:column;gap:4px;padding:7px 9px;margin-top:5px;border:1px solid #eeeaf5;border-radius:7px;background:#fcfbfe}
+.answer-timings span{display:flex;justify-content:space-between;gap:10px}
+.answer-timings b{font-weight:600;color:#5d566d;font-variant-numeric:tabular-nums}

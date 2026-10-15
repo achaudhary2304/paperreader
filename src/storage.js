@@ -2,9 +2,9 @@ const DB = 'paperlens-files';
 
 function openDb() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB, 2);
+    const request = indexedDB.open(DB, 3);
     request.onupgradeneeded = () => {
-      for (const name of ['pdfs', 'images']) {
+      for (const name of ['pdfs', 'images', 'paperText']) {
         if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name);
       }
     };
@@ -29,7 +29,9 @@ async function transact(name, mode, operation) {
 
 export const savePdf = (id, blob) => transact('pdfs', 'readwrite', store => store.put(blob, id));
 export const getPdf = id => transact('pdfs', 'readonly', store => store.get(id));
-export const deletePdf = id => transact('pdfs', 'readwrite', store => store.delete(id));
+export const deletePdf = async id => { await transact('pdfs', 'readwrite', store => store.delete(id)); await transact('paperText', 'readwrite', store => store.delete(id)); };
 export const saveImage = (id, blob) => transact('images', 'readwrite', store => store.put(blob, id));
 export const getImage = id => transact('images', 'readonly', store => store.get(id));
 export const deleteImage = id => transact('images', 'readwrite', store => store.delete(id));
+export const savePaperText = (id, value) => transact('paperText', 'readwrite', store => store.put(value, id));
+export const getPaperText = id => transact('paperText', 'readonly', store => store.get(id));

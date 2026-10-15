@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { retrieveEvidence } from './retrieval.js';
+import { retrieveEvidence, createPaperIndex } from './retrieval.js';
 
 const pages = [
   { page: 1, text: 'Introduction to the concept bottleneck.' },
@@ -17,4 +17,16 @@ test('retrieves a numeric result and keeps the selected page', () => {
 
 test('returns no evidence for pages without extractable text', () => {
   assert.deepEqual(retrieveEvidence([{ page: 1, text: '' }], { question: 'What is the result?' }), []);
+});
+
+test('overlap keeps a boundary definition intact and merged hits do not repeat it', () => {
+  const definition = 'A Shapley coalition is a subset of input features considered together.';
+  const text = 'Background context. '.repeat(105) + definition + ' Supporting explanation. '.repeat(55);
+  const source = [{ page: 1, text }];
+  const index = createPaperIndex(source);
+  assert.ok(index.chunks.some(chunk => chunk.text.includes(definition)));
+  const evidence = retrieveEvidence(source, { question: 'What does Shapley coalition mean?' });
+  assert.ok(evidence[0].text.includes(definition));
+  assert.equal(evidence[0].text.split(definition).length - 1, 1);
+  assert.ok(text.includes(evidence[0].text), 'merged evidence must remain a verbatim passage');
 });

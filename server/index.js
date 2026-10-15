@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { importArxiv, parseArxivId } from './arxiv.js';
 import { createResearchGraph } from './researchGraph.js';
-import { callLocalTool } from './mcp/client.js';
+import { callLocalTool, closeLocalTools, searchPaper, indexPaper } from './mcp/client.js';
+import { createPaperCache } from './paperCache.js';
 import { createGroqClient, FALLBACK_MODELS } from './groq.js';
 import { createOpenRouterClient, smallestFreeTextModel } from './openrouter.js';
 import { createCompatibleClient } from './compatible.js';
@@ -30,6 +31,7 @@ const ANSWER_MODELS = new Set(FALLBACK_MODELS);
 const groqClient = createGroqClient();
 const openRouterClient = createOpenRouterClient();
 const compatibleClient = createCompatibleClient();
+const paperCache = createPaperCache();
 const compatibleConfigured = () => Boolean(process.env.LLM_BASE_URL && process.env.LLM_MODEL);
 const freeOnly = () => !compatibleConfigured() && Boolean(process.env.OPENROUTER_API_KEY);
 function clean(value, max = 5000) {
@@ -77,7 +79,7 @@ function validateAnswer(answer, pages, sources) {
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (link, label, url) => allowedUrls.has(url.replace(/\/$/, '')) ? link : label);
 }
 
-async function planSearch(key, question, selection, paperHint, history) {
+async function planSearch(key, question, selection, paperHint, history, onInferenceTiming) {
   if (freeOnly() || compatibleConfigured()) {
     const previous = history.filter(m => m.role === 'user').slice(-2).map(m => m.content);
     const stop = new Set('what which why how does did the and this that about give tell explain paper percentage percent from with made known unknown'.split(' '));
@@ -89,7 +91,7 @@ async function planSearch(key, question, selection, paperHint, history) {
     const result = await infer(key, [
       { role: 'system', content: 'Plan evidence retrieval for a research paper question. Return ONLY JSON with paperQueries (2 to 4 short search queries using likely scientific terminology and synonyms) and externalQuery (a concise scientific web query of at most 8 words, including the research field or model name). Preserve names from the user question. Expand everyday descriptions into the appropriate metrics, experimental results, equations, and table terminology; search both the definition and measured results. Treat selected text as background. For follow-ups resolve the topic from earlier user questions. Do not answer the question, invent values, or copy an old assistant answer.' },
       { role: 'user', content: `Question: ${question}\nSelection: ${selection}\nPaper excerpt: ${paperHint}\nEarlier user questions: ${history.filter(m => m.role === 'user').slice(-3).map(m => m.content).join(' | ')}` },
-    ], { model: 'openai/gpt-oss-20b', maxTokens: 500, temperature: 0, extra: { reasoning_effort: 'low' } });
+    ], { model: 'openai/gpt-oss-20b', maxTokens: 500, temperature: 0, extra: { reasoning_effort: 'low' }, timingStage: 'Search planner', onTiming: onInferenceTiming });
     const parsed = JSON.parse(result.slice(result.indexOf('{'), result.lastIndexOf('}') + 1));
     return {
       paperQueries: Array.isArray(parsed.paperQueries) ? parsed.paperQueries.filter(q => typeof q === 'string').slice(0, 4).map(q => clean(q, 180)) : fallback.paperQueries,
@@ -98,14 +100,14 @@ async function planSearch(key, question, selection, paperHint, history) {
   } catch { return fallback; }
 }
 
-async function browserResearch(key, question, selection, query) {
+async function browserResearch(key, question, selection, query, onInferenceTiming) {
   // Free-only mode performs external tool lookups without paid search plugins or extra model calls.
   if (freeOnly() || compatibleConfigured()) return { report: '', sources: [] };
   try {
     const report = await infer(key, [
       { role: 'system', content: 'Research this exact question on the web. Prefer original papers, authors, official project pages, and documentation. Verify named models and comparisons carefully. Return 2-4 brief findings with full source URLs in markdown. If the search finds no trustworthy source, say so. Do not answer from memory.' },
       { role: 'user', content: `Question: ${question}\nSelected passage: ${selection}\nSearch focus: ${query}` },
-    ], { model: 'openai/gpt-oss-20b', maxTokens: 1100, temperature: 0, extra: { tools: [{ type: 'browser_search' }], tool_choice: 'required', reasoning_effort: 'low' } });
+    ], { model: 'openai/gpt-oss-20b', maxTokens: 1100, temperature: 0, extra: { tools: [{ type: 'browser_search' }], tool_choice: 'required', reasoning_effort: 'low' }, timingStage: 'Browser research', onTiming: onInferenceTiming });
     const urls = [...new Set([...report.matchAll(/https?:\/\/[^\s)<>\]【】]+/g)].map(match => match[0].replace(/[.,;]+$/, '')))].slice(0, 5);
     return { report: urls.length ? clean(report, 4200) : '', sources: urls.map(url => ({ title: new URL(url).hostname, url, excerpt: 'Found by web research; inspect the linked source for details.', kind: 'Web' })) };
   } catch { return { report: '', sources: [] }; }
@@ -130,7 +132,7 @@ const researchGraph = createResearchGraph({
   route, planSearch, conceptResearch: query => callLocalTool('research', 'search_concept', { query }),
   literatureResearch: query => callLocalTool('research', 'search_academic', { query }),
   browserResearch, primaryResearch: originalLladaSource, infer, validateAnswer,
-  callTool: callLocalTool, systemPrompt: `${ANSWER_SYSTEM_PROMPT} If the provided context labels papers P1, P2, etc., cite claims with the exact label and page as [P1 p. N]. Do not use [Paper p. N] for project-wide questions. Ground each comparison in excerpts from the corresponding papers and say when a paper lacks relevant evidence.`,
+  callTool: (server, tool, args) => server === 'paper' && tool === 'search_paper' ? searchPaper(args) : callLocalTool(server, tool, args), systemPrompt: `${ANSWER_SYSTEM_PROMPT} If the provided context labels papers P1, P2, etc., cite claims with the exact label and page as [P1 p. N]. Do not use [Paper p. N] for project-wide questions. Ground each comparison in excerpts from the corresponding papers and say when a paper lacks relevant evidence.`,
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, desktop: process.env.PAPERLENS_DESKTOP === '1', serverKeyConfigured: Boolean(compatibleConfigured() || process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY), compatibleConfigured: compatibleConfigured(), openRouterConfigured: freeOnly(), groqFallbackConfigured: Boolean(process.env.GROQ_API_KEY), freeOnly: freeOnly() }));
@@ -191,7 +193,17 @@ app.post('/api/arxiv/import', async (req, res) => {
   }
 });
 
+app.post('/api/papers/index', async (req, res) => {
+  try {
+    if (!Array.isArray(req.body.contextPages) || !req.body.contextPages.length) return res.status(400).json({ error: 'Paper pages are required.' });
+    const entry = paperCache.put(req.body.contextPages);
+    await indexPaper({ cacheKey: entry.key, pages: entry.value });
+    res.json({ docId: clean(req.body.docId, 120), paperRef: entry.key });
+  } catch { res.status(502).json({ error: 'Could not prepare this paper index. It will be retried when you ask a question.' }); }
+});
+
 app.post('/api/ask', async (req, res) => {
+  const requestStarted = performance.now();
   try {
     const key = clean(req.body.key, 300) || process.env.GROQ_API_KEY;
     if (!key && !freeOnly() && !compatibleConfigured()) return res.status(400).json({ error: 'Add a Groq API key in Settings or configure an inference provider in .env.' });
@@ -202,12 +214,22 @@ app.post('/api/ask', async (req, res) => {
     const mode = ['explain', 'concept', 'math', 'literature', 'search'].includes(req.body.mode) ? req.body.mode : 'explain';
     const page = Math.max(1, Number(req.body.page) || 1);
     const answerModel = compatibleConfigured() ? process.env.LLM_MODEL : freeOnly() ? (typeof req.body.model === 'string' && (req.body.model.endsWith(':free') || req.body.model === 'openrouter/free') ? req.body.model : 'openrouter/free') : ANSWER_MODELS.has(req.body.model) ? req.body.model : MODEL;
-    const suppliedPages = (Array.isArray(req.body.contextPages) ? req.body.contextPages : [])
-      .slice(0, 400).map(p => ({ page: Math.max(1, Number(p.page) || 1), text: clean(p.text, 18000) }));
+    let cachedPapers = 0;
+    const resolvePaper = paper => {
+      if (paper.paperRef) {
+        const pages = paperCache.get(paper.paperRef);
+        if (pages) { cachedPapers++; return { pages, cacheKey: paper.paperRef }; }
+        if (!Array.isArray(paper.contextPages)) throw Object.assign(new Error('The local paper cache was reset. Resend paper text.'), { status: 409, code: 'PAPER_CACHE_MISS' });
+      }
+      const entry = paperCache.put(paper.contextPages);
+      return { pages: entry.value, cacheKey: entry.key };
+    };
+    const hasProject = Array.isArray(req.body.projectPapers) && req.body.projectPapers.length > 0;
+    const singlePaper = hasProject ? null : resolvePaper(req.body);
+    const suppliedPages = singlePaper?.pages || [];
     const projectPapers = (Array.isArray(req.body.projectPapers) ? req.body.projectPapers : []).map((paper, index) => ({
       label: `P${index + 1}`, docId: clean(paper.docId, 120), title: clean(paper.title, 250),
-      pages: (Array.isArray(paper.contextPages) ? paper.contextPages : [])
-        .slice(0, 400).map(item => ({ page: Math.max(1, Number(item.page) || 1), text: clean(item.text, 18000) })),
+      ...resolvePaper(paper),
     }));
     if (projectPapers.some(paper => !paper.docId || !paper.pages.length)) return res.status(400).json({ error: 'Every project paper needs extractable text. Check for missing or scanned PDFs.' });
     const allPages = projectPapers.length ? projectPapers.flatMap(paper => paper.pages.map(item => ({ ...item, docId: paper.docId }))) : suppliedPages;
@@ -215,13 +237,22 @@ app.post('/api/ask', async (req, res) => {
       .map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: clean(m.content, 1800) }));
     if (!question && !selection && !images.length) return res.status(400).json({ error: 'Select a passage, add an image, or enter a question.' });
 
-    const result = await researchGraph.invoke({ input: { key, question, selection, title, docId: clean(req.body.docId, 120), mode, page, answerModel, allPages, papers: projectPapers.length ? projectPapers : null, history, images } });
+    const graphStarted = performance.now();
+    const inferenceTimings = [];
+    const onInferenceTiming = timing => inferenceTimings.push(timing);
+    const result = await researchGraph.invoke({ input: { key, question, selection, title, docId: clean(req.body.docId, 120), mode, page, answerModel, allPages, paperCacheKey: singlePaper?.cacheKey, papers: projectPapers.length ? projectPapers : null, history, images, onInferenceTiming } });
     const inferenceResult = result.inferenceResult;
     const agents = ['Supervisor', 'Paper Context', ...(result.plan.concept ? ['Concept Research'] : []), ...(result.plan.math ? ['Math Inspection'] : []), 'Literature Research', 'Teaching', 'Citation Validator'];
-    res.json({ agents, answer: result.answer, plan: result.plan, sources: result.sources, evidence: answerEvidence(result.answer, result.pages), paperPages: projectPapers.length ? [] : result.pages.map(p => p.page), provider: inferenceResult.provider, model: inferenceResult.model, modelName: inferenceResult.modelName, freeOnly: inferenceResult.freeOnly || false, cost: inferenceResult.cost, modelSwitch: inferenceResult.switched ? { from: answerModel, to: inferenceResult.model, reason: inferenceResult.reason } : null, retrieval: { method: 'BM25 via Paper MCP', indexedPages: allPages.length, queries: result.searchPlan.paperQueries } });
+    const graphMs = Math.round(performance.now() - graphStarted);
+    const timings = {
+      server: { 'Request validation': Math.round(graphStarted - requestStarted), ...result.timings, 'Graph total': graphMs, 'Server total': Math.round(performance.now() - requestStarted) },
+      inference: inferenceTimings,
+    };
+    const paperRefs = projectPapers.length ? projectPapers.map(paper => ({ docId: paper.docId, paperRef: paper.cacheKey })) : [{ docId: clean(req.body.docId, 120), paperRef: singlePaper.cacheKey }];
+    res.json({ agents, answer: result.answer, plan: result.plan, sources: result.sources, evidence: answerEvidence(result.answer, result.pages), paperPages: projectPapers.length ? [] : result.pages.map(p => p.page), provider: inferenceResult.provider, model: inferenceResult.model, modelName: inferenceResult.modelName, freeOnly: inferenceResult.freeOnly || false, cost: inferenceResult.cost, modelSwitch: inferenceResult.switched ? { from: answerModel, to: inferenceResult.model, reason: inferenceResult.reason } : null, retrieval: { method: 'BM25 via Paper MCP', indexedPages: allPages.length, queries: result.searchPlan.paperQueries, cachedPapers }, paperRefs, timings });
   } catch (error) {
     const message = error?.name === 'TimeoutError' ? 'The request timed out. Please try again.' : error.message || 'Something went wrong.';
-    res.status(error.status === 429 ? 429 : error.status === 400 ? 400 : 502).json({ error: message });
+    res.status([400, 409, 429].includes(error.status) ? error.status : 502).json({ error: message, ...(error.code === 'PAPER_CACHE_MISS' ? { code: error.code } : {}) });
   }
 });
 
@@ -232,6 +263,7 @@ export function startServer({ port = Number(process.env.PORT || 3001), host = pr
   desktopToken = token;
   return new Promise((resolveServer, reject) => {
     const server = app.listen(port, host, () => resolveServer(server));
+    server.on('close', () => { closeLocalTools(); });
     server.once('error', reject);
   });
 }

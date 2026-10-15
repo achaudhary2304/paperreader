@@ -22,32 +22,45 @@ function expandedTokens(value) {
 
 function chunksFor(page) {
   const text = String(page.text || '');
-  const paragraphs = text.split(/\n\s*\n/).filter(Boolean);
   const pieces = [];
-  let current = '';
-  for (const paragraph of paragraphs) {
-    if (current && current.length + paragraph.length > 2000) { pieces.push(current); current = ''; }
-    if (paragraph.length > 2400) {
-      for (let start = 0; start < paragraph.length; start += 1700) pieces.push(paragraph.slice(Math.max(0, start - 200), start + 1900));
-    } else current += `${current ? '\n\n' : ''}${paragraph}`;
+  for (let start = 0; start < text.length;) {
+    let end = Math.min(start + 2200, text.length);
+    if (end < text.length) {
+      const line = text.lastIndexOf('\n', end);
+      if (line > start + 1100) end = line + 1;
+    }
+    pieces.push({ page: page.page, text: text.slice(start, end), index: pieces.length, start, end });
+    if (end === text.length) break;
+    start = end - 600;
   }
-  if (current) pieces.push(current);
-  return pieces.map((text, index) => ({ page: page.page, text, index }));
+  return pieces;
 }
 
-export function retrieveEvidence(allPages, { question, selection = '', queries = [], anchorPage = 1, history = [] }) {
+export function createPaperIndex(allPages) {
   const chunks = allPages.flatMap(chunksFor);
-  if (!chunks.length) return [];
   const df = new Map();
   let totalLength = 0;
   for (const chunk of chunks) {
-    chunk.words = tokens(chunk.text);
+    const words = tokens(chunk.text);
+    chunk.wordCount = words.length;
     chunk.tf = new Map();
-    for (const word of chunk.words) chunk.tf.set(word, (chunk.tf.get(word) || 0) + 1);
+    for (const word of words) chunk.tf.set(word, (chunk.tf.get(word) || 0) + 1);
     for (const word of chunk.tf.keys()) df.set(word, (df.get(word) || 0) + 1);
-    totalLength += chunk.words.length;
+    totalLength += words.length;
   }
   const averageLength = totalLength / chunks.length || 1;
+  return { chunks, df, averageLength, pages: allPages };
+}
+
+export function retrieveEvidence(allPages, options) {
+  return retrieveIndexedEvidence(createPaperIndex(allPages), options);
+}
+
+export function retrieveIndexedEvidence(index, { question, selection = '', queries = [], anchorPage = 1, history = [] }) {
+  // Scores and ordering are per question; the cached frequencies remain immutable.
+  const chunks = index.chunks.map(chunk => ({ ...chunk }));
+  if (!chunks.length) return [];
+  const { df, averageLength } = index;
   const querySets = [expandedTokens(question), ...queries.slice(0, 4).map(expandedTokens)];
   // Follow-up pronouns need the earlier user's topic, without recycling assistant claims.
   if (tokens(question).length < 8) for (const turn of history.filter(m => m.role === 'user').slice(-2)) querySets.push(tokens(turn.content));
@@ -57,7 +70,7 @@ export function retrieveEvidence(allPages, { question, selection = '', queries =
     const frequency = chunk.tf.get(word) || 0;
     if (!frequency) return sum;
     const idf = Math.log(1 + (chunks.length - (df.get(word) || 0) + .5) / ((df.get(word) || 0) + .5));
-    return sum + idf * frequency * 2.2 / (frequency + 1.2 * (.25 + .75 * chunk.words.length / averageLength));
+    return sum + idf * frequency * 2.2 / (frequency + 1.2 * (.25 + .75 * chunk.wordCount / averageLength));
   }, 0);
   for (const chunk of chunks) {
     const scores = querySets.map(words => score(chunk, words));
@@ -87,5 +100,21 @@ export function retrieveEvidence(allPages, { question, selection = '', queries =
     if (!grouped.has(chunk.page)) grouped.set(chunk.page, []);
     grouped.get(chunk.page).push(chunk);
   }
-  return [...grouped].map(([page, evidence]) => ({ page, text: evidence.sort((a, b) => a.index - b.index).map(chunk => chunk.text).join('\n\n[... another relevant excerpt from this page ...]\n\n') }));
+  const merge = ranges => ranges.sort((a, b) => a.start - b.start).reduce((merged, range) => {
+    const previous = merged.at(-1);
+    if (previous && range.start <= previous.end) previous.end = Math.max(previous.end, range.end);
+    else merged.push({ start: range.start, end: range.end });
+    return merged;
+  }, []);
+  const rangesByPage = [...grouped].map(([page, evidence]) => ({ page, ranges: merge(evidence) }));
+  let spare = Math.max(0, 14000 - rangesByPage.reduce((sum, item) => sum + item.ranges.reduce((n, range) => n + range.end - range.start, 0), 0));
+  return rangesByPage.map(({ page, ranges }) => {
+    const text = index.pages.find(source => source.page === page)?.text || '';
+    // Spend remaining context space on neighboring definitions and table explanations.
+    for (const range of ranges) {
+      const before = Math.min(250, range.start, spare); range.start -= before; spare -= before;
+      const after = Math.min(250, text.length - range.end, spare); range.end += after; spare -= after;
+    }
+    return { page, text: merge(ranges).map(range => text.slice(range.start, range.end)).join('\n\n[... another relevant excerpt from this page ...]\n\n') };
+  });
 }
