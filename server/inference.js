@@ -7,9 +7,24 @@ export async function completeWithFallback({ compatibleClient, compatibleKey, co
     try { const result = await compatibleClient.complete(compatibleKey, messages, options); record(result.provider || 'Custom API', started, 'ok', result.model); return result; }
     catch (error) { record('Custom API', started, 'error', options.model); throw error; }
   }
+  if (options.providerPriority === 'groq' && groqKey && openRouterKey) {
+    const started = performance.now();
+    try {
+      const model = options.groqModel || groqModel;
+      const result = await groqClient.complete(groqKey, messages, { ...options, model });
+      record('Groq', started, 'ok', result.model); return result;
+    } catch (error) {
+      record('Groq', started, 'error', options.groqModel || groqModel);
+      options.signal?.throwIfAborted();
+      options.onReset?.();
+      const result = await completeWithFallback({ openRouterClient, groqClient, openRouterKey, messages,
+        options: { ...options, providerPriority: 'openrouter' }, groqModel });
+      return { ...result, switched: true, reason: 'provider_fallback', fallbackFrom: 'Groq' };
+    }
+  }
   if (!openRouterKey) {
     const started = performance.now();
-    try { const result = await groqClient.complete(groqKey, messages, options); record('Groq', started, 'ok', result.model); return result; }
+    try { const result = await groqClient.complete(groqKey, messages, { ...options, model: options.groqModel || options.model }); record('Groq', started, 'ok', result.model); return result; }
     catch (error) { record('Groq', started, 'error', options.model || groqModel); throw error; }
   }
 
@@ -21,6 +36,7 @@ export async function completeWithFallback({ compatibleClient, compatibleKey, co
     return result;
   } catch (openRouterError) {
     record('OpenRouter', openRouterStarted, 'error', openRouterModel);
+    options.signal?.throwIfAborted(); options.onReset?.();
     if (!groqKey) {
       const error = new Error(`${openRouterError.message} Groq fallback is unavailable because no Groq key is configured.`);
       error.status = openRouterError.status;
@@ -28,7 +44,7 @@ export async function completeWithFallback({ compatibleClient, compatibleKey, co
     }
     const groqStarted = performance.now();
     try {
-      const result = await groqClient.complete(groqKey, messages, { ...options, model: groqModel });
+      const result = await groqClient.complete(groqKey, messages, { ...options, model: options.groqModel || groqModel });
       record('Groq', groqStarted, 'ok', result.model);
       return { ...result, switched: true, reason: 'provider_fallback', fallbackFrom: 'OpenRouter' };
     } catch (groqError) {

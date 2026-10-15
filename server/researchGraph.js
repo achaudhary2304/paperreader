@@ -43,6 +43,12 @@ export function createResearchGraph({ route, planSearch, conceptResearch, litera
   const graph = new StateGraph(ResearchState)
     .addNode('supervisor', async ({ input }) => {
       return timed('Supervisor + query planning', async () => {
+        input.signal?.throwIfAborted(); input.onStage?.('Planning');
+        if (input.quick) return {
+          plan: { context: true, concept: false, math: false, literature: false },
+          searchPlan: { paperQueries: [input.question || input.selection], researchQuery: '' },
+          externalResearch: Promise.resolve({ literatureSources: [], webResearch: { sources: [], report: '' }, primarySources: [], elapsedMs: 0 }),
+        };
         const plan = route(input.mode, input.question || input.selection);
         const searchPlan = await planSearch(input.key, input.question, input.selection, input.allPages.find(p => p.page === input.page && (!input.papers || p.docId === input.docId))?.text.slice(0, 1000) || '', input.history, input.onInferenceTiming);
         const numerical = /percent|proportion|fraction|how much|share|ratio|breakdown/i.test(input.question);
@@ -61,6 +67,7 @@ export function createResearchGraph({ route, planSearch, conceptResearch, litera
     })
     .addNode('paper_context', async ({ input, searchPlan }) => {
       return timed('Paper retrieval (BM25 + MCP)', async () => {
+      input.signal?.throwIfAborted(); input.onStage?.('Reading paper');
       const search = (pages, anchorPage = input.page, cacheKey = input.paperCacheKey) => callTool('paper', 'search_paper', {
         pages, ...(cacheKey ? { cacheKey } : {}), question: input.question, selection: input.selection,
         queries: searchPlan.paperQueries, anchorPage, history: input.history,
@@ -77,6 +84,7 @@ export function createResearchGraph({ route, planSearch, conceptResearch, litera
     .addNode('concept_research', async ({ input, searchPlan }) => timed('Concept research', async () => ({ conceptSources: await conceptResearch(searchPlan.researchQuery) })))
     .addNode('math_inspection', async ({ input, pages }) => {
       return timed('Math inspection', async () => {
+      input.signal?.throwIfAborted(); input.onStage?.('Checking math');
       const inline = input.question.match(/`([^`]{1,120})`/)?.[1];
       let checked = '';
       if (inline) {
@@ -100,13 +108,14 @@ export function createResearchGraph({ route, planSearch, conceptResearch, litera
     .addNode('teaching', async state => {
       return timed('Teaching + final answer', async () => {
       const { input, pages } = state;
+      input.signal?.throwIfAborted(); input.onStage?.('Writing answer');
       const context = pages.map(p => `${paperReference(p)}${p.title ? ` ${p.title}` : ''}\n${p.text}`).join('\n\n');
       const user = `Paper: ${input.papers?.length ? `Project containing ${input.papers.map(p => `${p.label}: ${p.title}`).join('; ')}` : input.title || 'Untitled paper'}\nCurrent PDF page: ${input.page}\nMode: ${input.mode}\nSelected passage: ${input.selection || '(none)'}\nQuestion: ${input.question || 'Explain the selected passage.'}\n\nRelevant paper text from across the PDF:\n${context || '(No extractable text was available.)'}\n\nExternal source previews:\n${state.sources.map(s => `- ${s.title} (${s.url}): ${s.excerpt}`).join('\n') || '(none)'}\n\nWeb research report (check links against the previews):\n${state.webResearch?.report || '(No web research result available.)'}\n\nMath inspection notes:\n${state.mathNotes || '(none)'}`;
       let inferenceResult;
       const chain = promptChain(infer, {
-        key: input.key, system: systemPrompt, history: input.history, images: input.images,
+        key: input.key, system: systemPrompt + (input.quick ? '\nQuick paper-only answer: be concise. No external research was performed. Identify missing evidence explicitly.' : ''), history: input.history, images: input.images,
         options: {
-          model: input.answerModel, vision: input.images.length > 0, maxTokens: 1600,
+          onToken: input.onToken, onReset: input.onReset, model: input.answerModel, vision: input.images.length > 0, maxTokens: 1600,
           extra: { reasoning_effort: 'low' }, timingStage: 'Final answer', onTiming: input.onInferenceTiming, onResult: result => { inferenceResult = result; },
         },
       });

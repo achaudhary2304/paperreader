@@ -61,3 +61,11 @@ test('project questions retrieve evidence from every paper with distinct labels'
   assert.equal(visited.filter(item => item === 'paper:search_paper').length, 2);
   assert.deepEqual(result.pages.map(page => [page.label, page.docId, page.page]), [['P1', 'one', 2], ['P2', 'two', 4]]);
 });
+
+test('quick math questions use paper retrieval and one answer call, without external research', async () => {
+  const { graph, visited } = harness({ concept: true, math: true });
+  const result = await graph.invoke({ input: { ...input, quick: true, mode: 'math', question: 'Derive the ELBO equation' } });
+  assert.deepEqual(visited, ['paper:search_paper', 'teaching', 'validate']);
+  assert.deepEqual(result.sources, []);
+  assert.equal(result.plan.math, false);
+});

@@ -232,3 +232,5 @@
 .answer-timings>div{display:flex;flex-direction:column;gap:4px;padding:7px 9px;margin-top:5px;border:1px solid #eeeaf5;border-radius:7px;background:#fcfbfe}
 .answer-timings span{display:flex;justify-content:space-between;gap:10px}
 .answer-timings b{font-weight:600;color:#5d566d;font-variant-numeric:tabular-nums}
+
+.answer-controls{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.answer-controls label{display:flex;flex:1;min-width:140px;flex-direction:column;gap:4px;font-size:12px;color:var(--theme-text,#555)}.answer-controls select{width:100%;padding:6px;border:1px solid var(--theme-border,#ddd);border-radius:6px;background:var(--theme-panel,#fff);color:inherit;font:inherit}.stop-answer{border:1px solid #a595c8;background:transparent;color:inherit;border-radius:6px;padding:6px 10px}.streaming-answer{padding:8px 0}

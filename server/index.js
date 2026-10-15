@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import 'dotenv/config';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +13,7 @@ import { createCompatibleClient } from './compatible.js';
 import { completeWithFallback } from './inference.js';
 import { answerEvidence } from './evidence.js';
 
+const requestContext = new AsyncLocalStorage();
 const app = express();
 let desktopToken;
 app.disable('x-powered-by');
@@ -48,6 +50,8 @@ function imageParts(value) {
 }
 
 async function infer(key, messages, options = {}) {
+  options = { ...requestContext.getStore(), ...options };
+  options.signal?.throwIfAborted();
   const result = await completeWithFallback({
     compatibleClient, compatibleKey: process.env.LLM_API_KEY, compatibleConfigured: compatibleConfigured(),
     openRouterClient, groqClient, openRouterKey: process.env.OPENROUTER_API_KEY,
@@ -204,6 +208,10 @@ app.post('/api/papers/index', async (req, res) => {
 
 app.post('/api/ask', async (req, res) => {
   const requestStarted = performance.now();
+  const controller = new AbortController();
+  const disconnect = () => { if (!res.writableEnded) controller.abort(); };
+  res.on('close', disconnect);
+  const emit = (type, data) => { if (!res.destroyed) res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`); };
   try {
     const key = clean(req.body.key, 300) || process.env.GROQ_API_KEY;
     if (!key && !freeOnly() && !compatibleConfigured()) return res.status(400).json({ error: 'Add a Groq API key in Settings or configure an inference provider in .env.' });
@@ -240,17 +248,31 @@ app.post('/api/ask', async (req, res) => {
     const graphStarted = performance.now();
     const inferenceTimings = [];
     const onInferenceTiming = timing => inferenceTimings.push(timing);
-    const result = await researchGraph.invoke({ input: { key, question, selection, title, docId: clean(req.body.docId, 120), mode, page, answerModel, allPages, paperCacheKey: singlePaper?.cacheKey, papers: projectPapers.length ? projectPapers : null, history, images, onInferenceTiming } });
+    const streaming = req.body.stream === true;
+    if (streaming) { res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no' }); res.flushHeaders(); }
+    const quick = req.body.answerDepth === 'quick';
+    const providerPriority = req.body.providerPriority === 'groq' ? 'groq' : 'openrouter';
+    const groqModel = ANSWER_MODELS.has(req.body.groqModel) ? req.body.groqModel : MODEL;
+    const result = await requestContext.run({ signal: controller.signal, providerPriority, groqModel }, () => researchGraph.invoke({ input: {
+      key, question, selection, title, docId: clean(req.body.docId, 120), mode, page, answerModel, allPages,
+      paperCacheKey: singlePaper?.cacheKey, papers: projectPapers.length ? projectPapers : null, history, images, onInferenceTiming,
+      quick, signal: controller.signal, onStage: stage => streaming && emit('stage', { stage }),
+      onToken: streaming ? token => emit('token', { token }) : undefined,
+      onReset: streaming ? () => emit('reset', {}) : undefined,
+    } }, { signal: controller.signal }));
     const inferenceResult = result.inferenceResult;
-    const agents = ['Supervisor', 'Paper Context', ...(result.plan.concept ? ['Concept Research'] : []), ...(result.plan.math ? ['Math Inspection'] : []), 'Literature Research', 'Teaching', 'Citation Validator'];
+    const agents = ['Supervisor', 'Paper Context', ...(result.plan.concept ? ['Concept Research'] : []), ...(result.plan.math ? ['Math Inspection'] : []), ...(quick ? [] : ['Literature Research']), 'Teaching', 'Citation Validator'];
     const graphMs = Math.round(performance.now() - graphStarted);
     const timings = {
       server: { 'Request validation': Math.round(graphStarted - requestStarted), ...result.timings, 'Graph total': graphMs, 'Server total': Math.round(performance.now() - requestStarted) },
       inference: inferenceTimings,
     };
     const paperRefs = projectPapers.length ? projectPapers.map(paper => ({ docId: paper.docId, paperRef: paper.cacheKey })) : [{ docId: clean(req.body.docId, 120), paperRef: singlePaper.cacheKey }];
-    res.json({ agents, answer: result.answer, plan: result.plan, sources: result.sources, evidence: answerEvidence(result.answer, result.pages), paperPages: projectPapers.length ? [] : result.pages.map(p => p.page), provider: inferenceResult.provider, model: inferenceResult.model, modelName: inferenceResult.modelName, freeOnly: inferenceResult.freeOnly || false, cost: inferenceResult.cost, modelSwitch: inferenceResult.switched ? { from: answerModel, to: inferenceResult.model, reason: inferenceResult.reason } : null, retrieval: { method: 'BM25 via Paper MCP', indexedPages: allPages.length, queries: result.searchPlan.paperQueries, cachedPapers }, paperRefs, timings });
+    const response = { agents, answer: result.answer, plan: result.plan, sources: result.sources, evidence: answerEvidence(result.answer, result.pages), paperPages: projectPapers.length ? [] : result.pages.map(p => p.page), provider: inferenceResult.provider, model: inferenceResult.model, modelName: inferenceResult.modelName, freeOnly: inferenceResult.freeOnly || false, cost: inferenceResult.cost, modelSwitch: inferenceResult.switched ? { from: answerModel, to: inferenceResult.model, reason: inferenceResult.reason } : null, retrieval: { method: 'BM25 via Paper MCP', indexedPages: allPages.length, queries: result.searchPlan.paperQueries, cachedPapers }, paperRefs, timings };
+    if (streaming) { emit('done', { data: response }); res.end(); } else res.json(response);
   } catch (error) {
+    if (controller.signal.aborted || res.destroyed) return;
+    if (res.headersSent) { emit('error', { error: error.message || 'The response was interrupted.' }); res.end(); return; }
     const message = error?.name === 'TimeoutError' ? 'The request timed out. Please try again.' : error.message || 'Something went wrong.';
     res.status([400, 409, 429].includes(error.status) ? error.status : 502).json({ error: message, ...(error.code === 'PAPER_CACHE_MISS' ? { code: error.code } : {}) });
   }

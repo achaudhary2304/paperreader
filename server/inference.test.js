@@ -51,3 +51,34 @@ test('reports both provider failures if Groq also fails', async () => {
     groqClient: { complete: async () => { throw new Error('Groq rate limit'); } },
   }), /OpenRouter failed: OpenRouter quota Groq fallback failed: Groq rate limit/);
 });
+
+test('Groq priority uses the selected Qwen model before OpenRouter', async () => {
+  const calls = [];
+  const result = await completeWithFallback({
+    openRouterKey: 'or', groqKey: 'groq', messages: [], groqModel: 'default',
+    options: { providerPriority: 'groq', groqModel: 'qwen/test' },
+    groqClient: { complete: async (_key, _messages, options) => { calls.push(options.model); return { provider: 'Groq', content: 'answer' }; } },
+    openRouterClient: { complete: async () => { throw new Error('must not call'); } },
+  });
+  assert.deepEqual(calls, ['qwen/test']);
+  assert.equal(result.provider, 'Groq');
+});
+
+test('cancelled inference never starts the fallback provider', async () => {
+  const controller = new AbortController();
+  await assert.rejects(completeWithFallback({
+    openRouterKey: 'or', groqKey: 'groq', messages: [], options: { signal: controller.signal },
+    openRouterClient: { complete: async () => { controller.abort(); throw controller.signal.reason; } },
+    groqClient: { complete: async () => { assert.fail('cancellation must not retry'); } },
+  }), { name: 'AbortError' });
+});
+
+test('Groq priority falls back to OpenRouter on failure', async () => {
+  const calls = [];
+  const result = await completeWithFallback({ openRouterKey: 'or', groqKey: 'groq', messages: [], options: { providerPriority: 'groq' },
+    groqClient: { complete: async () => { calls.push('groq'); throw new Error('rate limited'); } },
+    openRouterClient: { complete: async () => { calls.push('openrouter'); return { provider: 'OpenRouter', content: 'answer' }; } },
+  });
+  assert.deepEqual(calls, ['groq', 'openrouter']);
+  assert.equal(result.fallbackFrom, 'Groq');
+});

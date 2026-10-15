@@ -1,3 +1,4 @@
+import { completionResponse, requestSignal } from './completionResponse.js';
 export function isFreeModel(model) {
   return (model.id === 'openrouter/free' || model.id?.endsWith(':free'))
     && model.pricing?.prompt !== undefined && model.pricing?.completion !== undefined
@@ -52,17 +53,18 @@ export function createOpenRouterClient({ fetchImpl = fetch, now = Date.now } = {
     const candidates = [preferredModel, ...fallback];
     for (let index = 0; index < candidates.length; index++) {
       const candidate = candidates[index];
+      options.signal?.throwIfAborted(); options.onReset?.();
       const response = await fetchImpl('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'http://127.0.0.1:5173', 'X-OpenRouter-Title': 'PaperLens' },
         body: JSON.stringify({
-          model: candidate, models: candidates.slice(index, index + 3), messages,
+          ...(options.onToken ? { stream: true } : {}), model: candidate, models: candidates.slice(index, index + 3), messages,
           max_tokens: options.maxTokens || 1600, temperature: options.temperature ?? .2,
           provider: { max_price: { prompt: 0, completion: 0, request: 0, image: 0 }, allow_fallbacks: true },
         }),
-        signal: AbortSignal.timeout(60000),
+        signal: requestSignal(options.signal, 60000),
       });
-      const data = await response.json().catch(() => ({}));
+      const data = await completionResponse(response, options);
       if (!response.ok) {
         let message = data.error?.message || `OpenRouter request failed (${response.status}).`;
         if (response.status === 429) {

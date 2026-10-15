@@ -1,3 +1,4 @@
+import { completionResponse, requestSignal } from './completionResponse.js';
 import { createHash } from 'node:crypto';
 
 export const FALLBACK_MODELS = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b', 'llama-3.1-8b-instant'];
@@ -45,6 +46,7 @@ export function createGroqClient({ fetchImpl = fetch, now = Date.now } = {}) {
     let lastError;
     let nextRetry = Infinity;
     for (const model of candidates) {
+      options.signal?.throwIfAborted(); options.onReset?.();
       const slot = `${keyId(key)}:${model}`;
       const blocked = cooldowns.get(slot);
       if (blocked?.until > now()) {
@@ -56,10 +58,10 @@ export function createGroqClient({ fetchImpl = fetch, now = Date.now } = {}) {
       if (!model.startsWith('openai/') && !model.startsWith('qwen/')) delete extra.reasoning_effort;
       const response = await fetchImpl('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages, temperature: options.temperature ?? .25, max_tokens: options.maxTokens || 1800, ...extra }),
-        signal: AbortSignal.timeout(45000),
+        body: JSON.stringify({ model, messages, ...(options.onToken ? { stream: true } : {}), temperature: options.temperature ?? .25, max_tokens: options.maxTokens || 1800, ...extra }),
+        signal: requestSignal(options.signal, 45000),
       });
-      const data = await response.json().catch(() => ({}));
+      const data = await completionResponse(response, options);
       if (response.ok) {
         const content = data.choices?.[0]?.message?.content;
         if (typeof content !== 'string' || !content.trim()) {

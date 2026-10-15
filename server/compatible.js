@@ -1,3 +1,4 @@
+import { completionResponse, requestSignal } from './completionResponse.js';
 export function createCompatibleClient({ fetchImpl = fetch } = {}) {
   async function complete(key, messages, options = {}) {
     const base = process.env.LLM_BASE_URL?.replace(/\/$/, '');
@@ -10,10 +11,10 @@ export function createCompatibleClient({ fetchImpl = fetch } = {}) {
     const response = await fetchImpl(`${base}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
-      body: JSON.stringify({ model, messages, max_tokens: options.maxTokens || 1800, temperature: options.temperature ?? .2 }),
-      signal: AbortSignal.timeout(60000),
+      body: JSON.stringify({ model, messages, ...(options.onToken ? { stream: true } : {}), max_tokens: options.maxTokens || 1800, temperature: options.temperature ?? .2 }),
+      signal: requestSignal(options.signal, 60000),
     });
-    const data = await response.json().catch(() => ({}));
+    const data = await completionResponse(response, options);
     if (!response.ok) {
       const error = new Error(data.error?.message || `LLM request failed (${response.status}).`);
       error.status = response.status;
