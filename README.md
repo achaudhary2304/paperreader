@@ -1,93 +1,76 @@
 # PaperLens
 
-A local research paper reader with a PDF viewer and a separate AI conversation for each doubt. Select text, ask about a concept, equation, related work, or an image, and return to the paper without losing your place. Projects group papers and notes; the library can be exported and imported.
+A local desktop reader for research papers and blog articles, with an AI companion for questions while you read.
 
-The question workflow uses LangGraph and LangChain. Three local MCP servers provide paper retrieval, academic/concept lookup, and math tools. Answers show paper pages and outside sources when available.
+## Install
 
-## Download the desktop app
+Download the latest version from [GitHub Releases](https://github.com/achaudhary2304/paperreader/releases).
 
-Tagged releases build Linux, Windows, and macOS installers using native GitHub runners.
+- **Ubuntu/Linux:** install the `.deb`, or make the `.AppImage` executable and open it.
+- **Windows:** run the `.exe` installer.
+- **macOS:** open the `.dmg` for Apple Silicon (`arm64`) or Intel (`x64`) and drag PaperLens to Applications. The app is unsigned.
 
-Download PaperLens from [GitHub Releases](https://github.com/achaudhary2304/paperreader/releases):
+Open **Settings** to add your API key. PaperLens supports Groq, OpenRouter free models, and other OpenAI-compatible providers, including local models. Desktop keys are saved locally using the system keyring.
 
-| System | Download |
-| --- | --- |
-| Linux | `.deb` for Debian/Ubuntu, or `.AppImage` for other distributions |
-| Windows | `PaperLens-<version>-Setup.exe` for 64-bit Windows |
-| macOS (Apple Silicon) | `PaperLens-<version>-arm64.dmg` |
-| macOS (Intel) | `PaperLens-<version>-x64.dmg` |
+Choose provider priority and your preferred Groq model beside the question box. A configured custom endpoint takes priority.
 
-Install the `.deb` and open PaperLens from your applications menu, or launch the AppImage file. No Node.js or terminal is needed for the downloaded app. It runs a local service inside the desktop app, so you see a normal application window rather than a localhost tab. AI answers and external research still need internet access unless you configure a local model.
+## Use
 
-Open **Settings** in the desktop app to enter Groq, OpenRouter, or another OpenAI-compatible provider. Click **Save settings** once; the keys persist across launches. Choose Groq-first or OpenRouter-free-first beside the question box, with the other provider as fallback. The preferred Groq model is selected separately. A custom endpoint takes priority when configured. For Ollama, enter `http://localhost:11434/v1` as the base URL and your installed model name; a key is optional. A separate vision model can be set for image questions.
+1. Click **Add reading** to upload a PDF, import an arXiv paper, or save a public blog/webpage URL. You can also import a saved HTML file.
+2. Select a passage to ask a question, highlight it, or add a comment.
+3. Use **Quick** for a paper/article-only answer or **Deep** for external research. Answers stream as they are generated; **Stop** cancels the request.
+4. Group reading into projects. Filter papers and articles, track Unread / Reading / Finished, and save concise answers to project notes.
+5. Export notes as Markdown, share a project, or back up the whole library from the sidebar.
 
-Desktop keys are stored locally in an encrypted file protected by the system keyring (GNOME Keyring or KWallet on Linux). The app never displays saved key values. An available, unlocked keyring is required to save new keys. Existing plaintext keys in the old `provider-settings.txt` are migrated automatically when the keyring is available. Papers and reading data remain in the app's local browser storage. Provider requests send the excerpts or images needed for an answer to the provider you configure.
+Webpage imports save the text locally. Images load on demand and may need an internet connection. The desktop app offers **Original** view for the live, interactive website and **Reader** view for saved text; select text in Original view to ask a question in the companion. For pages requiring login or JavaScript, save the loaded page as HTML in your browser and use **Import saved webpage**. Only content present in the HTML can be imported; linked local image folders are not included. Blogs are divided into sections; answer links return to the relevant section.
 
-If you used the browser version before, choose **Export library** there and **Import library** in the desktop app to transfer papers, projects, annotations, and doubts. The two editions use separate browser storage. These installers are currently unsigned, so your operating system may ask you to confirm that you trust the downloaded app.
+## Features
+
+- PDF and article reading, tabs, search, zoom, keyboard shortcuts, and Zen mode.
+- Independent doubt threads, follow-up questions, and questions across project documents.
+- Pasted image questions and PDF page attachments with vision-capable models.
+- Highlights, comments, tags, and annotations linked to project notes.
+- Import and export of supported standard PDF annotations.
+- Projects, reading status, type filters, sorting, and Markdown notes.
+- Local document storage, cached indexing, and library/project ZIP import and export.
+- Configurable AI providers, automatic fallback, streaming, and request timings.
+- Adjustable fonts, themes, text size, and resizable sidebars.
+
+AI requests send relevant text and attached images to your configured provider. Deep mode can also use online research services. Model availability and usage limits depend on the provider.
 
 ## Run from source
 
-Install [Node.js](https://nodejs.org/) **20.19+ or 22.12+** and npm. Then:
+Requires Node.js 22 or newer.
 
 ```bash
 git clone https://github.com/achaudhary2304/paperreader.git
 cd paperreader
 npm ci
-cp .env.example .env
+npm run desktop
 ```
 
-Edit `.env` and configure **one** provider from the table below. Then:
+Add your keys in the desktop app's Settings.
+
+If Ubuntu reports an Electron sandbox error, run this once from the project directory:
 
 ```bash
+sudo chown root:root node_modules/electron/dist/chrome-sandbox
+sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+npm run desktop
+```
+
+Run the app without `sudo`; Node.js 22 or newer must be active.
+
+For a browser-based local installation:
+
+```bash
+cp .env.example .env
 npm run build
 npm start
 ```
 
-Open **http://127.0.0.1:3001**. For development, use `npm run dev` and open **http://127.0.0.1:5173**. Windows users can copy `.env.example` to `.env` using File Explorer or `Copy-Item .env.example .env` in PowerShell.
-
-| Provider | `.env` values | Notes |
-| --- | --- | --- |
-| OpenRouter | `OPENROUTER_API_KEY=...` | Restricts requests to verified free models. Available free models and quotas can change. |
-| Groq | `GROQ_API_KEY=...` | Uses available Groq models. Also serves as fallback if OpenRouter is configured. |
-| Other OpenAI-compatible API | `LLM_BASE_URL=...`, `LLM_MODEL=...`, `LLM_API_KEY=...` | Takes priority over the two options above. Set `LLM_VISION_MODEL` to ask about images. `LLM_PROVIDER_NAME` changes the label shown in answers. |
-
-For a local Ollama endpoint, use `LLM_BASE_URL=http://localhost:11434/v1`, `LLM_MODEL=<your installed model>`, and leave `LLM_API_KEY` empty. The endpoint must support OpenAI-style `/chat/completions`. A vision model is optional but required for pasted images with this provider. Provider pricing is your responsibility outside OpenRouter's free-only mode.
-
-For the browser version, a Groq key entered in Settings lasts only for the current browser session. Configure `.env` for persistence and restart `npm start` after changing it. The desktop version saves keys in the system keyring instead.
-
-## Use it
-
-- Add a PDF or import an arXiv link. The small sample paper is for trying the reader. [Download the Guide Labs paper](https://www.guidelabs.ai/papers/scaling-inherently-interpretable-language-models.pdf) yourself and upload it if you want to read that paper.
-- Select text to highlight, underline, annotate, or start a doubt. The companion also accepts images and can attach the current PDF page when the provider has a vision model.
-- Create projects, ask across their papers, save concise answers to project notes, and download those notes as Markdown.
-- Export an annotated PDF, or export/import the entire library as a ZIP. Papers and reading data are stored in this browser (IndexedDB and local storage); API keys are not included in library exports.
-- Press `?` in the reader for keyboard shortcuts. PDF text extraction is required for search and paper-grounded answers; scanned PDFs need OCR first.
-- Use the palette button to choose from 15 bundled fonts and eight color styles. Changes apply throughout the app and are saved locally.
-- Enter Zen mode with the expand button or `Z`; press `Esc` to return to your sidebars. Use `Ctrl`/`⌘` with `+` or `−` to zoom the PDF, and `Ctrl`/`⌘` + `0` to reset it. PDF zoom ranges from 50% to 300%.
-
-The third-party Guide Labs PDF is intentionally not bundled in this repository or the desktop app. Your uploaded papers stay on your computer; inference requests send relevant excerpts and any attached images to your chosen provider. External research uses public APIs, so internet access is needed for those lookups.
-
-**Answer controls:** Quick (the default) retrieves paper context and makes one answer-generation call, skipping the separate planner, math agent, and external research. Deep keeps the research workflow. Answers stream as they are generated; source checks are applied to the completed answer. Stop cancels the active model request. Provider priority, Groq model, and answer depth are saved locally; a configured custom endpoint still takes priority. Provider queues and rate limits can still delay the first words.
-
-Paper text and indexes are prepared in the background after opening a PDF, without using a model API. Extracted PDF text is cached in IndexedDB across reloads and app launches, checked against the PDF's SHA-256 hash and the extractor version. Overlapping passages preserve nearby definitions, equations and table explanations; overlapping retrieval hits are merged before building the model context. The local server keeps up to 64 recently used papers, bounded by 32 million text characters, in memory. Compressed BM25 indexes persist across server restarts in a disk cache capped at 256 MiB. Desktop indexes live under the app's user-data `cache` directory; source runs use `${XDG_CACHE_HOME:-~/.cache}/paperlens` or `PAPERLENS_CACHE_DIR` when set. Prepared papers use document references instead of sending full text with each question; a server restart or cache eviction triggers an automatic resend of text, and the saved index is loaded. Replacing a PDF creates a new content key; corrupt or outdated indexes rebuild automatically. Timing details show reused paper counts and retrieval time. This cache speeds up paper processing; external research and model generation still run for each new question.
-
-## Optional Linux startup
-
-On Linux with systemd user services, `npm run service:install` builds the app and installs a login-started service at **http://127.0.0.1:5173**. Put provider values in `~/.config/paperlens/credentials.env` and run `./paperlens --restart` after changing them. This helper is optional; the `npm start` steps above work without it.
-
-## Development
-
-```bash
-npm test
-npm run build
-npm run desktop           # Run the desktop app from source
-npm run desktop:package   # Build an installer for your current operating system
-```
-
-Tagged versions (`v*`) run the [desktop release workflow](.github/workflows/desktop-release.yml), which builds the Linux `.deb` and AppImage, Windows installer, and separate Intel/Apple Silicon macOS DMGs. It generates build attestations and SHA-256 checksums and attaches the downloads to a GitHub Release. The Windows and macOS installers are unsigned; manual testing on those systems is still needed before treating them as fully validated releases.
-
-The server binds to loopback by default. `HOST` can change that for a private network, but this app has no user accounts or API authentication; do not expose a server with your API key to untrusted users. See [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) for current limitations and proposed work.
+Set your provider in `.env`, then open **http://127.0.0.1:3001**. Restart after editing `.env`. The browser's Settings key lasts only for the current session.
 
 ## License
 
-MIT for the PaperLens code and the included original sample paper. Imported PDFs retain their own rights.
+[MIT](LICENSE)

@@ -1,3 +1,4 @@
+import { installWebpageView } from './webpageView.js';
 import { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, session, shell } from 'electron';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
@@ -42,6 +43,7 @@ app.whenReady().then(async () => {
     backgroundColor: '#f7f7f5', icon: join(app.getAppPath(), 'desktop/icon.png'),
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: join(app.getAppPath(), 'desktop/preload.cjs') },
   });
+  installWebpageView(window, origin);
   ipcMain.handle('reader:zen', (event, active) => {
     if (!trusted(event) || typeof active !== 'boolean') throw new Error('Invalid Zen mode request.');
     window.setMenuBarVisibility(!active);

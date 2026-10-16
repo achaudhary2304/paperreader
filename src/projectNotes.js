@@ -7,7 +7,7 @@ export function projectReadme(project, docs) {
   const title = heading(project.name) || 'Research project';
   const lines = [`# ${title}`, ''];
   if (project.notes?.trim()) lines.push('## Project notes', '', project.notes.trim(), '');
-  lines.push('## Papers', '');
+  lines.push('## Reading', '');
   const paperIds = [...new Set([...(project.paperIds || []), ...entries.map(entry => entry.paperId)])];
   if (!paperIds.length) lines.push('No papers added yet.', '');
   for (const paperId of paperIds) {
@@ -16,7 +16,7 @@ export function projectReadme(project, docs) {
     lines.push(`### ${heading(paper?.name) || 'Removed paper'}`, '');
     if (!paperEntries.length) lines.push('No saved answers yet.', '');
     for (const entry of paperEntries) {
-      lines.push(`#### ${heading(entry.question) || 'Reading note'}`, '', entry.summary.trim(), '', `Source: ${heading(paper?.name) || 'Removed paper'}, PDF page ${entry.page}.`, '');
+      lines.push(`#### ${heading(entry.question) || 'Reading note'}`, '', entry.summary.trim(), '', `Source: ${heading(paper?.name) || 'Removed paper'}, ${paper?.kind === 'article' ? 'article section' : 'PDF page'} ${entry.page}.`, '');
     }
   }
   return `${lines.join('\n').trimEnd()}\n`;

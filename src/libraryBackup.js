@@ -1,3 +1,4 @@
+import { readArticle } from './articleFormat.js';
 import JSZip from 'jszip';
 
 export const BACKUP_KEYS = [
@@ -12,7 +13,8 @@ export async function createLibraryBackup(state, papers, images = []) {
   const zip = new JSZip();
   const files = [];
   for (const [index, paper] of papers.entries()) {
-    const path = `pdfs/${index}.pdf`;
+    const docs = JSON.parse(state['paperlens:docs'] || '[]');
+    const path = docs.find(doc => doc.id === paper.id)?.kind === 'article' ? `articles/${index}.json` : `pdfs/${index}.pdf`;
     const bytes = new Uint8Array(await paper.blob.arrayBuffer());
     zip.file(path, bytes, { compression: 'STORE' });
     files.push({ id: paper.id, path });
@@ -32,7 +34,8 @@ export async function createProjectExport(state, papers, project) {
   const zip = new JSZip();
   const files = [];
   for (const [index, paper] of papers.entries()) {
-    const path = `pdfs/${index}.pdf`;
+    const docs = JSON.parse(state['paperlens:docs'] || '[]');
+    const path = docs.find(doc => doc.id === paper.id)?.kind === 'article' ? `articles/${index}.json` : `pdfs/${index}.pdf`;
     zip.file(path, new Uint8Array(await paper.blob.arrayBuffer()), { compression: 'STORE' });
     files.push({ id: paper.id, path });
   }
@@ -54,12 +57,15 @@ export async function readProjectExport(blob) {
   if (!Array.isArray(docs) || !Array.isArray(projects) || projects.length !== 1 || !Array.isArray(annotations) || docs.length !== manifest.files.length) throw new Error('The project bundle is incomplete.');
   const papers = [];
   for (const [index, entry] of manifest.files.entries()) {
-    if (entry.path !== `pdfs/${index}.pdf` || typeof entry.id !== 'string' || !docs.some(doc => doc.id === entry.id)) throw new Error('Invalid paper entry in project bundle.');
+    const article = docs.find(doc => doc.id === entry.id)?.kind === 'article';
+    if (entry.path !== (article ? `articles/${index}.json` : `pdfs/${index}.pdf`) || typeof entry.id !== 'string' || !docs.some(doc => doc.id === entry.id)) throw new Error('Invalid paper entry in project bundle.');
     const pdf = zip.file(entry.path);
     if (!pdf) throw new Error(`PDF ${index + 1} is missing from the project bundle.`);
     const bytes = await pdf.async('uint8array');
-    if (bytes.length < 5 || new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error(`Paper ${index + 1} is not a PDF.`);
-    papers.push({ id: entry.id, blob: new Blob([bytes], { type: 'application/pdf' }) });
+    const blob = new Blob([bytes], { type: article ? 'application/json' : 'application/pdf' });
+    if (article) await readArticle(blob);
+    else if (bytes.length < 5 || new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error(`Paper ${index + 1} is not a PDF.`);
+    papers.push({ id: entry.id, blob });
   }
   const readme = await zip.file('README.md')?.async('string') || '';
   return { docs, projects, annotations, papers, readme };
@@ -82,13 +88,16 @@ export async function readLibraryBackup(blob) {
   const ids = new Set();
   const papers = [];
   for (const [index, entry] of manifest.files.entries()) {
-    if (typeof entry.id !== 'string' || !entry.id || entry.path !== `pdfs/${index}.pdf` || ids.has(entry.id) || !docs.some(doc => doc?.id === entry.id && typeof doc.name === 'string')) throw new Error('Invalid paper entry in backup.');
+    if (typeof entry.id !== 'string' || !entry.id || entry.path !== (docs.find(doc => doc.id === entry.id)?.kind === 'article' ? `articles/${index}.json` : `pdfs/${index}.pdf`) || ids.has(entry.id) || !docs.some(doc => doc?.id === entry.id && typeof doc.name === 'string')) throw new Error('Invalid paper entry in backup.');
     ids.add(entry.id);
     const file = zip.file(entry.path);
     if (!file) throw new Error(`The PDF for paper ${index + 1} is missing from the backup.`);
+    const article = docs.find(doc => doc.id === entry.id)?.kind === 'article';
     const bytes = await file.async('uint8array');
-    if (bytes.length < 5 || new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error(`Paper ${index + 1} is not a PDF.`);
-    papers.push({ id: entry.id, blob: new Blob([bytes], { type: 'application/pdf' }) });
+    const documentBlob = new Blob([bytes], { type: article ? 'application/json' : 'application/pdf' });
+    if (article) await readArticle(documentBlob);
+    else if (bytes.length < 5 || new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error(`Paper ${index + 1} is not a PDF.`);
+    papers.push({ id: entry.id, blob: documentBlob });
   }
   const images = [];
   for (const [index, entry] of (manifest.images || []).entries()) {
