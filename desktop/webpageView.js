@@ -5,7 +5,7 @@ import { articleUrl } from '../server/articles.js';
 
 // Untrusted sites run in their own sandbox and session, with no app preload or API keys.
 export function installWebpageView(window, origin) {
-  let view, source = '', attached = false, boundsY = 0;
+  let view, source = '', attached = false, boundsY = 0, previousBounds = '', previousZoom;
   const annotationSets = new Map();
   const syncAnnotations = () => { if (view && source) view.webContents.send('webpage:annotations', annotationSets.get(source) || []); };
   const trusted = event => event.sender === window.webContents && event.senderFrame?.origin === origin;
@@ -34,8 +34,11 @@ export function installWebpageView(window, origin) {
       });
       view.webContents.on('did-fail-load', (_event, code, description, _url, main) => { if (main && code !== -3) { detach(); emit({ type: 'error', error: description }); } });
     }
-    boundsY = bounds.y; view.setBounds(bounds);
-    view.webContents.setZoomFactor(Math.max(.5, Math.min(3, Number(options.zoom) || 1)));
+    boundsY = bounds.y;
+    const boundsKey = JSON.stringify(bounds);
+    if (boundsKey !== previousBounds) { view.setBounds(bounds); previousBounds = boundsKey; }
+    const zoom = Math.max(.5, Math.min(3, Number(options.zoom) || 1));
+    if (zoom !== previousZoom) { view.webContents.setZoomFactor(zoom); previousZoom = zoom; }
     if (!attached) { window.contentView.addChildView(view); attached = true; }
     if (source !== url) {
       source = url;
