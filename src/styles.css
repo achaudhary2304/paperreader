@@ -240,3 +240,5 @@
 .article-reader{text-align:left}.reader-toolbar button[hidden]{display:none}.document-project-picker{width:95px}.article-reader header h1{text-align:left}.article-reader .article-section-label{text-align:right}
 
 .reader-scroll.original-mode{position:relative;padding:0;overflow:hidden}.original-webpage{position:absolute;inset:0;text-align:center;padding:30px;color:var(--theme-ink,#333)}.webpage-mode{display:flex;gap:3px}.webpage-mode button{padding:6px 8px;border:1px solid var(--theme-line,#ddd);border-radius:5px;color:inherit;background:transparent;font:inherit;font-size:12px}.webpage-mode button[aria-pressed=true]{background:var(--theme-soft,#eee9fb);color:var(--theme-accent,#7254d5)}.reading-tip[hidden]{display:none}
+
+.draft-annotation-actions{display:flex;gap:8px;margin:12px 0}.draft-annotation-actions button{display:flex;align-items:center;gap:6px;padding:8px 12px;font:inherit;border:1px solid var(--theme-line,#ddd);background:var(--theme-soft,#f4f0fc);color:var(--theme-ink,#333);border-radius:6px}

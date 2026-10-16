@@ -22,7 +22,7 @@ Choose provider priority and your preferred Groq model beside the question box. 
 4. Group reading into projects. Filter papers and articles, track Unread / Reading / Finished, and save concise answers to project notes.
 5. Export notes as Markdown, share a project, or back up the whole library from the sidebar.
 
-Webpage imports save the text locally. Images load on demand and may need an internet connection. The desktop app offers **Original** view for the live, interactive website and **Reader** view for saved text; select text in Original view to ask a question in the companion. For pages requiring login or JavaScript, save the loaded page as HTML in your browser and use **Import saved webpage**. Only content present in the HTML can be imported; linked local image folders are not included. Blogs are divided into sections; answer links return to the relevant section.
+Webpage imports save the text locally. Images load on demand and may need an internet connection. The desktop app offers **Original** view for the live, interactive website and **Reader** view for saved text; select text in Original view to ask a question, highlight it, or add a comment in the companion. Highlights persist locally and reappear when you reopen the page; click a highlight to edit its comment. Reader view uses the same annotations. For pages requiring login or JavaScript, save the loaded page as HTML in your browser and use **Import saved webpage**. Only content present in the HTML can be imported; linked local image folders are not included. Blogs are divided into sections; answer links return to the relevant section.
 
 ## Features
 

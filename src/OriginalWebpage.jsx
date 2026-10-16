@@ -1,12 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-export default function OriginalWebpage({ url, zoom, hidden, onSelection }) {
+export default function OriginalWebpage({ url, zoom, hidden, annotations, onSelection, onAnnotation, onHover }) {
   const element = useRef(null);
-  const select = useRef(onSelection); select.current = onSelection;
+  const callbacks = useRef({}); callbacks.current = { onSelection, onAnnotation, onHover };
+  const annotationData = JSON.stringify(annotations.map(({ id, text, color, anchor }) => ({ id, text, color, anchor })));
+  useEffect(() => { window.paperlensDesktop.setWebpageAnnotations({ url, annotations: JSON.parse(annotationData) }).catch(() => {}); }, [url, annotationData]);
   const [error, setError] = useState('');
   useEffect(() => window.paperlensDesktop.onWebpageEvent(event => {
     if (event.url && event.url !== url) return;
-    if (event.type === 'selection') select.current(event.text);
+    if (event.type === 'selection') callbacks.current.onSelection(event);
+    if (event.type === 'annotation') callbacks.current.onAnnotation(event.id);
+    if (event.type === 'hover') callbacks.current.onHover(event);
     if (event.type === 'error') setError(event.error);
     if (event.type === 'loading') setError('');
   }), [url]);
