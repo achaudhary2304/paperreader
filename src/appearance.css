@@ -154,3 +154,23 @@
 .app-shell.zen-mode .pdf-page-label{visibility:hidden}
 .app-shell.zen-mode .reader-scroll::-webkit-scrollbar{display:none}
 .app-shell.zen-mode .paper-find{top:64px}
+
+/* Appearance lives inside Settings, alongside provider controls. */
+.appearance-gallery.embedded{position:static;width:auto;max-height:none;overflow:visible;margin-top:24px;padding:20px 0 0;border:0;border-top:1px solid var(--theme-line);border-radius:0;box-shadow:none}
+.appearance-gallery.embedded footer{justify-content:space-between}
+.appearance-applied{display:flex;align-items:center;gap:6px;color:var(--theme-muted);font-size:11px}
+.settings-modal:has(.appearance-gallery.embedded){max-height:90dvh;overflow:auto}
+.empty-reader{min-height:calc(100dvh - 190px);width:min(650px,100%);margin:0 auto;padding:45px 25px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--theme-ink);line-height:1.5}
+.empty-reader-mark{width:62px;height:62px;margin-bottom:20px;display:grid;place-items:center;border-radius:19px;background:var(--theme-soft);color:var(--theme-accent)}
+.empty-reader>.eyebrow{font-size:11px;font-weight:800;letter-spacing:.13em;color:var(--theme-accent)}
+.empty-reader h2{margin:9px 0 5px;font-size:clamp(25px,3vw,34px);letter-spacing:-.04em}
+.empty-reader p{max-width:390px;margin:0;text-align:center;color:var(--theme-muted);font-size:15px}
+.empty-reader>div:last-child{display:flex;align-items:center;gap:10px;margin-top:22px;flex-wrap:wrap;justify-content:center}
+.empty-reader .primary-action{font-size:14px;padding:12px 15px}
+.empty-reader-add,.close-all-tabs{border:1px solid var(--theme-line);border-radius:8px;background:var(--theme-panel);color:var(--theme-muted);padding:10px 12px;font-size:12px;font-weight:650}
+.empty-reader-add{display:flex;align-items:center;gap:7px}
+.close-all-tabs{padding:5px 8px;margin-left:auto;border:0;background:transparent;white-space:nowrap}
+.close-all-tabs:hover{background:var(--theme-hover);color:var(--theme-accent)}
+.paper-tab[draggable=true]{cursor:grab}
+.paper-tab[draggable=true]:active{cursor:grabbing}
+.empty-reader-toolbar .reader-title strong{color:var(--theme-muted)}
