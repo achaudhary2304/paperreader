@@ -127,7 +127,7 @@
 [data-theme] .companion-panel .composer textarea{font-size:max(17px,var(--explanation-font-size,16px));font-weight:500;line-height:1.65;min-height:70px}
 [data-theme] .mode-card strong{font-size:14px;font-weight:700;line-height:1.45}
 [data-theme] .mode-card small{font-size:12px;line-height:1.5}
-[data-theme] .mode-card{min-height:88px;height:auto}
+[data-theme] .mode-card{min-height:48px;height:auto}
 [data-theme] :is(.home-copy p,.draft-selection p,.draft-selection blockquote,.settings-modal p,.annotation-modal .annotation-quote,.annotation-preview p){font-size:14px;line-height:1.65}
 [data-theme] :is(.answer-byline,.agent-trail span,.source-list a,.paper-pages button,.evidence-list button span,.save-answer-row button,.save-answer-row select,.note-source-link,.model-switch-note){font-size:12px;line-height:1.5}
 [data-theme] :is(.source-list>strong,.evidence-list>strong,.paper-pages span){font-size:11px;font-weight:750}
