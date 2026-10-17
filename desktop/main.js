@@ -4,6 +4,7 @@ import { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, session, shell 
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { createProviderSettings } from './providerSettings.js';
+import { createLibraryFolderService } from './libraryFolders.js';
 
 const PORT = 37841; // Keep the origin stable so the browser library survives restarts.
 const desktopToken = randomBytes(32).toString('hex');
@@ -14,8 +15,11 @@ else app.on('second-instance', () => BrowserWindow.getAllWindows()[0]?.focus());
 
 app.whenReady().then(async () => {
   const providerSettings = createProviderSettings(app.getPath('userData'), safeStorage);
+  const libraryFolders = createLibraryFolderService(app.getPath('userData'), dialog);
   try { await providerSettings.load(); }
   catch (error) { dialog.showErrorBox('Provider settings could not load', `${error.message}\n\nYour saved keys were not deleted.`); }
+  try { await libraryFolders.load(); }
+  catch (error) { dialog.showErrorBox('Library folders could not load', error.message); }
   process.env.PAPERLENS_DESKTOP = '1';
   process.env.PAPERLENS_CACHE_DIR = join(app.getPath('userData'), 'cache');
 
@@ -37,6 +41,26 @@ app.whenReady().then(async () => {
   ipcMain.handle('provider-settings:save', (event, changes) => {
     if (!trusted(event)) throw new Error('Untrusted settings request.');
     return providerSettings.save(changes);
+  });
+  ipcMain.handle('library:choose-folder', async event => {
+    if (!trusted(event)) throw new Error('Untrusted library folder request.');
+    return libraryFolders.choose(BrowserWindow.fromWebContents(event.sender));
+  });
+  ipcMain.handle('library:scan-folders', event => {
+    if (!trusted(event)) throw new Error('Untrusted library folder request.');
+    return libraryFolders.scanAll();
+  });
+  ipcMain.handle('library:scan-folder', (event, folderId) => {
+    if (!trusted(event) || typeof folderId !== 'string') throw new Error('Untrusted library folder request.');
+    return libraryFolders.scan(folderId);
+  });
+  ipcMain.handle('library:read-pdf', (event, fileId) => {
+    if (!trusted(event) || typeof fileId !== 'string') throw new Error('Untrusted library file request.');
+    return libraryFolders.readPdf(fileId);
+  });
+  ipcMain.handle('library:remove-folder', async (event, folderId) => {
+    if (!trusted(event) || typeof folderId !== 'string') throw new Error('Untrusted library folder request.');
+    await libraryFolders.remove(folderId);
   });
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   const window = new BrowserWindow({

@@ -15,8 +15,8 @@ import {
   ArrowDownToLine, ArrowRight, BookOpenText, Check,
   ChevronDown, ChevronLeft, ChevronRight, Command, FileText,
   Highlighter, LibraryBig, Lightbulb, Menu, MessageCircleQuestion,
-  Plus, Search, Send, Settings2, Sigma, Sparkles, Trash2, UploadCloud, X, Share2,
-  ZoomIn, ZoomOut, ExternalLink, PanelRightClose, PanelRightOpen, Layers3,
+  Plus, Search, Send, Settings2, Sigma, Sparkles, Trash2, UploadCloud, X, Share2, Folder,
+  ZoomIn, ZoomOut, ExternalLink, PanelRightClose, PanelRightOpen, Layers3, FolderPlus, RefreshCw, FolderMinus,
   Globe, FolderKanban, StickyNote, Save, GripVertical, ImagePlus, ScanEye, Keyboard, Maximize2, ChevronUp,
 } from 'lucide-react';
 import { savePdf, getPdf, deletePdf, saveImage, getImage, deleteImage, getPaperText, savePaperText } from './storage.js';
@@ -83,6 +83,45 @@ function html(text, evidence = [], documents = []) {
   return DOMPurify.sanitize(rendered, { ADD_ATTR: ['data-paper-page', 'data-paper-id', 'data-citation-index'] });
 }
 
+function TreePaper({ doc, active, projects, onOpen, onMove, onRemove, onDragStart, onDragEnd }) {
+  const kindIcon = doc.kind === 'article' ? <Globe size={14} /> : <FileText size={14} />;
+  const owner = projects.find(project => project.paperIds?.includes(doc.id))?.id || '';
+  return <div className={`tree-file ${active ? 'active' : ''}`} role="treeitem" draggable onDragStart={event => { event.dataTransfer.setData('text/plain', doc.id); event.dataTransfer.effectAllowed = 'move'; onDragStart?.(event); }} onDragEnd={onDragEnd}>
+    <button className="tree-file-open" onClick={onOpen} title={doc.name}><span className="tree-file-icon">{kindIcon}</span><span><strong>{doc.name}</strong><small>{doc.kind === 'article' ? 'Article' : 'PDF'} · {doc.status || 'unread'}</small></span></button>
+    <select aria-label={`Move ${doc.name} to folder`} title="Move to folder" value={owner} onChange={event => onMove(doc.id, event.target.value)}><option value="">General</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select>
+    {doc.id !== 'sample' && !doc.sourceFolderId && onRemove && <button className="tree-file-remove" onClick={onRemove} title="Remove from library" aria-label={`Remove ${doc.name}`}><X size={13} /></button>}
+  </div>;
+}
+
+function ComputerFolderContents({ folderId, path = '', documents, openFolders, onToggle, projects, activeDocId, onDragStart, onDragEnd, onOpen, onMove }) {
+  const groupKey = path => `computer:${folderId}:${path}`;
+  const direct = [];
+  const directories = new Set();
+  for (const doc of documents) {
+    const relativePath = String(doc.sourceRelativePath || doc.name).replaceAll('\\', '/');
+    const prefix = path ? `${path}/` : '';
+    if (!relativePath.startsWith(prefix)) continue;
+    const remainder = relativePath.slice(prefix.length);
+    const slash = remainder.indexOf('/');
+    if (slash < 0) direct.push(doc);
+    else directories.add(remainder.slice(0, slash));
+  }
+  return <div className="tree-children" role="group">
+    {direct.map(doc => <TreePaper key={doc.id} doc={doc} active={activeDocId === doc.id} onDragStart={() => onDragStart(doc.id)} onDragEnd={onDragEnd} onOpen={() => onOpen(doc.id)} onMove={onMove} projects={projects} />)}
+    {[...directories].sort((a, b) => a.localeCompare(b)).map(name => {
+      const childPath = path ? `${path}/${name}` : name;
+      const folderKey = groupKey(childPath);
+      const open = openFolders[folderKey] !== false;
+      const nested = documents.filter(doc => String(doc.sourceRelativePath || doc.name).replaceAll('\\', '/').startsWith(`${childPath}/`));
+      return <div className="tree-folder computer-subfolder" role="treeitem" aria-expanded={open} key={folderKey}>
+        <button onClick={() => onToggle(folderKey)}><ChevronDown size={12} className={open ? '' : 'tree-collapsed'} /><Folder size={13} /><span>{name}</span><small>{nested.length}</small></button>
+        {open && <ComputerFolderContents folderId={folderId} path={childPath} documents={nested} openFolders={openFolders} onToggle={onToggle} projects={projects} activeDocId={activeDocId} onDragStart={onDragStart} onDragEnd={onDragEnd} onOpen={onOpen} onMove={onMove} />}
+      </div>;
+    })}
+    {!documents.length && <small className="tree-folder-empty">No PDFs found. Rescan this folder to check again.</small>}
+  </div>;
+}
+
 function DesktopProviderSettings({ onClose, onSaved, answerModel, setAnswerModel, availableAnswerModels, freeOnlyMode, freeUsage, refreshFreeUsage }) {
   const [saved, setSaved] = useState(null);
   const [form, setForm] = useState({});
@@ -115,10 +154,15 @@ function DesktopProviderSettings({ onClose, onSaved, answerModel, setAnswerModel
 export default function App() {
   const [docs, setDocs] = useState(() => readJSON('paperlens:docs', INITIAL_DOCS));
   const [projects, setProjects] = useState(() => readJSON('paperlens:projects', []));
+  const [folderSources, setFolderSources] = useState(() => readJSON('paperlens:folderSources', []));
+  const [folderSyncBusy, setFolderSyncBusy] = useState(false);
+  const [folderSyncError, setFolderSyncError] = useState('');
+  const folderSyncLock = useRef(false);
   const [projectId, setProjectId] = useState(() => localStorage.getItem('paperlens:activeProject') || '');
   const [sidebarSections, setSidebarSections] = useState(() => readJSON('paperlens:sidebarSections', {
     projects: true, notes: false, savedAnswers: false, library: true, doubts: true, annotations: false,
   }));
+  const [treeFolders, setTreeFolders] = useState(() => readJSON('paperlens:treeFolders', { general: true }));
   const sectionOpen = name => sidebarSections[name] !== false;
   const toggleSection = name => setSidebarSections(current => ({ ...current, [name]: current[name] === false }));
   const [projectModalOpen, setProjectModalOpen] = useState(false);
@@ -240,10 +284,13 @@ export default function App() {
   const readingState = useRef(readJSON('paperlens:reading', {}));
   const doubtDrafts = useRef(readJSON('paperlens:doubtDrafts', {}));
   const currentDocId = useRef(docId);
+  const libraryDocsRef = useRef(docs);
+  libraryDocsRef.current = docs;
   const searchRequest = useRef(0);
   const pendingSearchJump = useRef(null);
   const pendingAnnotationJump = useRef(null);
   const draggedTab = useRef(null);
+  const draggedPaper = useRef(null);
   const scannedPdfAnnotations = useRef(new Set());
   const scrollFrame = useRef(null);
   const matchingPages = useMemo(() => new Set(searchMatches.map(match => match.page)), [searchMatches]);
@@ -264,6 +311,20 @@ export default function App() {
 
   useEffect(() => { localStorage.setItem('paperlens:docs', JSON.stringify(docs)); }, [docs]);
   useEffect(() => { localStorage.setItem('paperlens:projects', JSON.stringify(projects)); }, [projects]);
+  useEffect(() => { localStorage.setItem('paperlens:folderSources', JSON.stringify(folderSources)); }, [folderSources]);
+  useEffect(() => {
+    const assigned = new Set();
+    let changed = false;
+    const normalized = projects.map(project => {
+      const paperIds = (project.paperIds || []).filter(id => {
+        if (assigned.has(id)) { changed = true; return false; }
+        assigned.add(id); return true;
+      });
+      return paperIds.length === (project.paperIds || []).length ? project : { ...project, paperIds };
+    });
+    if (changed) setProjects(normalized);
+  }, [projects]);
+  useEffect(() => { localStorage.setItem('paperlens:treeFolders', JSON.stringify(treeFolders)); }, [treeFolders]);
   useEffect(() => { localStorage.setItem('paperlens:activeProject', projectId); }, [projectId]);
   useEffect(() => { localStorage.setItem('paperlens:libraryWidth', String(libraryWidth)); }, [libraryWidth]);
   useEffect(() => { localStorage.setItem('paperlens:companionWidth', String(companionWidth)); }, [companionWidth]);
@@ -404,10 +465,79 @@ export default function App() {
     setProjectName(''); setProjectModalOpen(false); setManageProjectId(project.id);
   };
   const toggleProjectPaper = (targetProjectId, paperId) => setProjects(current => current.map(project => {
-    if (project.id !== targetProjectId) return project;
     const paperIds = project.paperIds || [];
-    return { ...project, paperIds: paperIds.includes(paperId) ? paperIds.filter(id => id !== paperId) : [...paperIds, paperId] };
+    if (project.id === targetProjectId) return { ...project, paperIds: paperIds.includes(paperId) ? paperIds.filter(id => id !== paperId) : [...paperIds, paperId] };
+    return { ...project, paperIds: paperIds.filter(id => id !== paperId) };
   }));
+  const movePaperToFolder = (paperId, targetProjectId = '') => setProjects(current => current.map(project => {
+    const paperIds = (project.paperIds || []).filter(id => id !== paperId);
+    return project.id === targetProjectId ? { ...project, paperIds: [...paperIds, paperId] } : { ...project, paperIds };
+  }));
+  const toggleTreeFolder = folderId => setTreeFolders(current => ({ ...current, [folderId]: current[folderId] === false }));
+  const syncComputerFolder = async scan => {
+    if (!scan?.folder) return;
+    setFolderSources(current => current.some(folder => folder.id === scan.folder.id) ? current.map(folder => folder.id === scan.folder.id ? scan.folder : folder) : [...current, scan.folder]);
+    const updates = [];
+    for (const file of scan.files || []) {
+      const old = libraryDocsRef.current.find(doc => doc.id === file.id);
+      if (old?.sourceModifiedAt === file.modifiedAt) continue;
+      const bytes = await window.paperlensDesktop.readLibraryPdf(file.id);
+      const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
+      await savePdf(file.id, blob);
+      updates.push({ ...(old || {}), ...file, id: file.id, kind: 'paper', addedAt: old?.addedAt || Date.now(), status: old?.status || 'unread',
+        sourceFolderId: scan.folder.id, sourceFolderName: scan.folder.name, sourceRelativePath: file.relativePath, sourceModifiedAt: file.modifiedAt });
+      paperTextCache.current.delete(file.id); paperRefsCache.current.delete(file.id);
+    }
+    if (updates.length) {
+      const updateById = new Map(updates.map(doc => [doc.id, doc]));
+      const merged = [...updateById.values(), ...libraryDocsRef.current.filter(doc => !updateById.has(doc.id))];
+      libraryDocsRef.current = merged;
+      setDocs(current => [...updateById.values(), ...current.filter(doc => !updateById.has(doc.id))]);
+      if (updates.some(doc => doc.id === currentDocId.current)) setPdfRevision(value => value + 1);
+    }
+  };
+  const addComputerFolder = async () => {
+    if (!window.paperlensDesktop?.chooseLibraryFolder || folderSyncLock.current) return;
+    folderSyncLock.current = true;
+    setFolderSyncBusy(true); setFolderSyncError('');
+    try { const scan = await window.paperlensDesktop.chooseLibraryFolder(); if (scan) await syncComputerFolder(scan); }
+    catch (error) { setFolderSyncError(error.message || 'Could not add this folder.'); }
+    finally { folderSyncLock.current = false; setFolderSyncBusy(false); }
+  };
+  const refreshComputerFolder = async folderId => {
+    if (!window.paperlensDesktop?.scanLibraryFolder || folderSyncLock.current) return;
+    folderSyncLock.current = true;
+    setFolderSyncBusy(true); setFolderSyncError('');
+    try { await syncComputerFolder(await window.paperlensDesktop.scanLibraryFolder(folderId)); }
+    catch (error) { setFolderSyncError(error.message || 'Could not scan this folder.'); }
+    finally { folderSyncLock.current = false; setFolderSyncBusy(false); }
+  };
+  useEffect(() => {
+    if (!window.paperlensDesktop?.scanLibraryFolders) return undefined;
+    let mounted = true;
+    const refresh = async () => {
+      if (folderSyncLock.current) return;
+      folderSyncLock.current = true;
+      setFolderSyncBusy(true);
+      try {
+        const scans = await window.paperlensDesktop.scanLibraryFolders();
+        for (const scan of scans) { if (!mounted) return; await syncComputerFolder(scan); }
+        if (mounted) setFolderSyncError('');
+      } catch (error) { if (mounted) setFolderSyncError(error.message || 'Could not refresh computer folders.'); }
+      finally { folderSyncLock.current = false; if (mounted) setFolderSyncBusy(false); }
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { mounted = false; window.removeEventListener('focus', refresh); };
+  }, []);
+  const forgetComputerFolder = async folderId => {
+    try {
+      await window.paperlensDesktop.removeLibraryFolder(folderId);
+      setFolderSources(current => current.filter(folder => folder.id !== folderId));
+      setDocs(current => current.map(doc => doc.sourceFolderId === folderId
+        ? (({ sourceFolderId, sourceFolderName, sourceRelativePath, sourceModifiedAt, ...rest }) => rest)(doc) : doc));
+    } catch (error) { setFolderSyncError(error.message || 'Could not remove this folder link.'); }
+  };
   const updateProjectNotes = (targetProjectId, notes) => setProjects(current => current.map(project => project.id === targetProjectId ? { ...project, notes } : project));
   const saveAnswerToNotes = async (message, thread) => {
     const targetId = noteProjectByMessage[message.id] || projectId;
@@ -421,7 +551,9 @@ export default function App() {
       const result = await response.json();
       if (!response.ok || !result.summary) throw new Error(result.error || 'Could not shorten the answer.');
       const entry = { id: uid(), messageId: message.id, paperId: thread.docId, question, summary: result.summary, page: thread.page, savedAt: Date.now() };
-      setProjects(current => current.map(project => project.id === targetId ? { ...project, paperIds: [...new Set([...(project.paperIds || []), thread.docId])], entries: [...(project.entries || []), entry] } : project));
+      setProjects(current => current.map(project => project.id === targetId
+        ? { ...project, paperIds: [...new Set([...(project.paperIds || []), thread.docId])], entries: [...(project.entries || []), entry] }
+        : { ...project, paperIds: (project.paperIds || []).filter(id => id !== thread.docId) }));
       setProjectId(targetId); setSidebarSections(current => ({ ...current, projects: true, notes: true, savedAnswers: true })); setLeftOpen(true);
     } catch (error) { setNoteErrors(current => ({ ...current, [message.id]: error.message || 'Could not save this note.' })); }
     finally { if (freeOnlyMode) refreshFreeUsage(); setNoteSaving(current => ({ ...current, [message.id]: false })); }
@@ -504,7 +636,7 @@ export default function App() {
         await savePdf(doc.id, articleBlob(data.article));
         paperTextCache.current.delete(doc.id); paperRefsCache.current.delete(doc.id);
         setDocs(current => [{ ...doc, status: current.find(item => item.id === doc.id)?.status || doc.status }, ...current.filter(item => item.id !== doc.id)]);
-        if (projectId) setProjects(current => current.map(project => project.id === projectId ? { ...project, paperIds: [...new Set([...(project.paperIds || []), doc.id])] } : project));
+        if (projectId) movePaperToFolder(doc.id, projectId);
         if (doc.id === docId) setPdfRevision(revision => revision + 1);
         openPaper(doc.id); setLibraryKind('all'); setLibraryStatus('all'); setAddPaperOpen(false); setArxivInput('');
         return;
@@ -520,7 +652,7 @@ export default function App() {
       paper.kind = 'paper'; paper.addedAt = Date.now(); paper.status = docs.find(doc => doc.id === paper.id)?.status || 'unread';
       paperTextCache.current.delete(paper.id);
       setDocs(current => [paper, ...current.filter(doc => doc.id !== paper.id)]);
-      if (projectId) setProjects(current => current.map(project => project.id === projectId ? { ...project, paperIds: [...new Set([...(project.paperIds || []), paper.id])] } : project));
+      if (projectId) movePaperToFolder(paper.id, projectId);
       if (paper.id === docId) setPdfRevision(revision => revision + 1);
       openPaper(paper.id); setAddPaperOpen(false); setArxivInput('');
     } catch (error) { setImportError(error.message || 'Could not save this paper.'); }
@@ -539,7 +671,7 @@ export default function App() {
       await savePdf(data.document.id, articleBlob(data.article));
       paperTextCache.current.delete(data.document.id); paperRefsCache.current.delete(data.document.id);
       setDocs(current => [data.document, ...current.filter(doc => doc.id !== data.document.id)]);
-      if (projectId) setProjects(current => current.map(project => project.id === projectId ? { ...project, paperIds: [...new Set([...(project.paperIds || []), data.document.id])] } : project));
+      if (projectId) movePaperToFolder(data.document.id, projectId);
       if (data.document.id === docId) setPdfRevision(value => value + 1);
       openPaper(data.document.id); setLibraryKind('all'); setLibraryStatus('all'); setAddPaperOpen(false); setArxivInput('');
     } catch (error) { setImportError(error.message); }
@@ -558,7 +690,7 @@ export default function App() {
       }
     } catch { setImportError('Could not save this PDF. Your browser may be out of storage.'); event.target.value = ''; return; }
     setDocs(current => [...next, ...current]);
-    if (projectId) setProjects(current => current.map(project => project.id === projectId ? { ...project, paperIds: [...new Set([...(project.paperIds || []), ...next.map(doc => doc.id)])] } : project));
+    if (projectId) next.forEach(doc => movePaperToFolder(doc.id, projectId));
     setOpenTabs(current => [...new Set([...current, ...next.map(doc => doc.id)])]);
     openPaper(next[0].id); setAddPaperOpen(false);
     event.target.value = '';
@@ -1022,8 +1154,11 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [paperSearch, paperSearchOpen, pdf, article, docId]);
 
-  const scopedDocs = docs.filter(doc => !activeProject || activeProject.paperIds?.includes(doc.id));
-  const filteredDocs = filterLibrary(docs, projects, { projectId, query: fileSearch, kind: libraryKind, status: libraryStatus, sort: librarySort });
+  const projectByPaper = new Map();
+  for (const project of projects) for (const paperId of project.paperIds || []) if (!projectByPaper.has(paperId)) projectByPaper.set(paperId, project.id);
+  const treeDocs = filterLibrary(docs, projects, { query: fileSearch, kind: libraryKind, status: libraryStatus, sort: librarySort });
+  const docsInFolder = folderId => treeDocs.filter(doc => folderId ? projectByPaper.get(doc.id) === folderId : !projectByPaper.has(doc.id) && (!doc.sourceFolderId || !folderSources.some(folder => folder.id === doc.sourceFolderId)));
+  const docsInComputerFolder = folderId => treeDocs.filter(doc => doc.sourceFolderId === folderId && !projectByPaper.has(doc.id));
 
   return <div className={`app-shell${zenMode ? ' zen-mode' : ''}`}>
     <aside className={`library-panel ${leftOpen ? '' : 'collapsed'}`} style={{ '--library-width': `${libraryWidth}px` }}>
@@ -1032,19 +1167,27 @@ export default function App() {
       <div className="library-scroll">
         <button className="new-paper" onClick={() => { setImportError(''); setAddPaperOpen(true); }}><Plus size={18} /> Add reading <span>PDF / Blog</span></button>
         <input ref={fileInput} type="file" accept="application/pdf,.pdf" multiple hidden onChange={handleUpload} />
-        <div className="section-heading projects-heading"><button className="section-toggle" onClick={() => toggleSection('projects')} aria-expanded={sectionOpen('projects')}><ChevronDown size={14} /> PROJECTS <small>{projects.length}</small></button><button onClick={() => { setProjectName(''); setProjectModalOpen(true); }} title="Create project"><Plus size={16} /></button></div>
-        {sectionOpen('projects') && <div className="project-list">
-          <button className={`project-item ${!projectId ? 'active' : ''}`} onClick={() => setProjectId('')}><Layers3 size={15} /><span>All reading</span><small>{docs.length}</small></button>
-          {projects.map(project => <button className={`project-item ${project.id === projectId ? 'active' : ''}`} key={project.id} onClick={() => { setProjectId(project.id); setSidebarSections(current => ({ ...current, notes: true })); }}><FolderKanban size={15} /><span>{project.name}</span><small>{project.paperIds?.length || 0}</small></button>)}
+        <div className="section-heading projects-heading"><button className="section-toggle" onClick={() => toggleSection('projects')} aria-expanded={sectionOpen('projects')}><ChevronDown size={14} /> LIBRARY <small>{docs.length}</small></button><span className="tree-heading-actions">{window.paperlensDesktop?.chooseLibraryFolder && <button onClick={addComputerFolder} disabled={folderSyncBusy} title="Add a folder from this computer" aria-label="Add a computer folder"><FolderPlus size={15} /></button>}<button onClick={() => { setProjectName(''); setProjectModalOpen(true); }} title="Create project folder" aria-label="Create project folder"><Plus size={16} /></button></span></div>
+        {sectionOpen('projects') && <div className="library-tools"><div className="library-search"><Search size={16} /><input value={fileSearch} onChange={e => setFileSearch(e.target.value)} placeholder="Search titles, authors, or websites…" /></div>
+        <div className="library-kind-filters" role="group" aria-label="Document type">{[['all', 'All'], ['paper', 'Papers'], ['article', 'Articles']].map(([kind, label]) => <button key={kind} aria-pressed={libraryKind === kind} onClick={() => setLibraryKind(kind)}>{label} <small>{kind === 'all' ? docs.length : docs.filter(doc => (doc.kind === 'article' ? 'article' : 'paper') === kind).length}</small></button>)}</div>
+        <div className="library-organize"><select aria-label="Filter reading status" value={libraryStatus} onChange={event => setLibraryStatus(event.target.value)}><option value="all">Every status</option><option value="unread">Unread</option><option value="reading">Reading</option><option value="finished">Finished</option></select><select aria-label="Sort library" value={librarySort} onChange={event => setLibrarySort(event.target.value)}><option value="recent">Recently added</option><option value="title">Title A–Z</option><option value="source">Author / website</option></select></div></div>}
+        {sectionOpen('projects') && <div className="file-tree" role="tree" aria-label="Paper library">
+          <div className={`tree-folder ${!projectId ? 'selected' : ''}`} role="treeitem" aria-expanded={treeFolders.general !== false} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); setProjectId(''); if (draggedPaper.current) movePaperToFolder(draggedPaper.current, ''); }}>
+            <button onClick={() => { toggleTreeFolder('general'); setProjectId(''); }}><ChevronDown size={14} className={treeFolders.general === false ? 'tree-collapsed' : ''} /><Folder size={15} /><span>General</span><small>{docs.filter(doc => !projectByPaper.has(doc.id)).length}</small></button>
+            {treeFolders.general !== false && <div className="tree-children" role="group">{docsInFolder('').map(doc => <TreePaper key={doc.id} doc={doc} active={docId === doc.id} onDragStart={() => { draggedPaper.current = doc.id; }} onDragEnd={() => { draggedPaper.current = ''; }} onOpen={() => openPaper(doc.id)} onMove={movePaperToFolder} projects={projects} onRemove={() => removeDoc(doc.id)} />)}
+              {folderSources.map(folder => <div className="tree-folder computer-folder" key={folder.id} role="treeitem" aria-expanded={treeFolders[`computer:${folder.id}`] !== false} onDragOver={event => event.stopPropagation()} onDrop={event => event.stopPropagation()}>
+                <div className="computer-folder-row"><button className="computer-folder-toggle" onClick={() => toggleTreeFolder(`computer:${folder.id}`)}><ChevronDown size={13} className={treeFolders[`computer:${folder.id}`] === false ? 'tree-collapsed' : ''} /><Folder size={14} /><span>{folder.name}</span><small>{docsInComputerFolder(folder.id).length}</small></button><button disabled={folderSyncBusy} onClick={() => refreshComputerFolder(folder.id)} title="Scan for new or changed PDFs" aria-label={`Refresh ${folder.name}`}><RefreshCw size={13} className={folderSyncBusy ? 'spin-refresh' : ''} /></button><button onClick={() => forgetComputerFolder(folder.id)} title="Remove folder link; keep imported PDFs" aria-label={`Remove ${folder.name} folder link`}><FolderMinus size={14} /></button></div>
+                {treeFolders[`computer:${folder.id}`] !== false && <ComputerFolderContents folderId={folder.id} documents={docsInComputerFolder(folder.id)} openFolders={treeFolders} onToggle={toggleTreeFolder} projects={projects} activeDocId={docId} onDragStart={id => { draggedPaper.current = id; }} onDragEnd={() => { draggedPaper.current = ''; }} onOpen={openPaper} onMove={movePaperToFolder} />}
+              </div>)}
+            </div>}
+          </div>
+          {projects.map(project => <div className={`tree-folder ${project.id === projectId ? 'selected' : ''}`} key={project.id} role="treeitem" aria-expanded={treeFolders[project.id] !== false} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); setProjectId(project.id); if (draggedPaper.current) movePaperToFolder(draggedPaper.current, project.id); }}>
+            <button onClick={() => { toggleTreeFolder(project.id); setProjectId(project.id); setSidebarSections(current => ({ ...current, notes: true })); }}><ChevronDown size={14} className={treeFolders[project.id] === false ? 'tree-collapsed' : ''} /><Folder size={15} /><span>{project.name}</span><small>{(project.paperIds || []).length}</small></button>
+            {treeFolders[project.id] !== false && <div className="tree-children" role="group">{docsInFolder(project.id).map(doc => <TreePaper key={doc.id} doc={doc} active={docId === doc.id} draggable onDragStart={() => { draggedPaper.current = doc.id; }} onDragEnd={() => { draggedPaper.current = ''; }} onOpen={() => openPaper(doc.id)} onMove={movePaperToFolder} projects={projects} onRemove={() => removeDoc(doc.id)} />)}</div>}
+          </div>)}
+          {folderSyncError && <p className="folder-sync-error" role="alert">{folderSyncError}</p>}{treeDocs.length === 0 && <p className="annotation-empty">No matching reading. Change your filters or add a paper or article.</p>}
         </div>}
         {activeProject && <section className="project-notes-panel"><div className="project-notes-heading"><button onClick={() => toggleSection('notes')} aria-expanded={sectionOpen('notes')}><StickyNote size={14} /> Notes <ChevronDown size={13} className={sectionOpen('notes') ? '' : 'notes-collapsed'} /></button><div className="project-note-actions"><button onClick={shareProject} disabled={backupBusy} title="Export project with papers, annotations and README notes" aria-label="Export project"><Share2 size={14} /> Share</button><button onClick={() => backupInput.current?.click()} title="Import a shared project" aria-label="Import project"><UploadCloud size={14} /> Import</button><button onClick={() => downloadProjectReadme(activeProject)} title="Download project README.md" aria-label="Download project README.md"><ArrowDownToLine size={14} /> README.md</button><button onClick={() => setManageProjectId(activeProject.id)} title="Manage reading in project" aria-label="Manage reading in project"><Layers3 size={14} /></button></div></div>{sectionOpen('notes') && <><textarea aria-label={`${activeProject.name} project notes`} value={activeProject.notes || ''} onChange={event => updateProjectNotes(activeProject.id, event.target.value)} placeholder={`Your own notes for ${activeProject.name}…`} />{(activeProject.entries || []).length > 0 && <div className="project-saved-answers"><button className="saved-answers-toggle" onClick={() => toggleSection('savedAnswers')} aria-expanded={sectionOpen('savedAnswers')}><ChevronDown size={13} className={sectionOpen('savedAnswers') ? '' : 'notes-collapsed'} /> SAVED ANSWERS · {activeProject.entries.length}</button>{sectionOpen('savedAnswers') && activeProject.entries.map(entry => <article key={entry.id} className="project-note-entry"><div><span>{docs.find(doc => doc.id === entry.paperId)?.name || 'Document'} · {docs.find(doc => doc.id === entry.paperId)?.kind === 'article' ? '§' : 'p.'} {entry.page}</span><button aria-label="Remove saved answer" title="Remove saved answer" onClick={() => setProjects(current => current.map(project => project.id === activeProject.id ? { ...project, entries: (project.entries || []).filter(item => item.id !== entry.id) } : project))}><X size={12} /></button></div><b>{entry.question}</b>{entry.annotationId && <button className="note-source-link" onClick={() => jumpToEvidence({ docId: entry.paperId, page: entry.page, quote: annotations.find(item => item.id === entry.annotationId)?.text || "" })}>Open annotation · p. {entry.page}</button>}<div className="project-note-summary" dangerouslySetInnerHTML={{ __html: html(entry.summary) }} /></article>)}</div>}</>}</section>}
-        <div className="section-heading"><button className="section-toggle" onClick={() => toggleSection('library')} aria-expanded={sectionOpen('library')}><ChevronDown size={14} /> YOUR LIBRARY <small>{filteredDocs.length}</small></button></div>
-        {sectionOpen('library') && <><div className="library-search"><Search size={16} /><input value={fileSearch} onChange={e => setFileSearch(e.target.value)} placeholder="Search titles, authors, or websites…" /></div>
-        <div className="library-kind-filters" role="group" aria-label="Document type">{[['all', 'All'], ['paper', 'Papers'], ['article', 'Articles']].map(([kind, label]) => <button key={kind} aria-pressed={libraryKind === kind} onClick={() => setLibraryKind(kind)}>{label} <small>{kind === 'all' ? scopedDocs.length : scopedDocs.filter(doc => (doc.kind === 'article' ? 'article' : 'paper') === kind).length}</small></button>)}</div>
-        <div className="library-organize"><select aria-label="Filter reading status" value={libraryStatus} onChange={event => setLibraryStatus(event.target.value)}><option value="all">Every status</option><option value="unread">Unread</option><option value="reading">Reading</option><option value="finished">Finished</option></select><select aria-label="Sort library" value={librarySort} onChange={event => setLibrarySort(event.target.value)}><option value="recent">Recently added</option><option value="title">Title A–Z</option><option value="source">Author / website</option></select></div>
-        {!filteredDocs.length && <p className="annotation-empty">No matching reading. Change your filters or add a paper or article.</p>}
-        <div className="paper-list">{filteredDocs.map(doc => <div key={doc.id} className={`paper-item ${docId === doc.id ? 'active' : ''}`}><button onClick={() => openPaper(doc.id)}><span className="paper-icon">{doc.kind === 'article' ? <Globe size={17} /> : <FileText size={17} />}</span><span className="paper-meta"><strong>{doc.name}</strong><small>{doc.kind === 'article' ? 'Article' : 'Paper'} · {doc.status || 'unread'} · {doc.subtitle}</small></span></button>{activeProject && <button className="project-paper-toggle" onClick={() => toggleProjectPaper(activeProject.id, doc.id)} title="Remove paper from project"><X size={13} /></button>}{!activeProject && <select className="document-project-picker" aria-label={`Add ${doc.name} to project`} value="" onChange={event => { if (event.target.value === 'new') { setProjectName(''); setProjectModalOpen(true); } else if (event.target.value) { const id = event.target.value; setProjects(current => current.map(project => project.id === id ? { ...project, paperIds: [...new Set([...(project.paperIds || []), doc.id])] } : project)); } }}><option value="">Project…</option>{projects.map(project => <option key={project.id} value={project.id} disabled={project.paperIds?.includes(doc.id)}>{project.name}{project.paperIds?.includes(doc.id) ? ' ✓' : ''}</option>)}<option value="new">New project…</option></select>}{doc.id !== 'sample' && <button className="delete-item" onClick={() => removeDoc(doc.id)} title="Remove document"><X size={14} /></button>}</div>)}</div>
-        {activeProject && <button className="manage-project-papers" onClick={() => setManageProjectId(activeProject.id)}><Plus size={14} /> Add or remove reading</button>}</>}
         <div className="section-heading doubts-heading"><button className="section-toggle" onClick={() => toggleSection('doubts')} aria-expanded={sectionOpen('doubts')}><ChevronDown size={14} /> OPEN DOUBTS <small>{docThreads.length}</small></button><button onClick={() => startBlank('explain')} title="New doubt"><Plus size={16} /></button></div>
         {sectionOpen('doubts') && (docThreads.length ? <div className="thread-list">{docThreads.map(thread => { const Icon = MODES[thread.mode]?.icon || Sparkles; return <div className={`thread-item ${threadId === thread.id ? 'active' : ''}`} key={thread.id}><button onClick={() => jumpToThread(thread)}><span className={`thread-icon ${MODES[thread.mode]?.color}`}><Icon size={15} /></span><span><strong>{thread.title}</strong><small>{MODES[thread.mode]?.short} · {docs.find(doc => doc.id === thread.docId)?.kind === 'article' ? '§' : 'p.'} {thread.page}{thread.busy ? ' · Thinking…' : ''}</small></span></button><button className="delete-item" title={`Delete ${thread.title}`} aria-label={`Delete ${thread.title}`} onClick={() => removeThread(thread.id)}><X size={13} /></button></div>; })}</div> : <div className="empty-doubts"><MessageCircleQuestion size={23} /><p>Your questions will live here.</p><span>Select text in the paper to start.</span></div>)}
         <div className="section-heading annotation-heading"><button className="section-toggle" onClick={() => toggleSection('annotations')} aria-expanded={sectionOpen('annotations')}><ChevronDown size={14} /> ANNOTATIONS <small>{docAnnotations.length}</small></button></div>
