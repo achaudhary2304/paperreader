@@ -93,7 +93,7 @@
 /* Project organization, durable notes, and draggable workspace panels. */
 .library-panel{position:relative;width:var(--library-width,255px);flex:0 0 var(--library-width,255px);min-width:0}
 .companion-panel{position:relative;width:var(--companion-width,420px);flex:0 0 var(--companion-width,420px);min-width:0}
-.library-panel.collapsed,.companion-panel.closed{width:0;flex-basis:0}
+.library-panel.collapsed{width:0;flex-basis:0}.companion-panel.closed{width:0;flex-basis:0;min-width:0;overflow:hidden;visibility:hidden;pointer-events:none;border:0}
 .panel-resizer{position:absolute;z-index:8;top:0;bottom:0;width:10px;padding:0;border:0;background:transparent;color:#c2bdcb;display:flex;align-items:center;justify-content:center;opacity:.28;cursor:col-resize;touch-action:none}
 .panel-resizer:hover,.panel-resizer:focus-visible{opacity:1;background:#eee9fa;color:#7458cc}
 .left-resizer{right:-5px}.right-resizer{left:-5px}
