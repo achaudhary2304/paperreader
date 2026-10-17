@@ -39,7 +39,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test
+      # The test suite exercises Linux-specific local storage behavior; run it
+      # once on Linux while still packaging the desktop app on each platform.
+      - if: matrix.platform == 'linux'
+        run: npm test
       - run: npm run desktop:package -- ${{ matrix.build_args }}
       - uses: actions/attest@v4
         with:
