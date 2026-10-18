@@ -1,7 +1,8 @@
 import { completionResponse, requestSignal } from './completionResponse.js';
 import { createHash } from 'node:crypto';
+import { GROQ_MODELS } from '../shared/models.js';
 
-export const FALLBACK_MODELS = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b', 'llama-3.1-8b-instant'];
+export const FALLBACK_MODELS = GROQ_MODELS.map(model => model.id);
 const BROWSER_MODELS = new Set(['openai/gpt-oss-120b', 'openai/gpt-oss-20b']);
 const VISION_MODELS = new Set(['qwen/qwen3.8-27b']);
 

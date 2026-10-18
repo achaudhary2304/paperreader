@@ -17,7 +17,7 @@
     "dev:server": "node --watch server/index.js",
     "dev:client": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test": "node --test server/*.test.js src/*.test.js desktop/*.test.js",
+    "test": "node scripts/test.mjs",
     "start": "node server/index.js",
     "desktop": "node scripts/desktop.mjs",
     "desktop:package": "npm run build && electron-builder --publish never",

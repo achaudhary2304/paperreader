@@ -18,7 +18,7 @@ test('computer folder scan discovers nested PDFs, refreshes, and reads only regi
     const added = await service.choose(null);
     assert.equal(added.folder.name, 'papers');
     assert.equal(added.files.length, 1);
-    assert.equal(added.files[0].relativePath, join('subfolder', 'paper.pdf'));
+    assert.equal(added.files[0].relativePath, 'subfolder/paper.pdf');
     assert.equal(new TextDecoder().decode(await service.readPdf(added.files[0].id)), '%PDF-first');
 
     await writeFile(join(source, 'new.pdf'), '%PDF-second');
