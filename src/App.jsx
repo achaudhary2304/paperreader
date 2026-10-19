@@ -2755,7 +2755,7 @@ export default function App() {
         <div className="sidebar-footer">
           <div className="mini-avatar">PL</div>
           <div>
-            <strong>Your reading space</strong>
+            <strong>Your library</strong>
             <small>Private to this browser</small>
           </div>
           <button className="icon-button" title="Settings" onClick={() => setSettingsOpen(true)}>
@@ -2779,7 +2779,7 @@ export default function App() {
               )}
               <span className="crumb-muted">Library</span>
               <ChevronRight size={14} />
-              <strong>{hasActiveDoc ? ellipsis(activeDoc.name, 37) : 'Reading space'}</strong>
+              <strong>{hasActiveDoc ? ellipsis(activeDoc.name, 37) : 'Library'}</strong>
             </div>
             <div className="top-actions">
               <button
@@ -2811,9 +2811,9 @@ export default function App() {
               <button
                 className="sidebar-toggle"
                 aria-expanded={sidebarOpen}
-                aria-label={sidebarOpen ? 'Collapse reading companion' : 'Show reading companion'}
+                aria-label={sidebarOpen ? 'Hide AI chat' : 'Show AI chat'}
                 onClick={() => setSidebarOpen((o) => !o)}
-                title={sidebarOpen ? 'Hide companion' : 'Show companion'}
+                title={sidebarOpen ? 'Hide AI chat' : 'Show AI chat'}
               >
                 {sidebarOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
               </button>
@@ -3130,11 +3130,10 @@ export default function App() {
                 <div className="empty-reader-mark">
                   <BookOpenText size={29} />
                 </div>
-                <span className="eyebrow">YOUR READING SPACE</span>
-                <h2>Ready when you are.</h2>
+                <span className="eyebrow">LIBRARY</span>
+                <h2>Open a document</h2>
                 <p>
-                  Your library is saved on this computer. Open a paper or add a new reading to
-                  continue.
+                  Open a document from your library or add a PDF or webpage.
                 </p>
                 <div>
                   <button className="primary-action" onClick={() => setLeftOpen(true)}>
@@ -3345,8 +3344,8 @@ export default function App() {
         <button
           className="panel-resizer right-resizer"
           onPointerDown={(event) => beginPanelResize('companion', event)}
-          title="Drag to resize reading companion"
-          aria-label="Resize reading companion"
+          title="Drag to resize AI chat"
+          aria-label="Resize AI chat"
         >
           <GripVertical size={16} />
         </button>
@@ -3356,28 +3355,28 @@ export default function App() {
               <Sparkles size={18} fill="currentColor" />
             </span>
             <div>
-              <strong>Reading companion</strong>
+              <strong>AI chat</strong>
               <small>
                 {activeThread
-                  ? 'A separate space for this doubt'
-                  : 'A little clarity, right where you read'}
+                  ? 'Current chat'
+                  : 'Ask about your document'}
               </small>
             </div>
           </div>
           <button
             className="icon-button"
             onClick={() => setSidebarOpen(false)}
-            title="Close companion"
+            title="Close AI chat"
           >
             <X size={18} />
           </button>
         </div>
         <div className="explanation-tools">
-          <span>Companion text size</span>
-          <div className="explanation-font-controls" role="group" aria-label="Companion font size">
+          <span>Chat text size</span>
+          <div className="explanation-font-controls" role="group" aria-label="Chat font size">
             <button
-              title="Decrease companion font size"
-              aria-label="Decrease companion font size"
+              title="Decrease chat font size"
+              aria-label="Decrease chat font size"
               disabled={answerFontSize <= 12}
               onClick={() => setAnswerFontSize((size) => Math.max(12, size - 1))}
             >
@@ -3385,8 +3384,8 @@ export default function App() {
             </button>
             <span aria-live="polite">{answerFontSize}px</span>
             <button
-              title="Increase companion font size"
-              aria-label="Increase companion font size"
+              title="Increase chat font size"
+              aria-label="Increase chat font size"
               disabled={answerFontSize >= 24}
               onClick={() => setAnswerFontSize((size) => Math.min(24, size + 1))}
             >
@@ -3906,7 +3905,7 @@ export default function App() {
                 ['/', 'Search this paper'],
                 ['H', 'Highlight selected text'],
                 ['N', 'New doubt'],
-                ['[ / ]', 'Toggle library / companion'],
+                ['[ / ]', 'Toggle library / AI chat'],
                 ['Esc', 'Close a panel or dialog'],
                 ['?', 'Show shortcuts'],
               ].map(([key, action]) => (

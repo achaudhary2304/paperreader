@@ -18,6 +18,18 @@ jobs:
             assets: |
               release/*.AppImage
               release/*.deb
+          - platform: windows
+            os: windows-latest
+            build_args: --win --x64
+            assets: release/*.exe
+          - platform: macos-arm64
+            os: macos-latest
+            build_args: --mac --arm64
+            assets: release/*-arm64.dmg
+          - platform: macos-x64
+            os: macos-15-intel
+            build_args: --mac --x64
+            assets: release/*-x64.dmg
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     permissions:
@@ -31,8 +43,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # The test suite exercises Linux-specific local storage behavior; run it
-      # once on Linux while still packaging the desktop app on each platform.
+      # Run the full suite on Linux; build each installer on its target OS.
       - if: matrix.platform == 'linux'
         run: npm test
       - run: npm run desktop:package -- ${{ matrix.build_args }}
