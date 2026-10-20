@@ -109,9 +109,7 @@ function PdfPage({ number, total, width, ratio, scrollRoot, searchQuery, matchin
       {visible && annotations.filter(item => item.kind === 'Region').flatMap(item => item.rects.map((rect, index) =>
         <span key={`${item.id}:${index}`} className={`figure-region${item.embedded ? ' embedded-annotation-hit' : ''}`} data-annotation-id={item.id}
           style={{ left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.w * 100}%`, height: `${rect.h * 100}%` }} />))}
-      {visible && annotations.filter(item => item.kind === 'Comment').flatMap(item => item.rects.slice(0, 1).map((rect, index) =>
-        <span key={`${item.id}:${index}`} className="annotation-comment-hit" data-annotation-id={item.id}
-          style={{ left: `${(rect.x + rect.w) * 100 - 1.5}%`, top: `${rect.y * 100}%` }} title="Open comment" />))}
+
     </div>
     <div className="pdf-page-label">{number} / {total}</div>
   </section>;

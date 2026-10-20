@@ -260,6 +260,8 @@ export default function App() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [askProject, setAskProject] = useState(false);
   const [hoveredAnnotation, setHoveredAnnotation] = useState(null);
+  const annotationHoverTimer = useRef(null);
+  useEffect(() => () => clearTimeout(annotationHoverTimer.current), []);
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupError, setBackupError] = useState('');
   const [pdfExportBusy, setPdfExportBusy] = useState(false);
@@ -685,6 +687,10 @@ export default function App() {
       const selected = window.getSelection();
       const node = selected?.anchorNode;
       const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+      if (!selected?.rangeCount || selected.isCollapsed || selected.toString().trim().length < 3 ||
+          !readerRef.current?.contains(selected.anchorNode) || !readerRef.current?.contains(selected.focusNode)) {
+        setSelection(current => current ? null : current);
+      }
       if (!selected?.toString().trim() || !element?.closest('.conversation .answer-content'))
         setAnswerSelection((current) => (current ? null : current));
     };
@@ -1283,7 +1289,12 @@ export default function App() {
     if (regionMode) return;
     const selected = window.getSelection();
     const text = selected?.toString().replace(/\s+/g, ' ').trim();
-    if (!text || text.length < 3 || !readerRef.current?.contains(selected.anchorNode)) return;
+    if (!text || text.length < 3 || !selected.rangeCount || !readerRef.current?.contains(selected.anchorNode)) {
+      setSelection(null);
+      return;
+    }
+    clearTimeout(annotationHoverTimer.current);
+    setHoveredAnnotation(null);
     setAnswerSelection(null);
     const rect = selected.getRangeAt(0).getBoundingClientRect();
     const start = selected.getRangeAt(0).startContainer;
@@ -2078,28 +2089,26 @@ export default function App() {
       ),
     );
   };
+  const hideAnnotationPreview = () => {
+    clearTimeout(annotationHoverTimer.current);
+    annotationHoverTimer.current = setTimeout(() => setHoveredAnnotation(null), 250);
+  };
   const previewAnnotation = (event) => {
+    if (!window.getSelection()?.isCollapsed) {
+      setHoveredAnnotation(null);
+      return;
+    }
     const mark = event.target.closest?.('[data-annotation-id]');
-    if (!mark) {
-      setHoveredAnnotation((current) => (current ? null : current));
-      return;
-    }
-    const item = annotations.find((entry) => entry.id === mark.dataset.annotationId);
-    if (!item) {
-      setHoveredAnnotation((current) => (current ? null : current));
-      return;
-    }
+    const item = annotations.find(entry => entry.id === mark?.dataset.annotationId);
+    if (!item) { hideAnnotationPreview(); return; }
+    clearTimeout(annotationHoverTimer.current);
     const rect = mark.getBoundingClientRect();
-    setHoveredAnnotation((current) =>
-      current?.item.id === item.id
-        ? current
-        : {
-            item,
-            left: Math.max(12, Math.min(rect.left, window.innerWidth - 312)),
-            top: rect.bottom + 8,
-            above: rect.bottom > window.innerHeight - 180,
-          },
-    );
+    setHoveredAnnotation(current => current?.item.id === item.id ? current : {
+      item,
+      left: Math.max(12, Math.min(rect.left, window.innerWidth - 312)),
+      top: rect.bottom + 8,
+      above: rect.bottom > window.innerHeight - 260,
+    });
   };
   const scrollAnnotationHit = (number) => {
     const id = pendingAnnotationJump.current;
@@ -3102,7 +3111,7 @@ export default function App() {
             handleReaderScroll(event);
           }}
           onMouseOver={previewAnnotation}
-          onMouseLeave={() => setHoveredAnnotation(null)}
+          onMouseLeave={hideAnnotationPreview}
           onMouseUp={captureSelection}
           onKeyUp={captureSelection}
           onClick={(event) => {
@@ -3168,9 +3177,10 @@ export default function App() {
                 onHover={(event) => {
                   const item = docAnnotations.find((item) => item.id === event.id);
                   if (!item) {
-                    setHoveredAnnotation(null);
+                    hideAnnotationPreview();
                     return;
                   }
+                  clearTimeout(annotationHoverTimer.current);
                   setSidebarOpen(true);
                   setHoveredAnnotation({
                     item,
@@ -3276,6 +3286,16 @@ export default function App() {
               transform: hoveredAnnotation.above ? 'translateY(-100%)' : undefined,
             }}
             role="tooltip"
+            tabIndex={0}
+            onMouseEnter={() => clearTimeout(annotationHoverTimer.current)}
+            onMouseLeave={hideAnnotationPreview}
+            onFocus={() => clearTimeout(annotationHoverTimer.current)}
+            onBlur={hideAnnotationPreview}
+            onClick={() => {
+              setAnnotationProjectId(projectId || '');
+              setAnnotationDraft({ ...hoveredAnnotation.item });
+              setHoveredAnnotation(null);
+            }}
           >
             <strong>
               {hoveredAnnotation.item.embedded
