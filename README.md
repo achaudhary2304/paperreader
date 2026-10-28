@@ -2,6 +2,10 @@
 
 A local PDF and webpage reader with AI chat.
 
+## Demo
+
+[Watch the 45-second demo](https://github.com/achaudhary2304/paperreader/blob/main/docs/media/paperlens-demo.mp4)
+
 ## Install
 
 Download from [GitHub Releases](https://github.com/achaudhary2304/paperreader/releases/latest):
