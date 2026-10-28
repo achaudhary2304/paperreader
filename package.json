@@ -1,6 +1,6 @@
 {
   "name": "paperlens",
-  "version": "0.4.15",
+  "version": "0.4.16",
   "description": "A local PDF and webpage reader with AI chat",
   "author": {
     "name": "Aryan Chaudhary",
@@ -55,7 +55,7 @@
   },
   "build": {
     "appId": "io.github.achaudhary2304.paperlens",
-    "productName": "PaperLens",
+    "productName": "PaperReader",
     "directories": {
       "output": "release"
     },

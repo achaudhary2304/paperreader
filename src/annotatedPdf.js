@@ -83,7 +83,7 @@ export async function createAnnotatedPdf(sourceBytes, sourcePdf, annotations) {
         const topLeft = viewport.convertToPdfPoint(rect.x * viewport.width, rect.y * viewport.height);
         const bottomRight = viewport.convertToPdfPoint((rect.x + rect.w) * viewport.width, (rect.y + rect.h) * viewport.height);
         const box = [Math.min(topLeft[0], bottomRight[0]), Math.min(topLeft[1], bottomRight[1]), Math.max(topLeft[0], bottomRight[0]), Math.max(topLeft[1], bottomRight[1])];
-        const ref = output.context.register(output.context.obj({ Type: 'Annot', Subtype: 'Square', Rect: box, C: COLORS[annotation.color] || COLORS.yellow, F: 4, Contents: PDFHexString.fromText(annotation.note || annotation.text), T: PDFHexString.fromText('PaperLens'), NM: PDFHexString.fromText(annotation.id || ''), BS: { Type: 'Border', W: 2 }, ...(annotation.tags?.length ? { Subj: PDFHexString.fromText(annotation.tags.join(', ')) } : {}) }));
+        const ref = output.context.register(output.context.obj({ Type: 'Annot', Subtype: 'Square', Rect: box, C: COLORS[annotation.color] || COLORS.yellow, F: 4, Contents: PDFHexString.fromText(annotation.note || annotation.text), T: PDFHexString.fromText('PaperReader'), NM: PDFHexString.fromText(annotation.id || ''), BS: { Type: 'Border', W: 2 }, ...(annotation.tags?.length ? { Subj: PDFHexString.fromText(annotation.tags.join(', ')) } : {}) }));
         outputPage.node.addAnnot(ref);
         continue;
       }
@@ -108,7 +108,7 @@ export async function createAnnotatedPdf(sourceBytes, sourcePdf, annotations) {
         Rect: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)],
         QuadPoints: quads, C: color, CA: 0.38, F: 4,
         Contents: PDFHexString.fromText(annotation.kind === 'Comment' ? '' : annotation.note || annotation.text),
-        T: PDFHexString.fromText('PaperLens'),
+        T: PDFHexString.fromText('PaperReader'),
         NM: PDFHexString.fromText(annotation.id || ''),
         ...(annotation.tags?.length ? { Subj: PDFHexString.fromText(annotation.tags.join(', ')) } : {}),
       }));
@@ -116,7 +116,7 @@ export async function createAnnotatedPdf(sourceBytes, sourcePdf, annotations) {
       if (annotation.kind === 'Comment') {
         const rect = rects[0];
         const point = viewport.convertToPdfPoint(rect.x * viewport.width, rect.y * viewport.height);
-        const noteRef = output.context.register(output.context.obj({ Type: 'Annot', Subtype: 'Text', Rect: [point[0], point[1] - 16, point[0] + 16, point[1]], C: color, F: 4, Contents: PDFHexString.fromText(annotation.note || ''), T: PDFHexString.fromText('PaperLens'), NM: PDFHexString.fromText(`${annotation.id || ''}-note`), ...(annotation.tags?.length ? { Subj: PDFHexString.fromText(annotation.tags.join(', ')) } : {}) }));
+        const noteRef = output.context.register(output.context.obj({ Type: 'Annot', Subtype: 'Text', Rect: [point[0], point[1] - 16, point[0] + 16, point[1]], C: color, F: 4, Contents: PDFHexString.fromText(annotation.note || ''), T: PDFHexString.fromText('PaperReader'), NM: PDFHexString.fromText(`${annotation.id || ''}-note`), ...(annotation.tags?.length ? { Subj: PDFHexString.fromText(annotation.tags.join(', ')) } : {}) }));
         outputPage.node.addAnnot(noteRef);
       }
     }

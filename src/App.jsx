@@ -133,7 +133,7 @@ const MODES = {
 const SAMPLE = {
   id: 'sample',
   name: 'Understanding Variational Inference',
-  subtitle: 'A PaperLens sample paper',
+  subtitle: 'A PaperReader sample paper',
   added: 'Sample paper',
 };
 const GUIDE_PAPER = {
@@ -1180,7 +1180,7 @@ export default function App() {
       const paper = JSON.parse(decodeURIComponent(response.headers.get('X-Paper-Metadata')));
       if (response.headers.get('X-PaperLens-PDF') !== 'PPL1')
         throw new Error(
-          'The local app returned an unsupported PDF response. Restart PaperLens and try again.',
+          'The local app returned an unsupported PDF response. Restart PaperReader and try again.',
         );
       const bytes = new Uint8Array(await response.arrayBuffer());
       if (
@@ -2210,7 +2210,7 @@ export default function App() {
         images.push({ id, blob });
       }
       const backup = await createLibraryBackup(state, papers, images);
-      downloadBlob(backup, `paperlens-library-${new Date().toISOString().slice(0, 10)}.zip`);
+      downloadBlob(backup, `paperreader-library-${new Date().toISOString().slice(0, 10)}.zip`);
     } catch (error) {
       setBackupError(error.message || 'Could not export the library.');
     } finally {
@@ -2268,7 +2268,7 @@ export default function App() {
       const backup = await readLibraryBackup(file);
       if (
         !window.confirm(
-          `Restore this backup? It contains ${backup.counts.papers} papers, ${backup.counts.projects} projects, ${backup.counts.annotations} annotations, and ${backup.counts.doubts} doubts. Your current PaperLens library in this browser will be replaced.`,
+          `Restore this backup? It contains ${backup.counts.papers} papers, ${backup.counts.projects} projects, ${backup.counts.annotations} annotations, and ${backup.counts.doubts} doubts. Your current PaperReader library in this browser will be replaced.`,
         )
       )
         return;
@@ -2457,7 +2457,7 @@ export default function App() {
             <BookOpenText size={21} strokeWidth={2.3} />
           </div>
           <span className="brand-name">
-            paper<span>lens</span>
+            Paper<span>Reader</span>
           </span>
           <button
             className="icon-button collapse-left"
@@ -2755,7 +2755,7 @@ export default function App() {
           <button
             disabled={backupBusy}
             onClick={() => backupInput.current?.click()}
-            title="Restore a PaperLens library ZIP"
+            title="Restore a PaperReader library ZIP"
           >
             <UploadCloud size={14} /> Import library
           </button>

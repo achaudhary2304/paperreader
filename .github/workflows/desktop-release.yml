@@ -52,7 +52,7 @@ jobs:
           subject-path: ${{ matrix.assets }}
       - uses: actions/upload-artifact@v4
         with:
-          name: paperlens-${{ matrix.platform }}
+          name: paperreader-${{ matrix.platform }}
           path: ${{ matrix.assets }}
           if-no-files-found: error
 
@@ -65,7 +65,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: paperlens-*
+          pattern: paperreader-*
           merge-multiple: true
           path: release
       - name: Create GitHub release
@@ -74,4 +74,4 @@ jobs:
         run: |
           cd release
           sha256sum * > SHA256SUMS.txt
-          gh release create "$GITHUB_REF_NAME" * --repo "$GITHUB_REPOSITORY" --title "PaperLens $GITHUB_REF_NAME" --generate-notes
+          gh release create "$GITHUB_REF_NAME" * --repo "$GITHUB_REPOSITORY" --title "PaperReader $GITHUB_REF_NAME" --generate-notes

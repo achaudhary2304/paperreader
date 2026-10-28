@@ -13,7 +13,7 @@ function inspect(expression, operation, variable) {
 }
 
 serveStdio(() => {
-  const server = new McpServer({ name: 'paperlens-math', version: '1.0.0' });
+  const server = new McpServer({ name: 'paperreader-math', version: '1.0.0' });
   server.registerTool('inspect_expression', {
     description: 'Simplify a plain-text math expression or differentiate it with respect to a variable; LaTeX is not supported.',
     inputSchema: z.object({ expression: z.string().min(1).max(300), operation: z.enum(['simplify', 'differentiate']), variable: z.string().default('x') }),

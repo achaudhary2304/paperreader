@@ -115,7 +115,7 @@ export default function ProviderSettings({
           </button>
         </div>
         <h2>Settings</h2>
-        <p>Manage AI providers and choose how PaperLens looks on this computer.</p>
+        <p>Manage AI providers and choose how PaperReader looks on this computer.</p>
         {field('OPENROUTER_API_KEY', 'OPENROUTER KEY · FREE MODELS', 'sk-or-v1-…', true)}
         {field('GROQ_API_KEY', 'GROQ KEY', 'gsk_…', true)}
         <details className="custom-provider-fields">

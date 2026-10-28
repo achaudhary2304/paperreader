@@ -1,6 +1,6 @@
 # Code map
 
-PaperLens has three parts: a React interface, a local HTTP service, and an Electron desktop wrapper. They share the same application code in desktop and browser mode.
+PaperReader has three parts: a React interface, a local HTTP service, and an Electron desktop wrapper. They share the same application code in desktop and browser mode.
 
 ## Interface (`src/`)
 
@@ -44,3 +44,7 @@ A question goes from `App.jsx` → `paperRequest.js` → `/api/ask` → the rese
 Run `npm test` and `npm run build` from the project root. The test launcher resolves paths in Node so it does not depend on shell wildcard expansion. Packaging uses the existing `desktop:package` command.
 
 Keep persisted storage keys, archive formats, provider fallback rules, and the desktop origin stable when refactoring: existing libraries depend on them.
+
+## Branding compatibility
+
+PaperReader was previously named PaperLens. The package name (`paperlens`), app ID, desktop/service IDs, Electron/keyring identity and profile directory, localhost origin, `paperlens:*` storage keys, IndexedDB database, IPC bridge, environment variables, HTTP headers and ZIP manifest formats intentionally keep their original identifiers. This is a display-name change, not a data migration. Existing installs and exported backups remain compatible. Release filenames and visible UI use PaperReader.

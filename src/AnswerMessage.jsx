@@ -73,7 +73,7 @@ export default function AnswerMessage({
         <span className="answer-avatar">
           <Sparkles size={14} fill="currentColor" />
         </span>
-        <strong>PaperLens</strong>
+        <strong>PaperReader</strong>
         <span>
           · {mode?.short} · {message.provider ? `${message.provider} · ` : ''} {modelName}
         </span>

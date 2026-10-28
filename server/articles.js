@@ -29,7 +29,7 @@ export async function fetchArticleResource(input, { maxBytes = 5_000_000, signal
     const request = (url.protocol === 'https:' ? https : http).get({
       hostname: addresses[0].address, family: addresses[0].family, servername: hostname,
       port: url.port || (url.protocol === 'https:' ? 443 : 80), path: `${url.pathname}${url.search}`,
-      headers: { Host: url.host, 'User-Agent': 'PaperLens/0.4 (article reader)', Accept: 'text/html,application/xhtml+xml,image/*', 'Accept-Encoding': 'identity' }, signal,
+      headers: { Host: url.host, 'User-Agent': 'PaperReader/0.4 (article reader)', Accept: 'text/html,application/xhtml+xml,image/*', 'Accept-Encoding': 'identity' }, signal,
     }, resolve);
     request.setTimeout(20000, () => request.destroy(new Error('The website took too long to respond.')));
     request.on('error', reject);

@@ -6,7 +6,7 @@ import { createPaperCache } from '../paperCache.js';
 import { createIndexDiskCache } from '../indexDiskCache.js';
 
 serveStdio(() => {
-  const server = new McpServer({ name: 'paperlens-paper', version: '1.0.0' });
+  const server = new McpServer({ name: 'paperreader-paper', version: '1.0.0' });
   const indexes = createPaperCache({ build: createPaperIndex });
   const disk = createIndexDiskCache();
   const sourceSchema = {

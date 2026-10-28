@@ -24,7 +24,7 @@ if (!existsSync(credentials)) writeFileSync(credentials, '# Set OPENROUTER_API_K
 chmodSync(credentials, 0o600);
 const unitQuote = value => `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('%', '%%')}"`;
 writeFileSync(join(units, 'paperlens.service'), `[Unit]
-Description=PaperLens local PDF reading companion
+Description=PaperReader local PDF reader with AI chat
 
 [Service]
 Type=simple
@@ -43,7 +43,7 @@ WantedBy=default.target
 const desktopQuote = value => `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('`', '\\`').replaceAll('$', '\\$').replaceAll('%', '%%')}"`;
 writeFileSync(join(applications, 'paperlens.desktop'), `[Desktop Entry]
 Type=Application
-Name=PaperLens
+Name=PaperReader
 Comment=Read papers and explore independent doubts
 Exec=${desktopQuote(process.execPath)} ${desktopQuote(join(root, 'scripts/open.mjs'))}
 Path=${root}
@@ -54,5 +54,5 @@ Categories=Office;Education;
 run('systemctl', ['--user', 'daemon-reload']);
 run('systemctl', ['--user', 'enable', 'paperlens.service']);
 run('systemctl', ['--user', 'restart', 'paperlens.service']);
-console.log('Installed PaperLens. Starts at login; open http://127.0.0.1:5173/');
+console.log('Installed PaperReader. Starts at login; open http://127.0.0.1:5173/');
 console.log(`Credentials: ${credentials} (private to your user)`);

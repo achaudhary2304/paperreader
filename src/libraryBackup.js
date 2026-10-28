@@ -50,7 +50,7 @@ export async function readProjectExport(blob) {
   const file = zip.file('paperlens-project.json');
   if (!file) return null;
   const manifest = JSON.parse(await file.async('string'));
-  if (manifest.format !== 'paperlens-project' || manifest.version !== 1 || !manifest.state || !Array.isArray(manifest.files)) throw new Error('Unsupported PaperLens project bundle.');
+  if (manifest.format !== 'paperlens-project' || manifest.version !== 1 || !manifest.state || !Array.isArray(manifest.files)) throw new Error('Unsupported PaperReader project bundle.');
   const docs = JSON.parse(manifest.state['paperlens:docs'] || '[]');
   const projects = JSON.parse(manifest.state['paperlens:projects'] || '[]');
   const annotations = JSON.parse(manifest.state['paperlens:annotations'] || '[]');
@@ -75,9 +75,9 @@ export async function readLibraryBackup(blob) {
   if (blob.size > 750 * 1024 * 1024) throw new Error('This backup is too large to import in the browser.');
   const zip = await JSZip.loadAsync(blob);
   const manifestFile = zip.file('paperlens.json');
-  if (!manifestFile) throw new Error('This ZIP is not a PaperLens library backup.');
+  if (!manifestFile) throw new Error('This ZIP is not a PaperReader library backup.');
   const manifest = JSON.parse(await manifestFile.async('string'));
-  if (manifest.format !== 'paperlens-library' || manifest.version !== 1 || !manifest.state || !Array.isArray(manifest.files)) throw new Error('Unsupported PaperLens backup format.');
+  if (manifest.format !== 'paperlens-library' || manifest.version !== 1 || !manifest.state || !Array.isArray(manifest.files)) throw new Error('Unsupported PaperReader backup format.');
   const { state } = manifest;
   if (!Object.keys(state).every(key => BACKUP_KEYS.includes(key)) || !Object.values(state).every(value => typeof value === 'string')) throw new Error('Invalid library data in backup.');
   const docs = JSON.parse(state['paperlens:docs'] || '[]');

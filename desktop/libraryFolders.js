@@ -28,7 +28,7 @@ export function createLibraryFolderService(directory, dialog) {
 
   async function scanFolder(folderId) {
     const root = roots.get(folderId);
-    if (!root) throw new Error('This computer folder is not registered with PaperLens.');
+    if (!root) throw new Error('This computer folder is not registered with PaperReader.');
     for (const [id, file] of files) if (file.folderId === folderId) files.delete(id);
     const result = [];
     const visit = async directoryPath => {

@@ -1,10 +1,10 @@
-# PaperLens feature and release roadmap
+# PaperReader feature and release roadmap
 
-Researched October 2026 from product documentation. This is a menu for deciding what to build, not a commitment to copy every feature. PaperLens already has a PDF viewer, selectable text, independent doubt threads, several question modes, paper search, highlights and notes, arXiv import, projects, and Markdown project-note export.
+Researched October 2026 from product documentation. This is a menu for deciding what to build, not a commitment to copy every feature. PaperReader already has a PDF viewer, selectable text, independent doubt threads, several question modes, paper search, highlights and notes, arXiv import, projects, and Markdown project-note export.
 
 ## Features seen in comparable products
 
-| Capability to consider | Examples | PaperLens today | Suggested priority |
+| Capability to consider | Examples | PaperReader today | Suggested priority |
 | --- | --- | --- | --- |
 | Answers linked to an exact quote or region in the PDF | [Adobe Acrobat AI](https://helpx.adobe.com/acrobat/using/get-ai-generated-answers.html), [Zotero](https://www.zotero.org/support/pdf_reader) | Verbatim excerpt previews and text jump implemented; table-cell geometry pending | Partial |
 | Section outline with linked, short summaries | [Adobe Acrobat](https://helpx.adobe.com/acrobat/desktop/use-acrobat-ai/generative-ai-features/generate-summary.html) | No outline | High |

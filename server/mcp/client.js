@@ -6,7 +6,7 @@ let paperConnection;
 
 async function connect(serverName) {
   if (!['paper', 'math', 'research'].includes(serverName)) throw new Error('Unknown local MCP server.');
-  const client = new Client({ name: 'paperlens-api', version: '1.0.0' });
+  const client = new Client({ name: 'paperreader-api', version: '1.0.0' });
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [fileURLToPath(new URL(`./${serverName}.js`, import.meta.url))],

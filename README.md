@@ -1,10 +1,12 @@
-# PaperLens
+# PaperReader
 
 A local PDF and webpage reader with AI chat.
 
+Previously PaperLens. Existing libraries, notes, settings, and saved keys remain in the same local storage.
+
 ## Demo
 
-[Watch the 45-second demo](https://github.com/achaudhary2304/paperreader/blob/main/docs/media/paperlens-demo.mp4)
+[Watch the 45-second demo](https://github.com/achaudhary2304/paperreader/blob/main/docs/media/paperreader-demo.mp4)
 
 ## Install
 
@@ -16,7 +18,7 @@ Download from [GitHub Releases](https://github.com/achaudhary2304/paperreader/re
 | Windows | `.exe` installer |
 | macOS | `.dmg`: `arm64` for Apple Silicon, `x64` for Intel |
 
-For an AppImage, enable **Allow executing file as program** in its file properties. On macOS, drag PaperLens to Applications. The macOS builds are unsigned.
+For an AppImage, enable **Allow executing file as program** in its file properties. On macOS, drag PaperReader to Applications. The macOS builds are unsigned.
 
 Open **Settings** and add an API key. Supported providers: Groq, OpenRouter free models, and OpenAI-compatible APIs or local models. Desktop keys are stored locally using the system keyring. Choose provider order beside the chat input; a configured custom API takes priority.
 
@@ -57,7 +59,7 @@ sudo chown root:root node_modules/electron/dist/chrome-sandbox
 sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
 ```
 
-Run PaperLens without `sudo`.
+Run PaperReader without `sudo`.
 
 ### Browser mode
 

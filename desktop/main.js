@@ -2,9 +2,17 @@ import { installEditCommands } from './editCommands.js';
 import { installWebpageView } from './webpageView.js';
 import { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, session, shell } from 'electron';
 import { randomBytes } from 'node:crypto';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createProviderSettings } from './providerSettings.js';
 import { createLibraryFolderService } from './libraryFolders.js';
+
+// Preserve the original keyring identity and Chromium profile across the rename.
+app.setName('paperlens');
+const profileDirectory = join(app.getPath('appData'), 'paperlens');
+mkdirSync(profileDirectory, { recursive: true });
+app.setPath('userData', profileDirectory);
+app.setPath('sessionData', app.getPath('userData'));
 
 const PORT = 37841; // Keep the origin stable so the browser library survives restarts.
 const desktopToken = randomBytes(32).toString('hex');
@@ -37,7 +45,7 @@ app.whenReady().then(async () => {
     server = await startServer({ port: PORT, host: '127.0.0.1', desktopToken });
   } catch (error) {
     dialog.showErrorBox(
-      'PaperLens could not start',
+      'PaperReader could not start',
       `The local app service could not start. Another program may be using port ${PORT}.\n\n${error.message}`,
     );
     app.quit();
@@ -81,7 +89,7 @@ app.whenReady().then(async () => {
     callback(false),
   );
   const window = new BrowserWindow({
-    title: 'PaperLens',
+    title: 'PaperReader',
     width: 1440,
     height: 920,
     minWidth: 900,
@@ -130,7 +138,7 @@ app.whenReady().then(async () => {
             click: () => window.webContents.send('provider-settings:open'),
           },
           {
-            label: 'Restart PaperLens',
+            label: 'Restart PaperReader',
             click: () => {
               app.relaunch();
               app.quit();

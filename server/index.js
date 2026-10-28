@@ -490,7 +490,7 @@ export function startServer({
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   startServer().then((server) =>
     console.log(
-      `PaperLens API listening on http://${server.address().address}:${server.address().port}`,
+      `PaperReader API listening on http://${server.address().address}:${server.address().port}`,
     ),
   );
 }

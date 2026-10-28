@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { openAlexResearch, wikipediaResearch } from '../researchSources.js';
 
 serveStdio(() => {
-  const server = new McpServer({ name: 'paperlens-research', version: '1.0.0' });
+  const server = new McpServer({ name: 'paperreader-research', version: '1.0.0' });
   server.registerTool('search_academic', {
     description: 'Search OpenAlex for relevant research papers and return title, URL, year, and abstract preview.',
     inputSchema: z.object({ query: z.string().min(1).max(180) }),

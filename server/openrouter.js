@@ -56,7 +56,7 @@ export function createOpenRouterClient({ fetchImpl = fetch, now = Date.now } = {
       options.signal?.throwIfAborted(); options.onReset?.();
       const response = await fetchImpl('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'http://127.0.0.1:5173', 'X-OpenRouter-Title': 'PaperLens' },
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'http://127.0.0.1:5173', 'X-OpenRouter-Title': 'PaperReader' },
         body: JSON.stringify({
           ...(options.onToken ? { stream: true } : {}), model: candidate, models: candidates.slice(index, index + 3), messages,
           max_tokens: options.maxTokens || 1600, temperature: options.temperature ?? .2,
