@@ -22,6 +22,14 @@ For an AppImage, enable **Allow executing file as program** in its file properti
 
 Open **Settings** and add an API key. Supported providers: Groq, OpenRouter free models, and OpenAI-compatible APIs or local models. Desktop keys are stored locally using the system keyring. Choose provider order beside the chat input; a configured custom API takes priority.
 
+## Updates
+
+From version 0.4.18, the Linux AppImage and Windows installer support in-app updates. Open **Settings → Updates**, check for a release, download it, then choose **Restart and update**. A small update notice appears when a newer version is found. Desktop builds check GitHub after startup; downloads start only when requested, and you confirm before the app restarts.
+
+Older versions need one manual update to get this feature. Keep the AppImage in a folder you can write to. Your library, notes, and saved keys remain in the existing profile.
+
+The `.deb` package does not currently register an APT repository, so `sudo apt update` / `sudo apt upgrade` will not update it. Use the AppImage for in-app updates, or install a newer `.deb` manually.
+
 ## Features
 
 - Open local PDFs, arXiv papers, webpages, and saved HTML files.
@@ -34,6 +42,7 @@ Open **Settings** and add an API key. Supported providers: Groq, OpenRouter free
 - Import PDF annotations and export PDFs with supported highlights and comments.
 - Export and import projects or the whole library.
 - Use tabs, search, keyboard shortcuts, zoom, Zen mode, themes, and adjustable text sizes.
+- Switch light/dark mode from the toolbar, follow your system theme in Settings, and optionally darken PDF pages for viewing. PDF exports retain the original colors.
 
 For webpages, **Original** shows the live website; **Reader** shows saved text. Both support highlights and comments. If URL import fails, save the page as HTML in your browser and import that file. Images may require internet access; linked local image folders are not imported.
 

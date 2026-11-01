@@ -1,3 +1,5 @@
+import electronUpdater from 'electron-updater';
+import { createUpdateService } from './updates.js';
 import { installEditCommands } from './editCommands.js';
 import { installWebpageView } from './webpageView.js';
 import { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, session, shell } from 'electron';
@@ -54,6 +56,39 @@ app.whenReady().then(async () => {
 
   const origin = `http://127.0.0.1:${PORT}`;
   const trusted = (event) => event.senderFrame?.origin === origin;
+  const updatesSupported = app.isPackaged && (process.platform === 'win32' || (process.platform === 'linux' && Boolean(process.env.APPIMAGE)));
+  const updates = createUpdateService({
+    updater: updatesSupported ? electronUpdater.autoUpdater : null,
+    version: app.getVersion(),
+    supported: updatesSupported,
+    notify: status => {
+      for (const window of BrowserWindow.getAllWindows())
+        if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send('updates:status', status);
+    },
+    confirmInstall: async () => {
+      const result = await dialog.showMessageBox({ type: 'question', title: 'Update PaperReader', message: 'Restart PaperReader to install the update?', detail: 'Active AI requests will stop. Your saved library and notes will remain.', buttons: ['Restart and update', 'Cancel'], defaultId: 1, cancelId: 1 });
+      return result.response === 0;
+    },
+  });
+  ipcMain.handle('updates:status', event => {
+    if (!trusted(event)) throw new Error('Untrusted update request.');
+    return updates.status();
+  });
+  ipcMain.handle('updates:action', async (event, action) => {
+    if (!trusted(event) || !['check', 'download', 'install', 'releases'].includes(action)) throw new Error('Invalid update request.');
+    if (action === 'releases') {
+      await shell.openExternal('https://github.com/achaudhary2304/paperreader/releases/latest');
+      return updates.status();
+    }
+    return updates[action]();
+  });
+  let updateTimer;
+  if (updatesSupported) {
+    updateTimer = setTimeout(() => { updates.check(); }, 15_000);
+    updateTimer.unref();
+  }
+  app.on('before-quit', () => { clearTimeout(updateTimer); updates.dispose(); });
+
   ipcMain.handle('provider-settings:get', (event) => {
     if (!trusted(event)) throw new Error('Untrusted settings request.');
     return providerSettings.status();
@@ -136,6 +171,10 @@ app.whenReady().then(async () => {
           {
             label: 'Provider settings…',
             click: () => window.webContents.send('provider-settings:open'),
+          },
+          {
+            label: 'Check for updates…',
+            click: () => { window.webContents.send('provider-settings:open'); updates.check(); },
           },
           {
             label: 'Restart PaperReader',

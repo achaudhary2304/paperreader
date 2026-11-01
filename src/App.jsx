@@ -10,7 +10,8 @@ import ArticleReader from './ArticleReader.jsx';
 import OriginalWebpage from './OriginalWebpage.jsx';
 import { articleBlob, readArticle } from './articleFormat.js';
 import ProviderSettings, { BrowserProviderSettings } from './ProviderSettings.jsx';
-import Appearance from './Appearance.jsx';
+import Appearance, { DarkModeButton } from './Appearance.jsx';
+import { UpdateNotice } from './UpdateSettings.jsx';
 import LibraryTree from './LibraryTree.jsx';
 import { usePanelLayout } from './usePanelLayout.js';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -2790,6 +2791,8 @@ export default function App() {
               <strong>{hasActiveDoc ? ellipsis(activeDoc.name, 37) : 'Library'}</strong>
             </div>
             <div className="top-actions">
+              <UpdateNotice onClick={() => setSettingsOpen(true)} />
+              <DarkModeButton />
               <button
                 className="icon-button"
                 title="Hide reader controls"

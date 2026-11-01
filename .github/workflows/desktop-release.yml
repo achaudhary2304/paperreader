@@ -18,10 +18,14 @@ jobs:
             assets: |
               release/*.AppImage
               release/*.deb
+              release/latest-linux.yml
           - platform: windows
             os: windows-latest
             build_args: --win --x64
-            assets: release/*.exe
+            assets: |
+              release/*.exe
+              release/*.exe.blockmap
+              release/latest.yml
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     permissions:

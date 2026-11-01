@@ -48,3 +48,9 @@ Keep persisted storage keys, archive formats, provider fallback rules, and the d
 ## Branding compatibility
 
 PaperReader was previously named PaperLens. The package name (`paperlens`), app ID, desktop/service IDs, Electron/keyring identity and profile directory, localhost origin, `paperlens:*` storage keys, IndexedDB database, IPC bridge, environment variables, HTTP headers and ZIP manifest formats intentionally keep their original identifiers. This is a display-name change, not a data migration. Existing installs and exported backups remain compatible. Release filenames and visible UI use PaperReader.
+
+## Desktop updates
+
+`desktop/updates.js` manages update state and explicit download/install actions. `electron-updater` uses the public GitHub release feed configured in `package.json`. Updates are enabled only for packaged Windows apps and Linux AppImages, with downloads and installation on quit disabled until the user chooses them. IPC accepts a fixed action list from the trusted app origin. A native confirmation precedes restart. The Linux `.deb`, unpacked builds, and source mode do not use the updater.
+
+Release jobs must upload `latest-linux.yml`, `latest.yml`, and Windows `.exe.blockmap` files alongside their corresponding installers. These contain the versions and checksums used by the updater; installer-only releases will not work. Existing app IDs, profile location, keyring name and storage formats stay unchanged.

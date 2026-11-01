@@ -174,3 +174,22 @@
 .paper-tab[draggable=true]{cursor:grab}
 .paper-tab[draggable=true]:active{cursor:grabbing}
 .empty-reader-toolbar .reader-title strong{color:var(--theme-muted)}
+
+.appearance-mode-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:20px 0 12px}
+.appearance-mode-row label{font-size:14px!important;color:var(--theme-ink)!important}
+.appearance-mode-row select{width:auto!important;min-width:120px;background:var(--theme-panel);color:var(--theme-ink);border:1px solid var(--theme-line);border-radius:8px;padding:7px 10px}
+.pdf-dark-option{display:flex!important;align-items:center;gap:9px;font-size:13px!important;letter-spacing:0!important;color:var(--theme-ink)!important}
+.pdf-dark-option input{width:auto!important;margin:0!important;accent-color:var(--theme-accent)}
+[data-theme='midnight'] :is(.answer-content h1,.answer-content h2,.answer-content h3,.answer-content h4,.draft-selection h3,.annotation-preview strong,.annotation-preview p,.companion-home h2){color:var(--theme-ink)}
+[data-theme='midnight'] :is(.annotation-preview,.pdf-reference-preview,.pdf-reference-preview header,.pdf-reference-preview footer){background:var(--theme-panel);color:var(--theme-ink);border-color:var(--theme-line)}
+[data-pdf-dark='true'] :is(.react-pdf__Page__canvas,.region-preview img){filter:invert(.9) hue-rotate(180deg)}
+
+.update-settings{border-top:1px solid var(--theme-line);margin-top:22px;padding-top:18px}
+.update-settings-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.update-settings h3{margin:0;font-size:16px;color:var(--theme-ink)}
+.update-settings-heading span{font-size:12px;color:var(--theme-muted)}
+.update-settings-actions{display:flex;gap:10px;flex-wrap:wrap}
+.update-settings-actions button{border:1px solid var(--theme-line);border-radius:8px;background:var(--theme-soft);color:var(--theme-ink);padding:8px 12px;font-size:13px}
+.update-settings progress{width:100%;accent-color:var(--theme-accent);margin-bottom:12px}
+
+.update-notice{border:1px solid var(--theme-line);background:var(--theme-soft);color:var(--theme-ink);border-radius:8px;padding:6px 9px;font-size:12px}

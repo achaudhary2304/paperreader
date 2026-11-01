@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Check, Settings2, X } from 'lucide-react';
 import Appearance from './Appearance.jsx';
+import UpdateSettings from './UpdateSettings.jsx';
 
 export default function ProviderSettings({
   onClose,
@@ -181,6 +182,7 @@ export default function ProviderSettings({
             {busy ? 'Saving…' : 'Save settings'} <ArrowRight size={16} />
           </button>
         </div>
+        <UpdateSettings />
         <Appearance embedded />
       </div>
     </div>
