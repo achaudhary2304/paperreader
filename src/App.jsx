@@ -23,7 +23,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Command,
   FileText,
   Highlighter,
   LibraryBig,
@@ -3369,47 +3368,35 @@ export default function App() {
         >
           <GripVertical size={16} />
         </button>
-        <div className="companion-header">
-          <div className="companion-title">
-            <span className="companion-logo">
-              <Sparkles size={18} fill="currentColor" />
-            </span>
-            <div>
-              <strong>AI chat</strong>
-              <small>
-                {activeThread
-                  ? 'Current chat'
-                  : 'Ask about your document'}
-              </small>
-            </div>
-          </div>
-          <button
-            className="icon-button"
-            onClick={() => setSidebarOpen(false)}
-            title="Close AI chat"
-          >
-            <X size={18} />
-          </button>
-        </div>
         <div className="explanation-tools">
           <span>Chat text size</span>
-          <div className="explanation-font-controls" role="group" aria-label="Chat font size">
+          <div className="explanation-toolbar-actions">
+            <div className="explanation-font-controls" role="group" aria-label="Chat font size">
+              <button
+                title="Decrease chat font size"
+                aria-label="Decrease chat font size"
+                disabled={answerFontSize <= 12}
+                onClick={() => setAnswerFontSize((size) => Math.max(12, size - 1))}
+              >
+                A−
+              </button>
+              <span aria-live="polite">{answerFontSize}px</span>
+              <button
+                title="Increase chat font size"
+                aria-label="Increase chat font size"
+                disabled={answerFontSize >= 24}
+                onClick={() => setAnswerFontSize((size) => Math.min(24, size + 1))}
+              >
+                A+
+              </button>
+            </div>
             <button
-              title="Decrease chat font size"
-              aria-label="Decrease chat font size"
-              disabled={answerFontSize <= 12}
-              onClick={() => setAnswerFontSize((size) => Math.max(12, size - 1))}
+              className="icon-button"
+              onClick={() => setSidebarOpen(false)}
+              title="Close AI chat"
+              aria-label="Close AI chat"
             >
-              A−
-            </button>
-            <span aria-live="polite">{answerFontSize}px</span>
-            <button
-              title="Increase chat font size"
-              aria-label="Increase chat font size"
-              disabled={answerFontSize >= 24}
-              onClick={() => setAnswerFontSize((size) => Math.min(24, size + 1))}
-            >
-              A+
+              <X size={16} />
             </button>
           </div>
         </div>
@@ -3566,28 +3553,7 @@ export default function App() {
                 </p>
               </div>
             )}
-            <div className="home-copy">
-              <h2>What’s unclear?</h2>
-            </div>
-            <div className="mode-grid">
-              {Object.entries(MODES).map(([name, item]) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={name}
-                    onClick={() => startBlank(name)}
-                    className={`mode-card ${name === 'search' ? 'wide' : ''}`}
-                  >
-                    <span className={`mode-card-icon ${item.color}`}>
-                      <Icon size={17} />
-                    </span>
-                    <span>
-                      <strong>{name === 'literature' ? 'Related papers' : item.short}</strong>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+
           </div>
         )}
         <div className="composer-wrap">
@@ -3782,12 +3748,11 @@ export default function App() {
               {attachmentError}
             </div>
           )}
-          <div className="composer-note">
-            <span>
-              <Command size={12} /> Enter to send · Shift + Enter for a new line
-            </span>
-            {!hasKey && <button onClick={() => setSettingsOpen(true)}>Add Groq key</button>}
-          </div>
+          {!hasKey && (
+            <div className="composer-note">
+              <button onClick={() => setSettingsOpen(true)}>Add Groq key</button>
+            </div>
+          )}
         </div>
       </aside>
 
