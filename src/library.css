@@ -29,8 +29,8 @@
 :root[data-theme] .thread-icon { background:transparent; color:var(--theme-muted); box-shadow:none; }
 :root[data-theme] .empty-doubts { border:0; background:transparent; padding:8px 0; text-align:left; }
 :root[data-theme] .empty-doubts p { margin:0 0 4px; }
-:root[data-theme] .project-notes-heading { flex-wrap:wrap; gap:6px; padding:10px; }
-:root[data-theme] .project-note-actions { flex-basis:100%; display:flex; flex-wrap:wrap; gap:8px; }
+:root[data-theme] .project-notes-heading { height:auto; min-height:34px; flex-direction:column; align-items:stretch; gap:6px; padding:10px; }
+:root[data-theme] .project-note-actions { width:100%; min-width:0; flex-basis:auto; display:flex; flex-wrap:wrap; gap:4px 8px; }
 :root[data-theme] .project-note-actions[hidden] { display:none; }
 :root[data-theme] .library-backup { padding:10px 16px; gap:10px; }
 :root[data-theme] .library-backup button { border:0; background:transparent; box-shadow:none; min-height:32px; }

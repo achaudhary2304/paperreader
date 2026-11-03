@@ -105,7 +105,7 @@
 .project-item>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .project-item small{font-size:9px;color:#a4a2ab}
 .project-notes-panel{margin:10px 2px 2px;border:1px solid #ebe7f2;border-radius:8px;background:#fff;overflow:hidden}
-.project-notes-heading{height:34px;padding:0 7px 0 9px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f0edf4}
+.project-notes-heading{min-height:34px;padding:0 7px 0 9px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f0edf4}
 .project-notes-heading button{display:flex;align-items:center;gap:6px;border:0;background:transparent;color:#777281;font-size:10px}
 .project-notes-heading button+button{padding:5px;color:#9691a0}
 .project-notes-heading .notes-collapsed{transform:rotate(-90deg)}
