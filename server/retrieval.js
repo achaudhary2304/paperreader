@@ -43,7 +43,7 @@ function expandedTokens(value) {
 function chunksFor(page) {
   const text = String(page.text || '');
   const pieces = [];
-  for (let start = 0; start < text.length; ) {
+  for (let start = 0; start < text.length;) {
     let end = Math.min(start + 2200, text.length);
     if (end < text.length) {
       const line = text.lastIndexOf('\n', end);

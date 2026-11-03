@@ -7,16 +7,36 @@ function harness({ concept = false, math = false } = {}) {
   const graph = createResearchGraph({
     route: () => ({ context: true, concept, math, literature: true, mode: 'explain' }),
     planSearch: async () => ({ paperQueries: ['ELBO'], externalQuery: 'variational inference' }),
-    conceptResearch: async () => { visited.push('concept'); return [{ title: 'Variational inference', url: 'https://example.org/concept', excerpt: 'Concept source' }]; },
-    literatureResearch: async () => { visited.push('literature'); return [{ title: 'Original paper', url: 'https://example.org/paper', excerpt: 'Paper abstract' }]; },
-    browserResearch: async () => ({ report: '', sources: [] }), primaryResearch: async () => [],
+    conceptResearch: async () => {
+      visited.push('concept');
+      return [
+        {
+          title: 'Variational inference',
+          url: 'https://example.org/concept',
+          excerpt: 'Concept source',
+        },
+      ];
+    },
+    literatureResearch: async () => {
+      visited.push('literature');
+      return [
+        { title: 'Original paper', url: 'https://example.org/paper', excerpt: 'Paper abstract' },
+      ];
+    },
+    browserResearch: async () => ({ report: '', sources: [] }),
+    primaryResearch: async () => [],
     infer: async (_key, messages, options) => {
       visited.push(options.maxTokens === 700 ? 'math' : 'teaching');
       options.onResult?.({ provider: 'Groq', model: 'test-model' });
       if (options.maxTokens === 1600) assert.equal(messages.at(-1).content[0].type, 'text');
-      return options.maxTokens === 700 ? 'Math checked.' : 'The ELBO is a lower bound. [Paper p. 1]';
+      return options.maxTokens === 700
+        ? 'Math checked.'
+        : 'The ELBO is a lower bound. [Paper p. 1]';
     },
-    validateAnswer: answer => { visited.push('validate'); return answer; },
+    validateAnswer: (answer) => {
+      visited.push('validate');
+      return answer;
+    },
     callTool: async (server, tool, args) => {
       visited.push(`${server}:${tool}`);
       if (server === 'paper') return [{ page: args.pages[0].page, text: args.pages[0].text }];
@@ -27,19 +47,56 @@ function harness({ concept = false, math = false } = {}) {
   return { graph, visited };
 }
 
-const input = { key: 'dummy', question: 'Explain ELBO', selection: '', title: 'Test', mode: 'explain', page: 1, answerModel: 'openrouter/free', allPages: [{ page: 1, text: 'ELBO is a lower bound.' }], history: [], images: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,YQ==' } }] };
+const input = {
+  key: 'dummy',
+  question: 'Explain ELBO',
+  selection: '',
+  title: 'Test',
+  mode: 'explain',
+  page: 1,
+  answerModel: 'openrouter/free',
+  allPages: [{ page: 1, text: 'ELBO is a lower bound.' }],
+  history: [],
+  images: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,YQ==' } }],
+};
 
 test('supervisor routes concept and math agents before teaching and citation validation', async () => {
   const { graph, visited } = harness({ concept: true, math: true });
-  const result = await graph.invoke({ input: { ...input, question: 'Simplify `2*x+3*x` and explain ELBO' } });
-  assert.deepEqual(visited.filter(item => ['paper:search_paper', 'concept', 'math:inspect_expression', 'math', 'literature', 'teaching', 'validate'].includes(item)), ['literature', 'paper:search_paper', 'concept', 'math:inspect_expression', 'math', 'teaching', 'validate']);
+  const result = await graph.invoke({
+    input: { ...input, question: 'Simplify `2*x+3*x` and explain ELBO' },
+  });
+  assert.deepEqual(
+    visited.filter((item) =>
+      [
+        'paper:search_paper',
+        'concept',
+        'math:inspect_expression',
+        'math',
+        'literature',
+        'teaching',
+        'validate',
+      ].includes(item),
+    ),
+    [
+      'literature',
+      'paper:search_paper',
+      'concept',
+      'math:inspect_expression',
+      'math',
+      'teaching',
+      'validate',
+    ],
+  );
   assert.equal(result.answer, 'The ELBO is a lower bound. [Paper p. 1]');
   assert.equal(result.inferenceResult.provider, 'Groq');
   assert.ok(result.timings['Supervisor + query planning'] >= 0);
   assert.ok(result.timings['Paper retrieval (BM25 + MCP)'] >= 0);
   assert.ok(result.timings['Teaching + final answer'] >= 0);
   assert.ok(result.timings['Citation validation'] >= 0);
-  assert.deepEqual(result.sources.map(source => source.title), ['Original paper', 'Variational inference']);
+  assert.deepEqual(
+    result.sources.map((source) => source.title),
+    ['Original paper', 'Variational inference'],
+  );
 });
 
 test('supervisor skips unneeded concept and math agents', async () => {
@@ -53,18 +110,45 @@ test('supervisor skips unneeded concept and math agents', async () => {
 test('project questions retrieve evidence from every paper with distinct labels', async () => {
   const { graph, visited } = harness();
   const papers = [
-    { label: 'P1', docId: 'one', title: 'First paper', pages: [{ page: 2, text: 'First result.' }] },
-    { label: 'P2', docId: 'two', title: 'Second paper', pages: [{ page: 4, text: 'Second result.' }] },
+    {
+      label: 'P1',
+      docId: 'one',
+      title: 'First paper',
+      pages: [{ page: 2, text: 'First result.' }],
+    },
+    {
+      label: 'P2',
+      docId: 'two',
+      title: 'Second paper',
+      pages: [{ page: 4, text: 'Second result.' }],
+    },
   ];
-  const result = await graph.invoke({ input: { ...input, docId: 'one', page: 2, papers,
-    allPages: papers.flatMap(paper => paper.pages.map(page => ({ ...page, docId: paper.docId }))) } });
-  assert.equal(visited.filter(item => item === 'paper:search_paper').length, 2);
-  assert.deepEqual(result.pages.map(page => [page.label, page.docId, page.page]), [['P1', 'one', 2], ['P2', 'two', 4]]);
+  const result = await graph.invoke({
+    input: {
+      ...input,
+      docId: 'one',
+      page: 2,
+      papers,
+      allPages: papers.flatMap((paper) =>
+        paper.pages.map((page) => ({ ...page, docId: paper.docId })),
+      ),
+    },
+  });
+  assert.equal(visited.filter((item) => item === 'paper:search_paper').length, 2);
+  assert.deepEqual(
+    result.pages.map((page) => [page.label, page.docId, page.page]),
+    [
+      ['P1', 'one', 2],
+      ['P2', 'two', 4],
+    ],
+  );
 });
 
 test('quick math questions use paper retrieval and one answer call, without external research', async () => {
   const { graph, visited } = harness({ concept: true, math: true });
-  const result = await graph.invoke({ input: { ...input, quick: true, mode: 'math', question: 'Derive the ELBO equation' } });
+  const result = await graph.invoke({
+    input: { ...input, quick: true, mode: 'math', question: 'Derive the ELBO equation' },
+  });
   assert.deepEqual(visited, ['paper:search_paper', 'teaching', 'validate']);
   assert.deepEqual(result.sources, []);
   assert.equal(result.plan.math, false);

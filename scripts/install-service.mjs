@@ -20,10 +20,16 @@ const applications = join(dataHome, 'applications');
 for (const directory of [config, units, applications]) mkdirSync(directory, { recursive: true });
 chmodSync(config, 0o700);
 const credentials = join(config, 'credentials.env');
-if (!existsSync(credentials)) writeFileSync(credentials, '# Set OPENROUTER_API_KEY here for free-only inference.\n', { mode: 0o600 });
+if (!existsSync(credentials))
+  writeFileSync(credentials, '# Set OPENROUTER_API_KEY here for free-only inference.\n', {
+    mode: 0o600,
+  });
 chmodSync(credentials, 0o600);
-const unitQuote = value => `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('%', '%%')}"`;
-writeFileSync(join(units, 'paperlens.service'), `[Unit]
+const unitQuote = (value) =>
+  `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('%', '%%')}"`;
+writeFileSync(
+  join(units, 'paperlens.service'),
+  `[Unit]
 Description=PaperReader local PDF reader with AI chat
 
 [Service]
@@ -39,18 +45,23 @@ UMask=0077
 
 [Install]
 WantedBy=default.target
-`);
-const desktopQuote = value => `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('`', '\\`').replaceAll('$', '\\$').replaceAll('%', '%%')}"`;
-writeFileSync(join(applications, 'paperlens.desktop'), `[Desktop Entry]
+`,
+);
+const desktopQuote = (value) =>
+  `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('`', '\\`').replaceAll('$', '\\$').replaceAll('%', '%%')}"`;
+writeFileSync(
+  join(applications, 'paperlens.desktop'),
+  `[Desktop Entry]
 Type=Application
 Name=PaperReader
 Comment=Read papers and explore independent doubts
 Exec=${desktopQuote(process.execPath)} ${desktopQuote(join(root, 'scripts/open.mjs'))}
 Path=${root}
-Icon=application-pdf
+Icon=${join(root, 'desktop/icon.png')}
 Terminal=false
 Categories=Office;Education;
-`);
+`,
+);
 run('systemctl', ['--user', 'daemon-reload']);
 run('systemctl', ['--user', 'enable', 'paperlens.service']);
 run('systemctl', ['--user', 'restart', 'paperlens.service']);

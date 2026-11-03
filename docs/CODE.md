@@ -16,6 +16,7 @@ The larger UI sections have their own components:
 - `ProviderSettings.jsx`: desktop and browser provider settings.
 - `usePanelLayout.js`: panel resizing, saved widths, and space for the document.
 - `PdfPages.jsx` / `PdfReferencePreview.jsx`: PDF pages and citation/equation previews.
+- `pdfTextHighlights.js`: search and comment highlighting, separate from React page rendering.
 - `ArticleReader.jsx` / `OriginalWebpage.jsx`: saved articles and original website views.
 
 Persistence stays in `storage.js` (IndexedDB), the workspace's existing `paperlens:*` preferences, and `libraryBackup.js` (project/library archives). `paperRequest.js` manages cached paper references and streamed requests.
@@ -27,7 +28,7 @@ Persistence stays in `storage.js` (IndexedDB), the workspace's existing `paperle
 - `researchGraph.js`: LangGraph execution order and LangChain prompt chains.
 - `retrieval.js`: text chunking and BM25 evidence retrieval.
 - `paperCache.js` / `indexDiskCache.js`: in-memory and disk index caches.
-- `mcp/`: paper, research, and math tools exposed through MCP.
+- `mcp/`: paper, research, and math tools exposed through MCP. `toolPool.js` shares lazy connections and closes them when the service stops.
 - `groq.js`, `openrouter.js`, `compatible.js`, `inference.js`: provider clients and fallback.
 - `articles.js` / `arxiv.js`: document imports.
 
@@ -35,7 +36,7 @@ A question goes from `App.jsx` → `paperRequest.js` → `/api/ask` → the rese
 
 ## Desktop (`desktop/`)
 
-`main.js` starts the local service and Electron window. Provider key storage, linked folders, webpage views, and edit commands have separate modules. Preload scripts expose the allowed desktop actions to the interface.
+`main.js` starts the local service and Electron window. `linuxIntegration.js` registers an AppImage launcher and persistent icon under the user’s XDG data directory. The `paperlens.desktop` filename matches the existing Electron desktop identity; registration refreshes the launcher when the AppImage path changes. Provider key storage, linked folders, webpage views, and edit commands have separate modules. Preload scripts expose the allowed desktop actions to the interface.
 
 `shared/models.js` supplies the same Groq model names and fallback order to the interface and service. `shared/eventStream.js` handles streamed event decoding.
 
@@ -54,3 +55,11 @@ PaperReader was previously named PaperLens. The package name (`paperlens`), app 
 `desktop/updates.js` manages update state and explicit download/install actions. `electron-updater` uses the public GitHub release feed configured in `package.json`. Updates are enabled only for packaged Windows apps and Linux AppImages, with downloads and installation on quit disabled until the user chooses them. IPC accepts a fixed action list from the trusted app origin. A native confirmation precedes restart. The Linux `.deb`, unpacked builds, and source mode do not use the updater.
 
 Release jobs must upload `latest-linux.yml`, `latest.yml`, and Windows `.exe.blockmap` files alongside their corresponding installers. These contain the versions and checksums used by the updater; installer-only releases will not work. Existing app IDs, profile location, keyring name and storage formats stay unchanged.
+
+## Readability and performance checks
+
+Run `npm run format` when editing; `npm run format:check` checks the shared style in CI. Multiline functions and CSS are intentional: fewer source lines are not an optimization.
+
+PDF export and library ZIP code load on demand through dynamic imports. Keep them out of eager workspace imports. PDF pages and article sections reuse stable props so a chat update does not need to redraw every page. Persisted reading/draft objects are parsed once per workspace mount; their existing storage keys and write behavior remain unchanged.
+
+`npm run benchmark` measures first and warm local math-tool calls, without API keys or online inference. See [PERFORMANCE.md](PERFORMANCE.md) for the before/after measurements and their limits.

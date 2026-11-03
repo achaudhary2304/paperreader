@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
 import { basename, extname, join, relative, resolve, sep } from 'node:path';
 
-const idFor = value => createHash('sha256').update(value).digest('hex');
+const idFor = (value) => createHash('sha256').update(value).digest('hex');
 
 export function createLibraryFolderService(directory, dialog) {
   const rootsPath = join(directory, 'library-folders.json');
@@ -18,11 +18,17 @@ export function createLibraryFolderService(directory, dialog) {
     let saved = [];
     try {
       saved = JSON.parse(await readFile(rootsPath, 'utf8'));
-    } catch { /* A missing or unreadable registry starts with no watched folders. */ }
-    for (const item of saved) try {
-      const path = await realpath(item.path);
-      if ((await stat(path)).isDirectory()) roots.set(idFor(path), { id: idFor(path), path, name: basename(path) });
-    } catch { /* Keep inaccessible folders out of the active folder list. */ }
+    } catch {
+      /* A missing or unreadable registry starts with no watched folders. */
+    }
+    for (const item of saved)
+      try {
+        const path = await realpath(item.path);
+        if ((await stat(path)).isDirectory())
+          roots.set(idFor(path), { id: idFor(path), path, name: basename(path) });
+      } catch {
+        /* Keep inaccessible folders out of the active folder list. */
+      }
     return [...roots.values()].map(({ id, name }) => ({ folder: { id, name }, files: [] }));
   }
 
@@ -31,14 +37,21 @@ export function createLibraryFolderService(directory, dialog) {
     if (!root) throw new Error('This computer folder is not registered with PaperReader.');
     for (const [id, file] of files) if (file.folderId === folderId) files.delete(id);
     const result = [];
-    const visit = async directoryPath => {
+    const visit = async (directoryPath) => {
       if (result.length >= 2000) return;
       let entries;
-      try { entries = await readdir(directoryPath, { withFileTypes: true }); } catch { return; }
+      try {
+        entries = await readdir(directoryPath, { withFileTypes: true });
+      } catch {
+        return;
+      }
       for (const entry of entries) {
         if (entry.name.startsWith('.')) continue;
         const absolutePath = join(directoryPath, entry.name);
-        if (entry.isDirectory()) { await visit(absolutePath); continue; }
+        if (entry.isDirectory()) {
+          await visit(absolutePath);
+          continue;
+        }
         if (!entry.isFile() || extname(entry.name).toLowerCase() !== '.pdf') continue;
         try {
           const info = await stat(absolutePath);
@@ -46,10 +59,18 @@ export function createLibraryFolderService(directory, dialog) {
           const id = idFor(`${root.id}:${relativePath}`);
           files.set(id, { path: absolutePath, folderId: root.id });
           const normalizedPath = relativePath.split(sep).join('/');
-          result.push({ id, folderId: root.id, name: basename(entry.name, extname(entry.name)), relativePath: normalizedPath,
+          result.push({
+            id,
+            folderId: root.id,
+            name: basename(entry.name, extname(entry.name)),
+            relativePath: normalizedPath,
             subtitle: `${relativePath.split(sep).join(' / ')} · ${(info.size / 1024 / 1024).toFixed(1)} MB`,
-            size: info.size, modifiedAt: info.mtimeMs });
-        } catch { /* Ignore files removed during a scan. */ }
+            size: info.size,
+            modifiedAt: info.mtimeMs,
+          });
+        } catch {
+          /* Ignore files removed during a scan. */
+        }
       }
     };
     await visit(root.path);
@@ -66,7 +87,10 @@ export function createLibraryFolderService(directory, dialog) {
   return {
     load,
     async choose(parentWindow) {
-      const selection = await dialog.showOpenDialog(parentWindow, { title: 'Add a folder of PDFs', properties: ['openDirectory'] });
+      const selection = await dialog.showOpenDialog(parentWindow, {
+        title: 'Add a folder of PDFs',
+        properties: ['openDirectory'],
+      });
       if (selection.canceled || !selection.filePaths[0]) return null;
       const path = await realpath(resolve(selection.filePaths[0]));
       if (!(await stat(path)).isDirectory()) throw new Error('Choose a folder.');
@@ -84,12 +108,15 @@ export function createLibraryFolderService(directory, dialog) {
     },
     async readPdf(fileId) {
       const file = files.get(fileId);
-      if (!file || !roots.has(file.folderId)) throw new Error('Scan this computer folder again before opening the PDF.');
+      if (!file || !roots.has(file.folderId))
+        throw new Error('Scan this computer folder again before opening the PDF.');
       const path = await realpath(file.path);
       const rootPath = roots.get(file.folderId).path;
-      if (path !== rootPath && !path.startsWith(`${rootPath}${sep}`)) throw new Error('The PDF is outside its registered folder.');
+      if (path !== rootPath && !path.startsWith(`${rootPath}${sep}`))
+        throw new Error('The PDF is outside its registered folder.');
       const info = await stat(path);
-      if (!info.isFile() || info.size > 500 * 1024 * 1024 || extname(path).toLowerCase() !== '.pdf') throw new Error('This PDF is too large or is no longer available.');
+      if (!info.isFile() || info.size > 500 * 1024 * 1024 || extname(path).toLowerCase() !== '.pdf')
+        throw new Error('This PDF is too large or is no longer available.');
       return new Uint8Array(await readFile(path));
     },
   };

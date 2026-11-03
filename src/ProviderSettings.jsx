@@ -4,24 +4,54 @@ import Appearance from './Appearance.jsx';
 import UpdateSettings from './UpdateSettings.jsx';
 
 function SettingsTabs({ tab, onChange, desktop = false }) {
-  const tabs = [['appearance', 'Appearance'], ['providers', 'AI providers'], ...(desktop ? [['updates', 'Updates']] : [])];
-  return <div className="settings-tabs" role="tablist" aria-label="Settings sections">
-    {tabs.map(([id, label], index) => <button key={id} id={`settings-tab-${id}`} role="tab"
-      aria-selected={tab === id} aria-controls={`settings-panel-${id}`} tabIndex={tab === id ? 0 : -1}
-      onClick={() => onChange(id)} onKeyDown={(event) => {
-        let next;
-        if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
-        if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
-        if (event.key === 'Home') next = 0;
-        if (event.key === 'End') next = tabs.length - 1;
-        if (next !== undefined) { event.preventDefault(); onChange(tabs[next][0]); document.getElementById(`settings-tab-${tabs[next][0]}`).focus(); }
-      }}>{label}</button>)}
-  </div>;
+  const tabs = [
+    ['appearance', 'Appearance'],
+    ['providers', 'AI providers'],
+    ...(desktop ? [['updates', 'Updates']] : []),
+  ];
+  return (
+    <div className="settings-tabs" role="tablist" aria-label="Settings sections">
+      {tabs.map(([id, label], index) => (
+        <button
+          key={id}
+          id={`settings-tab-${id}`}
+          role="tab"
+          aria-selected={tab === id}
+          aria-controls={`settings-panel-${id}`}
+          tabIndex={tab === id ? 0 : -1}
+          onClick={() => onChange(id)}
+          onKeyDown={(event) => {
+            let next;
+            if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+            if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+            if (event.key === 'Home') next = 0;
+            if (event.key === 'End') next = tabs.length - 1;
+            if (next !== undefined) {
+              event.preventDefault();
+              onChange(tabs[next][0]);
+              document.getElementById(`settings-tab-${tabs[next][0]}`).focus();
+            }
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function SettingsPanel({ id, tab, children }) {
-  return <section className="settings-panel" role="tabpanel" id={`settings-panel-${id}`}
-    aria-labelledby={`settings-tab-${id}`} hidden={tab !== id}>{children}</section>;
+  return (
+    <section
+      className="settings-panel"
+      role="tabpanel"
+      id={`settings-panel-${id}`}
+      aria-labelledby={`settings-tab-${id}`}
+      hidden={tab !== id}
+    >
+      {children}
+    </section>
+  );
 }
 
 export default function ProviderSettings({
@@ -55,7 +85,10 @@ export default function ProviderSettings({
           ),
         );
       })
-      .catch((e) => { setError(e.message); setTab('providers'); });
+      .catch((e) => {
+        setError(e.message);
+        setTab('providers');
+      });
   }, []);
   const field = (name, label, placeholder, secret = false) => (
     <div className="provider-field" key={name}>
@@ -141,75 +174,79 @@ export default function ProviderSettings({
         <h2>Settings</h2>
         <p>Reading preferences, AI providers, and app updates.</p>
         <SettingsTabs tab={tab} onChange={setTab} desktop />
-        <SettingsPanel id="appearance" tab={tab}><Appearance embedded /></SettingsPanel>
+        <SettingsPanel id="appearance" tab={tab}>
+          <Appearance embedded />
+        </SettingsPanel>
         <SettingsPanel id="providers" tab={tab}>
-        {field('OPENROUTER_API_KEY', 'OPENROUTER KEY · FREE MODELS', 'sk-or-v1-…', true)}
-        {field('GROQ_API_KEY', 'GROQ KEY', 'gsk_…', true)}
-        <details className="custom-provider-fields">
-          <summary>Other OpenAI-compatible API or local model</summary>
-          {field('LLM_BASE_URL', 'BASE URL', 'https://api.example.com/v1')}
-          {field('LLM_MODEL', 'MODEL', 'model-name')}
-          {field('LLM_API_KEY', 'API KEY', 'Optional for a local model', true)}
-          {field('LLM_VISION_MODEL', 'VISION MODEL · OPTIONAL', 'vision-model-name')}
-          {field('LLM_PROVIDER_NAME', 'PROVIDER NAME · OPTIONAL', 'Custom API')}
-        </details>
-        <div className="key-status">
-          {saved?.secureStorage ? (
-            <>
-              <Check size={15} /> Keys are protected by the system keyring.
-            </>
-          ) : saved?.legacyPlaintext ? (
-            'Older keys are still in a local settings file. Unlock your system keyring to migrate them.'
-          ) : (
-            'A system keyring is needed to save new keys.'
+          {field('OPENROUTER_API_KEY', 'OPENROUTER KEY · FREE MODELS', 'sk-or-v1-…', true)}
+          {field('GROQ_API_KEY', 'GROQ KEY', 'gsk_…', true)}
+          <details className="custom-provider-fields">
+            <summary>Other OpenAI-compatible API or local model</summary>
+            {field('LLM_BASE_URL', 'BASE URL', 'https://api.example.com/v1')}
+            {field('LLM_MODEL', 'MODEL', 'model-name')}
+            {field('LLM_API_KEY', 'API KEY', 'Optional for a local model', true)}
+            {field('LLM_VISION_MODEL', 'VISION MODEL · OPTIONAL', 'vision-model-name')}
+            {field('LLM_PROVIDER_NAME', 'PROVIDER NAME · OPTIONAL', 'Custom API')}
+          </details>
+          <div className="key-status">
+            {saved?.secureStorage ? (
+              <>
+                <Check size={15} /> Keys are protected by the system keyring.
+              </>
+            ) : saved?.legacyPlaintext ? (
+              'Older keys are still in a local settings file. Unlock your system keyring to migrate them.'
+            ) : (
+              'A system keyring is needed to save new keys.'
+            )}
+          </div>
+          {freeOnlyMode && (
+            <div className="free-usage">
+              <span>
+                {freeUsage ? (
+                  <>
+                    <strong>
+                      {freeUsage.remaining} of {freeUsage.limit}
+                    </strong>{' '}
+                    free requests left today
+                  </>
+                ) : (
+                  'Free request count unavailable'
+                )}
+              </span>
+              <button onClick={refreshFreeUsage} type="button">
+                Refresh
+              </button>
+            </div>
           )}
-        </div>
-        {freeOnlyMode && (
-          <div className="free-usage">
-            <span>
-              {freeUsage ? (
-                <>
-                  <strong>
-                    {freeUsage.remaining} of {freeUsage.limit}
-                  </strong>{' '}
-                  free requests left today
-                </>
-              ) : (
-                'Free request count unavailable'
-              )}
-            </span>
-            <button onClick={refreshFreeUsage} type="button">
-              Refresh
+          <label htmlFor="desktop-answer-model" className="model-label">
+            ANSWER MODEL
+          </label>
+          <select
+            id="desktop-answer-model"
+            value={answerModel}
+            onChange={(event) => setAnswerModel(event.target.value)}
+          >
+            {availableAnswerModels.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          {error && (
+            <div className="import-error" role="alert">
+              {error}
+            </div>
+          )}
+          <div className="modal-actions">
+            <span className="provider-save-note">Saved keys remain across app restarts.</span>
+            <button className="primary-action" disabled={busy || !saved} onClick={save}>
+              {busy ? 'Saving…' : 'Save settings'} <ArrowRight size={16} />
             </button>
           </div>
-        )}
-        <label htmlFor="desktop-answer-model" className="model-label">
-          ANSWER MODEL
-        </label>
-        <select
-          id="desktop-answer-model"
-          value={answerModel}
-          onChange={(event) => setAnswerModel(event.target.value)}
-        >
-          {availableAnswerModels.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        {error && (
-          <div className="import-error" role="alert">
-            {error}
-          </div>
-        )}
-        <div className="modal-actions">
-          <span className="provider-save-note">Saved keys remain across app restarts.</span>
-          <button className="primary-action" disabled={busy || !saved} onClick={save}>
-            {busy ? 'Saving…' : 'Save settings'} <ArrowRight size={16} />
-          </button>
-        </div>
         </SettingsPanel>
-        <SettingsPanel id="updates" tab={tab}><UpdateSettings /></SettingsPanel>
+        <SettingsPanel id="updates" tab={tab}>
+          <UpdateSettings />
+        </SettingsPanel>
       </div>
     </div>
   );
@@ -243,104 +280,106 @@ export function BrowserProviderSettings({
         </div>
         <h2>Settings</h2>
         <SettingsTabs tab={tab} onChange={setTab} />
-        <SettingsPanel id="appearance" tab={tab}><Appearance embedded /></SettingsPanel>
+        <SettingsPanel id="appearance" tab={tab}>
+          <Appearance embedded />
+        </SettingsPanel>
         <SettingsPanel id="providers" tab={tab}>
-        <p>
-          {customProvider
-            ? 'This server uses the OpenAI-compatible endpoint configured in its .env file. Change LLM_BASE_URL and LLM_MODEL there to switch providers.'
-            : freeOnlyMode
-              ? 'OpenRouter is configured on your local server. Choose provider priority beside the question box. OpenRouter requests are restricted to free models; Groq is available when its key is configured.'
-              : 'Use your Groq API key to power the research paths. The key stays in this browser session and is sent to your local server for inference.'}
-        </p>
-        <label htmlFor="groq-key" hidden={customProvider}>
-          {freeOnlyMode ? 'GROQ FALLBACK KEY (OPTIONAL)' : 'GROQ API KEY'}
-        </label>
-        <input
-          id="groq-key"
-          type="password"
-          hidden={customProvider}
-          placeholder="gsk_..."
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value.trim())}
-        />
-        <div className="key-status">
-          {customProvider ? (
-            <>
-              <Check size={15} /> Custom API configured on this server.
-            </>
-          ) : freeOnlyMode ? (
-            <>
-              <Check size={15} /> OpenRouter free models available · provider priority is
-              configurable.
-            </>
-          ) : serverKey && !apiKey ? (
-            <>
-              <Check size={15} /> Server key is configured. You’re ready to ask.
-            </>
-          ) : apiKey ? (
-            <>
-              <Check size={15} /> Session key ready. You’re ready to ask.
-            </>
-          ) : (
-            'Get a key from console.groq.com/keys.'
+          <p>
+            {customProvider
+              ? 'This server uses the OpenAI-compatible endpoint configured in its .env file. Change LLM_BASE_URL and LLM_MODEL there to switch providers.'
+              : freeOnlyMode
+                ? 'OpenRouter is configured on your local server. Choose provider priority beside the question box. OpenRouter requests are restricted to free models; Groq is available when its key is configured.'
+                : 'Use your Groq API key to power the research paths. The key stays in this browser session and is sent to your local server for inference.'}
+          </p>
+          <label htmlFor="groq-key" hidden={customProvider}>
+            {freeOnlyMode ? 'GROQ FALLBACK KEY (OPTIONAL)' : 'GROQ API KEY'}
+          </label>
+          <input
+            id="groq-key"
+            type="password"
+            hidden={customProvider}
+            placeholder="gsk_..."
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value.trim())}
+          />
+          <div className="key-status">
+            {customProvider ? (
+              <>
+                <Check size={15} /> Custom API configured on this server.
+              </>
+            ) : freeOnlyMode ? (
+              <>
+                <Check size={15} /> OpenRouter free models available · provider priority is
+                configurable.
+              </>
+            ) : serverKey && !apiKey ? (
+              <>
+                <Check size={15} /> Server key is configured. You’re ready to ask.
+              </>
+            ) : apiKey ? (
+              <>
+                <Check size={15} /> Session key ready. You’re ready to ask.
+              </>
+            ) : (
+              'Get a key from console.groq.com/keys.'
+            )}
+          </div>
+          {freeOnlyMode && (
+            <div className="free-usage">
+              <span>
+                {freeUsage ? (
+                  <>
+                    <strong>
+                      {freeUsage.remaining} of {freeUsage.limit}
+                    </strong>{' '}
+                    free requests left today
+                  </>
+                ) : (
+                  'Free request count unavailable'
+                )}
+              </span>
+              <button onClick={refreshFreeUsage} type="button">
+                Refresh
+              </button>
+            </div>
           )}
-        </div>
-        {freeOnlyMode && (
-          <div className="free-usage">
-            <span>
-              {freeUsage ? (
-                <>
-                  <strong>
-                    {freeUsage.remaining} of {freeUsage.limit}
-                  </strong>{' '}
-                  free requests left today
-                </>
-              ) : (
-                'Free request count unavailable'
-              )}
-            </span>
-            <button onClick={refreshFreeUsage} type="button">
-              Refresh
+          <label htmlFor="answer-model" className="model-label">
+            ANSWER MODEL
+          </label>
+          <select
+            id="answer-model"
+            value={answerModel}
+            onChange={(event) => setAnswerModel(event.target.value)}
+          >
+            {availableAnswerModels.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <p className="model-help">
+            {customProvider
+              ? 'Change the model in your server .env file. Set LLM_VISION_MODEL separately in the server environment to enable image questions.'
+              : freeOnlyMode
+                ? 'OpenRouter uses verified free models with a zero-price cap. Choose provider order and your preferred Groq model beside the question box. The answer shows which provider responded.'
+                : 'Preferred model for answers and math. Switches to another available Groq model on rate limits.'}{' '}
+            The actual provider and model are shown on each answer.
+          </p>
+          <div className="modal-actions">
+            <button
+              className="text-action"
+              hidden={freeOnlyMode || customProvider}
+              onClick={() => {
+                setApiKey('');
+                onClose();
+              }}
+            >
+              Clear key
+            </button>
+            <button className="primary-action" onClick={onClose}>
+              Done <ArrowRight size={16} />
             </button>
           </div>
-        )}
-        <label htmlFor="answer-model" className="model-label">
-          ANSWER MODEL
-        </label>
-        <select
-          id="answer-model"
-          value={answerModel}
-          onChange={(event) => setAnswerModel(event.target.value)}
-        >
-          {availableAnswerModels.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        <p className="model-help">
-          {customProvider
-            ? 'Change the model in your server .env file. Set LLM_VISION_MODEL separately in the server environment to enable image questions.'
-            : freeOnlyMode
-              ? 'OpenRouter uses verified free models with a zero-price cap. Choose provider order and your preferred Groq model beside the question box. The answer shows which provider responded.'
-              : 'Preferred model for answers and math. Switches to another available Groq model on rate limits.'}{' '}
-          The actual provider and model are shown on each answer.
-        </p>
-        <div className="modal-actions">
-          <button
-            className="text-action"
-            hidden={freeOnlyMode || customProvider}
-            onClick={() => {
-              setApiKey('');
-              onClose();
-            }}
-          >
-            Clear key
-          </button>
-          <button className="primary-action" onClick={onClose}>
-            Done <ArrowRight size={16} />
-          </button>
-        </div>
         </SettingsPanel>
       </div>
     </div>

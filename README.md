@@ -18,7 +18,7 @@ Download from [GitHub Releases](https://github.com/achaudhary2304/paperreader/re
 | Windows | `.exe` installer |
 | macOS | `.dmg`: `arm64` for Apple Silicon, `x64` for Intel |
 
-For an AppImage, enable **Allow executing file as program** in its file properties. On macOS, drag PaperReader to Applications. The macOS builds are unsigned.
+For an AppImage, enable **Allow executing file as program** in its file properties. After its first launch, PaperReader adds an app-menu entry with its book logo; you can pin it to the dock. Keep the AppImage in a permanent folder. On macOS, drag PaperReader to Applications. The macOS builds are unsigned.
 
 Open **Settings** and add an API key. Supported providers: Groq, OpenRouter free models, and OpenAI-compatible APIs or local models. Desktop keys are stored locally using the system keyring. Choose provider order beside the chat input; a configured custom API takes priority.
 

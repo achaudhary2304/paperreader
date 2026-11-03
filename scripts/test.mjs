@@ -11,10 +11,9 @@ const files = ['server', 'src', 'desktop'].flatMap((directory) =>
     .sort()
     .map((name) => join(directory, name)),
 );
-const result = spawnSync(
-  process.execPath,
-  ['--test', ...process.argv.slice(2), ...files],
-  { cwd: root, stdio: 'inherit' },
-);
+const result = spawnSync(process.execPath, ['--test', ...process.argv.slice(2), ...files], {
+  cwd: root,
+  stdio: 'inherit',
+});
 if (result.error) console.error(result.error.message);
 process.exit(result.status ?? 1);

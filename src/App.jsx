@@ -29,7 +29,6 @@ import {
   LibraryBig,
   Lightbulb,
   Menu,
-  MessageCircleQuestion,
   Plus,
   Search,
   Settings2,
@@ -64,14 +63,6 @@ import {
   savePaperText,
 } from './storage.js';
 import { projectReadme } from './projectNotes.js';
-import {
-  BACKUP_KEYS,
-  createLibraryBackup,
-  readLibraryBackup,
-  createProjectExport,
-  readProjectExport,
-} from './libraryBackup.js';
-import { createAnnotatedPdf } from './annotatedPdf.js';
 import { readPdfAnnotations } from './pdfAnnotations.js';
 import { askWithPaperCache } from './paperRequest.js';
 import { GROQ_MODELS as ANSWER_MODELS } from '../shared/models.js';
@@ -321,7 +312,10 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState('appearance');
-  const openSettings = (tab = 'appearance') => { setSettingsTab(tab); setSettingsOpen(true); };
+  const openSettings = (tab = 'appearance') => {
+    setSettingsTab(tab);
+    setSettingsOpen(true);
+  };
   const [addPaperOpen, setAddPaperOpen] = useState(false);
   const [arxivInput, setArxivInput] = useState('');
   const [importBusy, setImportBusy] = useState(false);
@@ -397,8 +391,10 @@ export default function App() {
   const conversationRef = useRef(null);
   const paperTextCache = useRef(new Map());
   const paperRefsCache = useRef(new Map());
-  const readingState = useRef(readJSON('paperlens:reading', {}));
-  const doubtDrafts = useRef(readJSON('paperlens:doubtDrafts', {}));
+  const readingState = useRef(null);
+  readingState.current ??= readJSON('paperlens:reading', {});
+  const doubtDrafts = useRef(null);
+  doubtDrafts.current ??= readJSON('paperlens:doubtDrafts', {});
   const currentDocId = useRef(docId);
   const libraryDocsRef = useRef(docs);
   libraryDocsRef.current = docs;
@@ -415,12 +411,17 @@ export default function App() {
   const activeDoc = docs.find((d) => d.id === docId) || SAMPLE;
   const hasActiveDoc = docs.some((d) => d.id === docId);
   const activeProject = projects.find((project) => project.id === projectId) || null;
-  const docThreads = threads
-    .filter((t) => t.docId === docId)
-    .sort((a, b) => b.createdAt - a.createdAt);
-  const docAnnotations = annotations
-    .filter((item) => item.docId === docId)
-    .sort((a, b) => a.page - b.page || a.createdAt - b.createdAt);
+  const docThreads = useMemo(
+    () => threads.filter((t) => t.docId === docId).sort((a, b) => b.createdAt - a.createdAt),
+    [threads, docId],
+  );
+  const docAnnotations = useMemo(
+    () =>
+      annotations
+        .filter((item) => item.docId === docId)
+        .sort((a, b) => a.page - b.page || a.createdAt - b.createdAt),
+    [annotations, docId],
+  );
   const annotationsByPage = useMemo(
     () =>
       annotations
@@ -446,19 +447,19 @@ export default function App() {
   const readerReady = Boolean(pdf || article);
   const originalView = Boolean(
     article &&
-      article.sourceUrl &&
-      window.paperlensDesktop?.showWebpage &&
-      articleView === 'original',
+    article.sourceUrl &&
+    window.paperlensDesktop?.showWebpage &&
+    articleView === 'original',
   );
   const webpageHidden = Boolean(
     settingsOpen ||
-      annotationDraft ||
-      addPaperOpen ||
-      projectModalOpen ||
-      manageProjectId ||
-      shortcutsOpen ||
-      citationPreview ||
-      pdfReference,
+    annotationDraft ||
+    addPaperOpen ||
+    projectModalOpen ||
+    manageProjectId ||
+    shortcutsOpen ||
+    citationPreview ||
+    pdfReference,
   );
   const locationLabel = isArticle ? 'Section' : 'Page';
   const hasKey = Boolean(key || serverKey);
@@ -591,7 +592,9 @@ export default function App() {
   };
   useEffect(() => {
     refreshProviderState().catch(() => {});
-    return window.paperlensDesktop?.onOpenProviderSettings(tab => openSettings(tab || 'providers'));
+    return window.paperlensDesktop?.onOpenProviderSettings((tab) =>
+      openSettings(tab || 'providers'),
+    );
   }, []);
   useEffect(() => {
     let cancelled = false;
@@ -689,9 +692,14 @@ export default function App() {
       const selected = window.getSelection();
       const node = selected?.anchorNode;
       const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
-      if (!selected?.rangeCount || selected.isCollapsed || selected.toString().trim().length < 3 ||
-          !readerRef.current?.contains(selected.anchorNode) || !readerRef.current?.contains(selected.focusNode)) {
-        setSelection(current => current ? null : current);
+      if (
+        !selected?.rangeCount ||
+        selected.isCollapsed ||
+        selected.toString().trim().length < 3 ||
+        !readerRef.current?.contains(selected.anchorNode) ||
+        !readerRef.current?.contains(selected.focusNode)
+      ) {
+        setSelection((current) => (current ? null : current));
       }
       if (!selected?.toString().trim() || !element?.closest('.conversation .answer-content'))
         setAnswerSelection((current) => (current ? null : current));
@@ -1026,6 +1034,7 @@ export default function App() {
     setBackupBusy(true);
     setBackupError('');
     try {
+      const { createProjectExport } = await import('./libraryBackup.js');
       const ids = new Set(activeProject.paperIds || []);
       const projectDocs = docs.filter((doc) => ids.has(doc.id));
       const papers = [];
@@ -1291,7 +1300,12 @@ export default function App() {
     if (regionMode) return;
     const selected = window.getSelection();
     const text = selected?.toString().replace(/\s+/g, ' ').trim();
-    if (!text || text.length < 3 || !selected.rangeCount || !readerRef.current?.contains(selected.anchorNode)) {
+    if (
+      !text ||
+      text.length < 3 ||
+      !selected.rangeCount ||
+      !readerRef.current?.contains(selected.anchorNode)
+    ) {
       setSelection(null);
       return;
     }
@@ -2101,20 +2115,28 @@ export default function App() {
       return;
     }
     const mark = event.target.closest?.('[data-annotation-id]');
-    const item = annotations.find(entry => entry.id === mark?.dataset.annotationId);
-    if (!item) { hideAnnotationPreview(); return; }
+    const item = annotations.find((entry) => entry.id === mark?.dataset.annotationId);
+    if (!item) {
+      hideAnnotationPreview();
+      return;
+    }
     clearTimeout(annotationHoverTimer.current);
     const rect = mark.getBoundingClientRect();
-    setHoveredAnnotation(current => current?.item.id === item.id ? current : {
-      item,
-      left: Math.max(12, Math.min(rect.left, window.innerWidth - 312)),
-      top: rect.bottom + 8,
-      above: rect.bottom > window.innerHeight - 260,
-    });
+    setHoveredAnnotation((current) =>
+      current?.item.id === item.id
+        ? current
+        : {
+            item,
+            left: Math.max(12, Math.min(rect.left, window.innerWidth - 312)),
+            top: rect.bottom + 8,
+            above: rect.bottom > window.innerHeight - 260,
+          },
+    );
   };
-  const scrollAnnotationHit = (number) => {
-    const id = pendingAnnotationJump.current;
-    if (!id || annotations.find((item) => item.id === id)?.page !== number) return;
+  const scrollAnnotationHit = useCallback((number) => {
+    const pending = pendingAnnotationJump.current;
+    if (!pending || pending.page !== number) return;
+    const { id } = pending;
     const root = readerRef.current;
     const hit = [
       ...(root?.querySelectorAll(`[data-pdf-page="${number}"] [data-annotation-id]`) || []),
@@ -2129,9 +2151,9 @@ export default function App() {
       });
       pendingAnnotationJump.current = null;
     }
-  };
+  }, []);
   const jumpToAnnotation = (item) => {
-    pendingAnnotationJump.current = item.id;
+    pendingAnnotationJump.current = { id: item.id, page: item.page };
     goToPage(item.page);
     setTimeout(() => scrollAnnotationHit(item.page), 150);
   };
@@ -2150,6 +2172,7 @@ export default function App() {
     setPdfExportBusy(true);
     setBackupError('');
     try {
+      const { createAnnotatedPdf } = await import('./annotatedPdf.js');
       const response = await fetch(pdfFile);
       if (!response.ok) throw new Error('Could not read the original PDF.');
       const bytes = await createAnnotatedPdf(await response.arrayBuffer(), pdf, docAnnotations);
@@ -2169,6 +2192,7 @@ export default function App() {
     setBackupBusy(true);
     setBackupError('');
     try {
+      const { BACKUP_KEYS, createLibraryBackup } = await import('./libraryBackup.js');
       const papers = [];
       for (const doc of docs) {
         let blob =
@@ -2226,6 +2250,8 @@ export default function App() {
     setBackupBusy(true);
     setBackupError('');
     try {
+      const { BACKUP_KEYS, readProjectExport, readLibraryBackup } =
+        await import('./libraryBackup.js');
       const projectBundle = await readProjectExport(file);
       if (projectBundle) {
         const project = projectBundle.projects[0];
@@ -2392,7 +2418,7 @@ export default function App() {
       scrollSearchHit(number);
       scrollAnnotationHit(number);
     },
-    [annotations, searchMatches, searchMatchIndex, docId],
+    [scrollAnnotationHit],
   );
 
   const goToSearchMatch = (index, matches = searchMatches) => {
@@ -2764,8 +2790,14 @@ export default function App() {
           {backupError && <p role="alert">{backupError}</p>}
         </div>
         <div className="sidebar-footer">
-          <span className="local-library-status"><Check size={14} /> Saved on this device</span>
-          <button className="library-settings-button" title="Settings" onClick={() => openSettings()}>
+          <span className="local-library-status">
+            <Check size={14} /> Saved on this device
+          </span>
+          <button
+            className="library-settings-button"
+            title="Settings"
+            onClick={() => openSettings()}
+          >
             <Settings2 size={17} /> Settings
           </button>
         </div>
@@ -3141,9 +3173,7 @@ export default function App() {
                 </div>
                 <span className="eyebrow">LIBRARY</span>
                 <h2>Open a document</h2>
-                <p>
-                  Open a document from your library or add a PDF or webpage.
-                </p>
+                <p>Open a document from your library or add a PDF or webpage.</p>
                 <div>
                   <button className="primary-action" onClick={() => setLeftOpen(true)}>
                     <LibraryBig size={16} /> Open library
@@ -3554,7 +3584,6 @@ export default function App() {
                 </p>
               </div>
             )}
-
           </div>
         )}
         <div className="composer-wrap">

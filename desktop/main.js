@@ -1,5 +1,6 @@
 import electronUpdater from 'electron-updater';
 import { createUpdateService } from './updates.js';
+import { registerAppImage } from './linuxIntegration.js';
 import { installEditCommands } from './editCommands.js';
 import { installWebpageView } from './webpageView.js';
 import { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, session, shell } from 'electron';
@@ -11,6 +12,7 @@ import { createLibraryFolderService } from './libraryFolders.js';
 
 // Preserve the original keyring identity and Chromium profile across the rename.
 app.setName('paperlens');
+if (process.platform === 'linux') app.setDesktopName('paperlens.desktop');
 const profileDirectory = join(app.getPath('appData'), 'paperlens');
 mkdirSync(profileDirectory, { recursive: true });
 app.setPath('userData', profileDirectory);
@@ -24,6 +26,18 @@ if (!app.requestSingleInstanceLock()) app.quit();
 else app.on('second-instance', () => BrowserWindow.getAllWindows()[0]?.focus());
 
 app.whenReady().then(async () => {
+  if (process.platform === 'linux' && app.isPackaged && process.env.APPIMAGE) {
+    try {
+      await registerAppImage({
+        appImage: process.env.APPIMAGE,
+        iconPath: join(app.getAppPath(), 'desktop/icon.png'),
+      });
+    } catch (error) {
+      // A read-only home directory must not prevent opening the reader.
+      console.warn('Could not register the PaperReader launcher:', error.message);
+    }
+  }
+
   const providerSettings = createProviderSettings(app.getPath('userData'), safeStorage);
   const libraryFolders = createLibraryFolderService(app.getPath('userData'), dialog);
   try {
@@ -56,26 +70,39 @@ app.whenReady().then(async () => {
 
   const origin = `http://127.0.0.1:${PORT}`;
   const trusted = (event) => event.senderFrame?.origin === origin;
-  const updatesSupported = app.isPackaged && (process.platform === 'win32' || (process.platform === 'linux' && Boolean(process.env.APPIMAGE)));
+  const updatesSupported =
+    app.isPackaged &&
+    (process.platform === 'win32' ||
+      (process.platform === 'linux' && Boolean(process.env.APPIMAGE)));
   const updates = createUpdateService({
     updater: updatesSupported ? electronUpdater.autoUpdater : null,
     version: app.getVersion(),
     supported: updatesSupported,
-    notify: status => {
+    notify: (status) => {
       for (const window of BrowserWindow.getAllWindows())
-        if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send('updates:status', status);
+        if (!window.isDestroyed() && !window.webContents.isDestroyed())
+          window.webContents.send('updates:status', status);
     },
     confirmInstall: async () => {
-      const result = await dialog.showMessageBox({ type: 'question', title: 'Update PaperReader', message: 'Restart PaperReader to install the update?', detail: 'Active AI requests will stop. Your saved library and notes will remain.', buttons: ['Restart and update', 'Cancel'], defaultId: 1, cancelId: 1 });
+      const result = await dialog.showMessageBox({
+        type: 'question',
+        title: 'Update PaperReader',
+        message: 'Restart PaperReader to install the update?',
+        detail: 'Active AI requests will stop. Your saved library and notes will remain.',
+        buttons: ['Restart and update', 'Cancel'],
+        defaultId: 1,
+        cancelId: 1,
+      });
       return result.response === 0;
     },
   });
-  ipcMain.handle('updates:status', event => {
+  ipcMain.handle('updates:status', (event) => {
     if (!trusted(event)) throw new Error('Untrusted update request.');
     return updates.status();
   });
   ipcMain.handle('updates:action', async (event, action) => {
-    if (!trusted(event) || !['check', 'download', 'install', 'releases'].includes(action)) throw new Error('Invalid update request.');
+    if (!trusted(event) || !['check', 'download', 'install', 'releases'].includes(action))
+      throw new Error('Invalid update request.');
     if (action === 'releases') {
       await shell.openExternal('https://github.com/achaudhary2304/paperreader/releases/latest');
       return updates.status();
@@ -84,10 +111,15 @@ app.whenReady().then(async () => {
   });
   let updateTimer;
   if (updatesSupported) {
-    updateTimer = setTimeout(() => { updates.check(); }, 15_000);
+    updateTimer = setTimeout(() => {
+      updates.check();
+    }, 15_000);
     updateTimer.unref();
   }
-  app.on('before-quit', () => { clearTimeout(updateTimer); updates.dispose(); });
+  app.on('before-quit', () => {
+    clearTimeout(updateTimer);
+    updates.dispose();
+  });
 
   ipcMain.handle('provider-settings:get', (event) => {
     if (!trusted(event)) throw new Error('Untrusted settings request.');
@@ -174,7 +206,10 @@ app.whenReady().then(async () => {
           },
           {
             label: 'Check for updates…',
-            click: () => { window.webContents.send('provider-settings:open', 'updates'); updates.check(); },
+            click: () => {
+              window.webContents.send('provider-settings:open', 'updates');
+              updates.check();
+            },
           },
           {
             label: 'Restart PaperReader',

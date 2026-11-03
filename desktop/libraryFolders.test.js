@@ -24,7 +24,12 @@ test('computer folder scan discovers nested PDFs, refreshes, and reads only regi
     await writeFile(join(source, 'new.pdf'), '%PDF-second');
     const refreshed = await service.scan(added.folder.id);
     assert.equal(refreshed.files.length, 2);
-    assert.equal(new TextDecoder().decode(await service.readPdf(refreshed.files.find(file => file.name === 'new').id)), '%PDF-second');
+    assert.equal(
+      new TextDecoder().decode(
+        await service.readPdf(refreshed.files.find((file) => file.name === 'new').id),
+      ),
+      '%PDF-second',
+    );
     await assert.rejects(service.readPdf('unknown'), /Scan this computer folder again/);
 
     const reloaded = createLibraryFolderService(join(temporary, 'appdata'), {});
@@ -32,5 +37,7 @@ test('computer folder scan discovers nested PDFs, refreshes, and reads only regi
     const restored = await reloaded.scanAll();
     assert.equal(restored.length, 1);
     assert.equal(restored[0].files.length, 2);
-  } finally { await rm(temporary, { recursive: true, force: true }); }
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 });

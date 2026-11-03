@@ -27,11 +27,16 @@ async function transact(name, mode, operation) {
   }
 }
 
-export const savePdf = (id, blob) => transact('pdfs', 'readwrite', store => store.put(blob, id));
-export const getPdf = id => transact('pdfs', 'readonly', store => store.get(id));
-export const deletePdf = async id => { await transact('pdfs', 'readwrite', store => store.delete(id)); await transact('paperText', 'readwrite', store => store.delete(id)); };
-export const saveImage = (id, blob) => transact('images', 'readwrite', store => store.put(blob, id));
-export const getImage = id => transact('images', 'readonly', store => store.get(id));
-export const deleteImage = id => transact('images', 'readwrite', store => store.delete(id));
-export const savePaperText = (id, value) => transact('paperText', 'readwrite', store => store.put(value, id));
-export const getPaperText = id => transact('paperText', 'readonly', store => store.get(id));
+export const savePdf = (id, blob) => transact('pdfs', 'readwrite', (store) => store.put(blob, id));
+export const getPdf = (id) => transact('pdfs', 'readonly', (store) => store.get(id));
+export const deletePdf = async (id) => {
+  await transact('pdfs', 'readwrite', (store) => store.delete(id));
+  await transact('paperText', 'readwrite', (store) => store.delete(id));
+};
+export const saveImage = (id, blob) =>
+  transact('images', 'readwrite', (store) => store.put(blob, id));
+export const getImage = (id) => transact('images', 'readonly', (store) => store.get(id));
+export const deleteImage = (id) => transact('images', 'readwrite', (store) => store.delete(id));
+export const savePaperText = (id, value) =>
+  transact('paperText', 'readwrite', (store) => store.put(value, id));
+export const getPaperText = (id) => transact('paperText', 'readonly', (store) => store.get(id));
