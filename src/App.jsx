@@ -320,6 +320,8 @@ export default function App() {
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('appearance');
+  const openSettings = (tab = 'appearance') => { setSettingsTab(tab); setSettingsOpen(true); };
   const [addPaperOpen, setAddPaperOpen] = useState(false);
   const [arxivInput, setArxivInput] = useState('');
   const [importBusy, setImportBusy] = useState(false);
@@ -589,7 +591,7 @@ export default function App() {
   };
   useEffect(() => {
     refreshProviderState().catch(() => {});
-    window.paperlensDesktop?.onOpenProviderSettings(() => setSettingsOpen(true));
+    return window.paperlensDesktop?.onOpenProviderSettings(tab => openSettings(tab || 'providers'));
   }, []);
   useEffect(() => {
     let cancelled = false;
@@ -1683,7 +1685,7 @@ export default function App() {
       }));
     window.getSelection()?.removeAllRanges();
     if (!hasKey) {
-      setSettingsOpen(true);
+      openSettings('providers');
       setThreads((current) =>
         current.map((t) =>
           t.id === id
@@ -2475,7 +2477,7 @@ export default function App() {
               setAddPaperOpen(true);
             }}
           >
-            <Plus size={18} /> Add reading <span>PDF / Blog</span>
+            <Plus size={18} /> Add paper or webpage
           </button>
           <input
             ref={fileInput}
@@ -2491,7 +2493,7 @@ export default function App() {
               onClick={() => toggleSection('projects')}
               aria-expanded={sectionOpen('projects')}
             >
-              <ChevronDown size={14} /> LIBRARY <small>{docs.length}</small>
+              <ChevronDown size={14} /> Library <small>{docs.length}</small>
             </button>
             <span className="tree-heading-actions">
               {window.paperlensDesktop?.chooseLibraryFolder && (
@@ -2523,7 +2525,8 @@ export default function App() {
                 <input
                   value={fileSearch}
                   onChange={(e) => setFileSearch(e.target.value)}
-                  placeholder="Search titles, authors, or websites…"
+                  aria-label="Search library"
+                  placeholder="Find a paper or article…"
                 />
               </div>
               <div className="library-kind-filters" role="group" aria-label="Document type">
@@ -2640,7 +2643,7 @@ export default function App() {
               onClick={() => toggleSection('doubts')}
               aria-expanded={sectionOpen('doubts')}
             >
-              <ChevronDown size={14} /> OPEN DOUBTS <small>{docThreads.length}</small>
+              <ChevronDown size={14} /> Open questions <small>{docThreads.length}</small>
             </button>
             <button onClick={() => startBlank('explain')} title="New doubt">
               <Plus size={16} />
@@ -2686,9 +2689,8 @@ export default function App() {
               </div>
             ) : (
               <div className="empty-doubts">
-                <MessageCircleQuestion size={23} />
-                <p>Your questions will live here.</p>
-                <span>Select text in the paper to start.</span>
+                <p>No questions yet.</p>
+                <span>Select a passage or ask in AI chat.</span>
               </div>
             ))}
           <div className="section-heading annotation-heading">
@@ -2697,7 +2699,7 @@ export default function App() {
               onClick={() => toggleSection('annotations')}
               aria-expanded={sectionOpen('annotations')}
             >
-              <ChevronDown size={14} /> ANNOTATIONS <small>{docAnnotations.length}</small>
+              <ChevronDown size={14} /> Annotations <small>{docAnnotations.length}</small>
             </button>
           </div>
           {sectionOpen('annotations') &&
@@ -2750,25 +2752,21 @@ export default function App() {
             onClick={exportLibrary}
             title="Export all papers, projects, doubts and annotations as a ZIP"
           >
-            <ArrowDownToLine size={14} /> {backupBusy ? 'Working…' : 'Export library'}
+            <ArrowDownToLine size={14} /> {backupBusy ? 'Working…' : 'Export'}
           </button>
           <button
             disabled={backupBusy}
             onClick={() => backupInput.current?.click()}
             title="Restore a PaperReader library ZIP"
           >
-            <UploadCloud size={14} /> Import library
+            <UploadCloud size={14} /> Import
           </button>
           {backupError && <p role="alert">{backupError}</p>}
         </div>
         <div className="sidebar-footer">
-          <div className="mini-avatar">PL</div>
-          <div>
-            <strong>Your library</strong>
-            <small>Private to this browser</small>
-          </div>
-          <button className="icon-button" title="Settings" onClick={() => setSettingsOpen(true)}>
-            <Settings2 size={17} />
+          <span className="local-library-status"><Check size={14} /> Saved on this device</span>
+          <button className="library-settings-button" title="Settings" onClick={() => openSettings()}>
+            <Settings2 size={17} /> Settings
           </button>
         </div>
       </aside>
@@ -2791,7 +2789,7 @@ export default function App() {
               <strong>{hasActiveDoc ? ellipsis(activeDoc.name, 37) : 'Library'}</strong>
             </div>
             <div className="top-actions">
-              <UpdateNotice onClick={() => setSettingsOpen(true)} />
+              <UpdateNotice onClick={() => openSettings('updates')} />
               <DarkModeButton />
               <button
                 className="icon-button"
@@ -2813,11 +2811,11 @@ export default function App() {
                 <Check size={13} /> Saved locally
               </span>
               <button
-                className="icon-button top-settings"
-                onClick={() => setSettingsOpen(true)}
+                className="icon-button top-settings labelled-settings"
+                onClick={() => openSettings()}
                 title="Settings"
               >
-                <Settings2 size={18} />
+                <Settings2 size={18} /> Settings
               </button>
               <button
                 className="sidebar-toggle"
@@ -3753,7 +3751,7 @@ export default function App() {
           )}
           {!hasKey && (
             <div className="composer-note">
-              <button onClick={() => setSettingsOpen(true)}>Add Groq key</button>
+              <button onClick={() => openSettings('providers')}>Add Groq key</button>
             </div>
           )}
         </div>
@@ -4128,6 +4126,7 @@ export default function App() {
       {settingsOpen &&
         (desktopApp ? (
           <ProviderSettings
+            initialTab={settingsTab}
             onClose={() => setSettingsOpen(false)}
             onSaved={refreshProviderState}
             answerModel={answerModel}
@@ -4139,6 +4138,7 @@ export default function App() {
           />
         ) : (
           <BrowserProviderSettings
+            initialTab={settingsTab}
             onClose={() => setSettingsOpen(false)}
             customProvider={customProvider}
             freeOnlyMode={freeOnlyMode}

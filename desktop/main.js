@@ -170,11 +170,11 @@ app.whenReady().then(async () => {
         submenu: [
           {
             label: 'Provider settings…',
-            click: () => window.webContents.send('provider-settings:open'),
+            click: () => window.webContents.send('provider-settings:open', 'providers'),
           },
           {
             label: 'Check for updates…',
-            click: () => { window.webContents.send('provider-settings:open'); updates.check(); },
+            click: () => { window.webContents.send('provider-settings:open', 'updates'); updates.check(); },
           },
           {
             label: 'Restart PaperReader',

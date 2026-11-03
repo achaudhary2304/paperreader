@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Palette, X, Check, Moon, Sun } from 'lucide-react';
 import './appearance.css';
-import { THEMES, FONTS, fontStack } from './appearanceSettings.js';
+import { THEMES, FONTS, fontStack, DEFAULT_THEME, DEFAULT_FONT } from './appearanceSettings.js';
 import { useAppearance } from './useAppearance.js';
 
 export default function Appearance({ embedded = false, hidden = false }) {
@@ -17,7 +17,7 @@ export default function Appearance({ embedded = false, hidden = false }) {
   return <>
     {!embedded && !hidden && <button className="icon-button appearance-trigger" title="Try fonts and colors" aria-label="Appearance" aria-expanded={open} onClick={() => setOpen(value => !value)}><Palette size={18} /></button>}
     {open && !hidden && <section className={`appearance-gallery${embedded ? ' embedded' : ''}`} role={embedded ? 'region' : 'dialog'} aria-label="Appearance preview">
-      <header><div><small>MAKE IT YOURS</small><h2>Find your reading mood</h2></div>{!embedded && <button className="icon-button" onClick={() => setOpen(false)} aria-label="Close appearance"><X size={19} /></button>}</header>
+      <header><div><h2>Appearance</h2></div>{!embedded && <button className="icon-button" onClick={() => setOpen(false)} aria-label="Close appearance"><X size={19} /></button>}</header>
       <div className="appearance-mode-row"><label htmlFor="color-mode">Color mode</label><select id="color-mode" value={choice.mode} onChange={event => setChoice(current => ({ ...current, mode: event.target.value }))}><option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option></select></div>
       <label className="pdf-dark-option"><input type="checkbox" checked={choice.pdfDark} onChange={event => setChoice(current => ({ ...current, pdfDark: event.target.checked }))} /> Dark PDF pages in dark mode</label>
       <p>Font and color choices are saved on this computer.</p>
@@ -27,7 +27,7 @@ export default function Appearance({ embedded = false, hidden = false }) {
         <strong>{itemTheme.name}</strong><small>{itemTheme.note.split(' · ').slice(0, 2).join(' · ')}</small>
       </button>)}</div>}
       <p className="appearance-footnote">Saved on this computer. PDF darkening is display-only; exports keep the original colors.</p>
-      <footer><button onClick={() => setChoice({ theme: 'violet', lightTheme: 'violet', font: 'inter', mode: 'light', pdfDark: false })}>Reset to Studio Violet</button>{embedded ? <span className="appearance-applied"><Check size={14} /> Changes apply immediately</span> : <button onClick={() => setOpen(false)}>Keep this look <Check size={14} /></button>}</footer>
+      <footer><button onClick={() => setChoice({ theme: DEFAULT_THEME, lightTheme: DEFAULT_THEME, font: DEFAULT_FONT, mode: 'light', pdfDark: false })}>Reset appearance</button>{embedded ? <span className="appearance-applied"><Check size={14} /> Changes apply immediately</span> : <button onClick={() => setOpen(false)}>Keep this look <Check size={14} /></button>}</footer>
     </section>}
   </>;
 }

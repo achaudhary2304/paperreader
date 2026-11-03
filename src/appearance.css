@@ -111,7 +111,7 @@
 [data-theme] .library-panel :is(.new-paper,.paper-meta strong,.thread-item strong,.annotation-item strong){font-weight:700;line-height:1.45}
 [data-theme] .library-panel :is(.paper-meta strong,.thread-item strong){white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 [data-theme] .library-panel :is(.paper-meta small,.thread-item small,.annotation-item small,.sidebar-footer small,.project-item small,.new-paper span){font-size:13px;font-weight:500;line-height:1.5}
-[data-theme] .library-panel .section-heading{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:750;letter-spacing:.025em;line-height:1.6;color:var(--theme-ink);margin-left:8px;margin-right:8px}
+[data-theme] .library-panel .section-heading{font-family:inherit;font-size:14px;font-weight:600;letter-spacing:0;line-height:1.6;color:var(--theme-ink);margin-left:8px;margin-right:8px}
 [data-theme] .library-panel .section-heading :is(button,span){font:inherit;color:inherit}
 [data-theme] .library-panel :is(.sidebar-footer strong,.empty-doubts p,.manage-project-papers,.project-notes-heading button,.library-backup button,.annotation-empty,.empty-doubts span){font-size:13px;font-weight:600}
 [data-theme] .library-panel .project-item{height:40px;font-weight:600}

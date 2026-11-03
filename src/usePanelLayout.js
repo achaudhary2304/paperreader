@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 // Keep panel dragging, saved widths, and the reader's minimum space together.
 export function usePanelLayout({ leftOpen, sidebarOpen }) {
   const [libraryWidth, setLibraryWidth] = useState(
-    () => Number(localStorage.getItem('paperlens:libraryWidth')) || 255,
+    () => Number(localStorage.getItem('paperlens:libraryWidth')) || 320,
   );
   const [companionWidth, setCompanionWidth] = useState(
     () => Number(localStorage.getItem('paperlens:companionWidth')) || 420,

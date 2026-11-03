@@ -33,7 +33,7 @@ export default function ProjectNotesPanel({
           <StickyNote size={14} /> Notes{' '}
           <ChevronDown size={13} className={open ? '' : 'notes-collapsed'} />
         </button>
-        <div className="project-note-actions">
+        <div className="project-note-actions" hidden={!open}>
           <button
             onClick={onShare}
             disabled={busy}
@@ -54,7 +54,7 @@ export default function ProjectNotesPanel({
             title="Download project README.md"
             aria-label="Download project README.md"
           >
-            <ArrowDownToLine size={14} /> README.md
+            <ArrowDownToLine size={14} /> Export notes
           </button>
           <button
             onClick={() => onManage()}

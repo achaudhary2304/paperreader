@@ -10,7 +10,7 @@ test('existing color and font preferences survive the new mode controls', () => 
   assert.equal(saved.font, 'jetbrainsmono');
   const legacyDark = appearanceChoice({ theme: 'midnight', font: 'inter' });
   assert.equal(legacyDark.mode, 'dark');
-  assert.equal(appearanceTheme({ ...legacyDark, mode: 'light' }).id, 'violet');
+  assert.equal(appearanceTheme({ ...legacyDark, mode: 'light' }).id, 'slate');
 });
 
 test('system mode tracks OS colors without replacing the preferred light palette', () => {
@@ -23,7 +23,16 @@ test('system mode tracks OS colors without replacing the preferred light palette
 
 test('invalid settings fall back and URL previews resolve explicitly', () => {
   const saved = appearanceChoice({ theme: 'missing', font: 'missing', mode: 'missing' });
-  assert.equal(appearanceTheme(saved).id, 'violet');
-  assert.equal(saved.font, 'inter');
+  assert.equal(appearanceTheme(saved).id, 'slate');
+  assert.equal(saved.font, 'sourcesans3');
   assert.equal(appearanceTheme(appearanceChoice(saved, 'midnight')).id, 'midnight');
+});
+
+test('new installs use the neutral interface palette and Source Sans 3', () => {
+  const choice = appearanceChoice();
+  assert.equal(choice.theme, 'slate');
+  assert.equal(choice.font, 'sourcesans3');
+  assert.equal(choice.mode, 'light');
+  const explicitViolet = appearanceChoice({ theme: 'violet', font: 'inter' });
+  assert.equal(appearanceTheme(explicitViolet).id, 'violet', 'existing choices are preserved');
 });

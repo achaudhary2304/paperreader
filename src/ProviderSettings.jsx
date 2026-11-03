@@ -3,7 +3,29 @@ import { ArrowRight, Check, Settings2, X } from 'lucide-react';
 import Appearance from './Appearance.jsx';
 import UpdateSettings from './UpdateSettings.jsx';
 
+function SettingsTabs({ tab, onChange, desktop = false }) {
+  const tabs = [['appearance', 'Appearance'], ['providers', 'AI providers'], ...(desktop ? [['updates', 'Updates']] : [])];
+  return <div className="settings-tabs" role="tablist" aria-label="Settings sections">
+    {tabs.map(([id, label], index) => <button key={id} id={`settings-tab-${id}`} role="tab"
+      aria-selected={tab === id} aria-controls={`settings-panel-${id}`} tabIndex={tab === id ? 0 : -1}
+      onClick={() => onChange(id)} onKeyDown={(event) => {
+        let next;
+        if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+        if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+        if (event.key === 'Home') next = 0;
+        if (event.key === 'End') next = tabs.length - 1;
+        if (next !== undefined) { event.preventDefault(); onChange(tabs[next][0]); document.getElementById(`settings-tab-${tabs[next][0]}`).focus(); }
+      }}>{label}</button>)}
+  </div>;
+}
+
+function SettingsPanel({ id, tab, children }) {
+  return <section className="settings-panel" role="tabpanel" id={`settings-panel-${id}`}
+    aria-labelledby={`settings-tab-${id}`} hidden={tab !== id}>{children}</section>;
+}
+
 export default function ProviderSettings({
+  initialTab = 'appearance',
   onClose,
   onSaved,
   answerModel,
@@ -13,6 +35,7 @@ export default function ProviderSettings({
   freeUsage,
   refreshFreeUsage,
 }) {
+  const [tab, setTab] = useState(initialTab);
   const [saved, setSaved] = useState(null);
   const [form, setForm] = useState({});
   const [clear, setClear] = useState([]);
@@ -32,7 +55,7 @@ export default function ProviderSettings({
           ),
         );
       })
-      .catch((e) => setError(e.message));
+      .catch((e) => { setError(e.message); setTab('providers'); });
   }, []);
   const field = (name, label, placeholder, secret = false) => (
     <div className="provider-field" key={name}>
@@ -116,7 +139,10 @@ export default function ProviderSettings({
           </button>
         </div>
         <h2>Settings</h2>
-        <p>Manage AI providers and choose how PaperReader looks on this computer.</p>
+        <p>Reading preferences, AI providers, and app updates.</p>
+        <SettingsTabs tab={tab} onChange={setTab} desktop />
+        <SettingsPanel id="appearance" tab={tab}><Appearance embedded /></SettingsPanel>
+        <SettingsPanel id="providers" tab={tab}>
         {field('OPENROUTER_API_KEY', 'OPENROUTER KEY · FREE MODELS', 'sk-or-v1-…', true)}
         {field('GROQ_API_KEY', 'GROQ KEY', 'gsk_…', true)}
         <details className="custom-provider-fields">
@@ -182,14 +208,15 @@ export default function ProviderSettings({
             {busy ? 'Saving…' : 'Save settings'} <ArrowRight size={16} />
           </button>
         </div>
-        <UpdateSettings />
-        <Appearance embedded />
+        </SettingsPanel>
+        <SettingsPanel id="updates" tab={tab}><UpdateSettings /></SettingsPanel>
       </div>
     </div>
   );
 }
 
 export function BrowserProviderSettings({
+  initialTab = 'appearance',
   onClose,
   customProvider,
   freeOnlyMode,
@@ -202,24 +229,22 @@ export function BrowserProviderSettings({
   setAnswerModel,
   availableAnswerModels,
 }) {
+  const [tab, setTab] = useState(initialTab === 'updates' ? 'appearance' : initialTab);
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="settings-modal">
+      <div className="settings-modal" role="dialog" aria-modal="true" aria-label="Settings">
         <div className="modal-header">
           <span className="modal-icon">
             <Settings2 size={19} />
           </span>
-          <button onClick={onClose}>
+          <button onClick={onClose} aria-label="Close settings">
             <X size={19} />
           </button>
         </div>
-        <h2>
-          {customProvider
-            ? 'Custom API'
-            : freeOnlyMode
-              ? 'OpenRouter · Free models'
-              : 'Connect Groq'}
-        </h2>
+        <h2>Settings</h2>
+        <SettingsTabs tab={tab} onChange={setTab} />
+        <SettingsPanel id="appearance" tab={tab}><Appearance embedded /></SettingsPanel>
+        <SettingsPanel id="providers" tab={tab}>
         <p>
           {customProvider
             ? 'This server uses the OpenAI-compatible endpoint configured in its .env file. Change LLM_BASE_URL and LLM_MODEL there to switch providers.'
@@ -301,7 +326,6 @@ export function BrowserProviderSettings({
               : 'Preferred model for answers and math. Switches to another available Groq model on rate limits.'}{' '}
           The actual provider and model are shown on each answer.
         </p>
-        <Appearance embedded />
         <div className="modal-actions">
           <button
             className="text-action"
@@ -317,6 +341,7 @@ export function BrowserProviderSettings({
             Done <ArrowRight size={16} />
           </button>
         </div>
+        </SettingsPanel>
       </div>
     </div>
   );

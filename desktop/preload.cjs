@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('paperlensDesktop', {
   getProviderSettings: () => ipcRenderer.invoke('provider-settings:get'),
   saveProviderSettings: changes => ipcRenderer.invoke('provider-settings:save', changes),
   setZenMode: active => ipcRenderer.invoke('reader:zen', active),
-  onOpenProviderSettings: callback => ipcRenderer.on('provider-settings:open', () => callback()),
+  onOpenProviderSettings: callback => { const handler = (_event, tab) => callback(tab); ipcRenderer.on('provider-settings:open', handler); return () => ipcRenderer.removeListener('provider-settings:open', handler); },
   chooseLibraryFolder: () => ipcRenderer.invoke('library:choose-folder'),
   scanLibraryFolders: () => ipcRenderer.invoke('library:scan-folders'),
   scanLibraryFolder: folderId => ipcRenderer.invoke('library:scan-folder', folderId),
