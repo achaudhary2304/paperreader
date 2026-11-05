@@ -25,7 +25,8 @@
     "open": "node scripts/open.mjs",
     "format": "prettier --write src server desktop shared scripts vite.config.js",
     "format:check": "prettier --check src server desktop shared scripts vite.config.js",
-    "benchmark": "node scripts/benchmark.mjs"
+    "benchmark": "node scripts/benchmark.mjs",
+    "test:desktop": "node scripts/desktop-smoke.mjs"
   },
   "dependencies": {
     "@langchain/core": "^1.2.17",

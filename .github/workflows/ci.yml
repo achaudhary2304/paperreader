@@ -15,3 +15,5 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
+  native-desktop:
+    uses: ./.github/workflows/native-desktop.yml

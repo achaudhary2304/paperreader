@@ -1,0 +1,39 @@
+name: Native desktop tests
+on:
+  workflow_call:
+jobs:
+  desktop:
+    name: Test Electron on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Prepare Linux keyring and display
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y gnome-keyring libsecret-1-0 dbus-x11 xvfb
+      - name: Prepare isolated macOS keychain
+        if: runner.os == 'macOS'
+        run: |
+          security create-keychain -p smoke-test "$RUNNER_TEMP/paperreader-test.keychain-db"
+          security set-keychain-settings -lut 21600 "$RUNNER_TEMP/paperreader-test.keychain-db"
+          security unlock-keychain -p smoke-test "$RUNNER_TEMP/paperreader-test.keychain-db"
+          security list-keychains -d user -s "$RUNNER_TEMP/paperreader-test.keychain-db"
+          security default-keychain -d user -s "$RUNNER_TEMP/paperreader-test.keychain-db"
+      - name: Native Linux desktop test
+        if: runner.os == 'Linux'
+        run: |
+          dbus-run-session -- bash -c 'printf smoke-test | gnome-keyring-daemon --unlock --components=secrets; xvfb-run -a npm run test:desktop'
+      - name: Native Windows/macOS desktop test
+        if: runner.os != 'Linux'
+        run: npm run test:desktop

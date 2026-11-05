@@ -5,7 +5,11 @@ on:
   workflow_dispatch:
 
 jobs:
+  native-desktop:
+    uses: ./.github/workflows/native-desktop.yml
+
   package:
+    needs: native-desktop
     name: Package ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     strategy:
