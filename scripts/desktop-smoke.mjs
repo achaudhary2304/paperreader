@@ -14,7 +14,7 @@ try {
   for (const name of ['desktop', 'server', 'shared', 'dist']) {
     await cp(resolve(name), join(application, name), { recursive: true });
   }
-  await cp(application, join(application, 'smoke.cjs'));
+  await cp('scripts/desktop-smoke.cjs', join(application, 'smoke.cjs'));
   await symlink(
     resolve('node_modules'),
     join(application, 'node_modules'),
@@ -30,7 +30,8 @@ try {
       desktopName: 'paperlens.desktop',
     }),
   );
-  for (const phase of ['save', 'reload']) {
+  const phases = process.argv.includes('--prepare-only') ? [] : ['save', 'reload'];
+  for (const phase of phases) {
     await new Promise((resolve, reject) => {
       const child = spawn(
         electron,
