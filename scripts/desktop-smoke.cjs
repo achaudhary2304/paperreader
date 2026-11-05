@@ -32,6 +32,12 @@ process.on('unhandledRejection', fail);
 
 async function checkWindow(window) {
   const contents = window.webContents;
+  contents.on('preload-error', (_event, path, error) =>
+    fail(new Error(`Preload failed (${path}): ${error.message}`)),
+  );
+  contents.on('console-message', (_event, details) => {
+    if (details?.level === 'error') console.error('Renderer:', details.message);
+  });
   contents.on('render-process-gone', (_event, details) =>
     fail(new Error(`Renderer exited: ${details.reason}`)),
   );
@@ -107,4 +113,4 @@ app.on('browser-window-created', (_event, window) => {
 app.on('will-quit', () => {
   if (!completed) process.exitCode = 1;
 });
-import(pathToFileURL(join(__dirname, '../desktop/main.js')).href).catch(fail);
+import(pathToFileURL(join(__dirname, 'desktop/main.js')).href).catch(fail);
