@@ -191,12 +191,12 @@ export default function ProviderSettings({
           <div className="key-status">
             {saved?.secureStorage ? (
               <>
-                <Check size={15} /> Keys are protected by the system keyring.
+                <Check size={15} /> Keys are protected by your operating system.
               </>
             ) : saved?.legacyPlaintext ? (
               'Older keys are still in a local settings file. Unlock your system keyring to migrate them.'
             ) : (
-              'A system keyring is needed to save new keys.'
+              'Protected system storage is needed to save new keys.'
             )}
           </div>
           {freeOnlyMode && (

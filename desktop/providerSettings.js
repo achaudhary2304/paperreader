@@ -21,7 +21,11 @@ function writePrivate(path, data) {
   chmodSync(path, 0o600);
 }
 
-export function createProviderSettings(directory, safeStorage) {
+export function createProviderSettings(
+  directory,
+  safeStorage,
+  { platform = process.platform } = {},
+) {
   const optionsPath = join(directory, 'provider-settings.txt');
   const secretsPath = join(directory, 'provider-secrets.bin');
   let values = empty();
@@ -29,9 +33,15 @@ export function createProviderSettings(directory, safeStorage) {
   let secureAvailable = false;
 
   const secureStoreAvailable = async () => {
-    secureAvailable =
-      safeStorage.getSelectedStorageBackend() !== 'basic_text' &&
-      (await safeStorage.isAsyncEncryptionAvailable());
+    secureAvailable = await safeStorage.isAsyncEncryptionAvailable();
+    // Windows/macOS use their native protected storage. Only Linux exposes the
+    // backend selector, where basic_text must be rejected as insecure.
+    if (platform === 'linux') {
+      secureAvailable =
+        secureAvailable &&
+        typeof safeStorage.getSelectedStorageBackend === 'function' &&
+        safeStorage.getSelectedStorageBackend() !== 'basic_text';
+    }
     return secureAvailable;
   };
 
@@ -80,7 +90,9 @@ export function createProviderSettings(directory, safeStorage) {
     if (KEYS.some((field) => values[field])) {
       if (!(await secureStoreAvailable()))
         throw new Error(
-          'A system keyring is required to save API keys. Unlock GNOME Keyring or KWallet, then try again.',
+          platform === 'linux'
+            ? 'A system keyring is required to save API keys. Unlock GNOME Keyring or KWallet, then try again.'
+            : 'Protected system storage is unavailable. Restart PaperReader and try again.',
         );
       writePrivate(
         secretsPath,
