@@ -16,14 +16,28 @@ try {
           'scripts/desktop-smoke.cjs',
         ],
         {
-          stdio: 'inherit',
+          stdio: ['ignore', 'pipe', 'pipe'],
           env: { ...process.env, PAPERREADER_SMOKE_DIR: directory, PAPERREADER_SMOKE_PHASE: phase },
         },
       );
+      let output = '';
+      for (const stream of [child.stdout, child.stderr])
+        stream.on('data', (chunk) => {
+          const text = chunk.toString();
+          output += text;
+          process.stdout.write(text);
+        });
       child.on('error', reject);
-      child.on('exit', (code) =>
-        code === 0 ? resolve() : reject(new Error(`Desktop ${phase} failed (${code}).`)),
-      );
+      child.on('exit', (code) => {
+        if (code === 0) return resolve();
+        const detail = output
+          .slice(-6000)
+          .replaceAll('%', '%25')
+          .replaceAll('\r', '%0D')
+          .replaceAll('\n', '%0A');
+        console.log(`::error title=Native desktop ${phase}::${detail}`);
+        reject(new Error(`Desktop ${phase} failed (${code}).`));
+      });
     });
   }
 } finally {
