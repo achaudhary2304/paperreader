@@ -1,0 +1,49 @@
+name: Add macOS installers to an existing release
+on:
+  push:
+    tags: ['macos-v*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag (for example v0.4.28)
+        required: true
+
+jobs:
+  native-desktop:
+    uses: ./.github/workflows/native-desktop.yml
+
+  macos:
+    needs: native-desktop
+    runs-on: macos-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REQUESTED_TAG: ${{ inputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Validate release version
+        run: |
+          RELEASE_TAG="${REQUESTED_TAG:-${GITHUB_REF_NAME#macos-}}"
+          test "$RELEASE_TAG" = "v$(node -p "require('./package.json').version")"
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm run desktop:package -- --mac --arm64 --x64
+      - uses: actions/attest@v4
+        with:
+          subject-path: release/*.dmg
+      - name: Upload macOS installers and refresh checksums
+        run: |
+          gh release upload "$RELEASE_TAG" release/*.dmg release/*.dmg.blockmap --repo "$GITHUB_REPOSITORY" --clobber
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir checksums --skip-existing
+          cd checksums
+          find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -exec shasum -a 256 {} \; | sed 's|  ./|  |' | sort > SHA256SUMS.txt
+          gh release upload "$RELEASE_TAG" SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber

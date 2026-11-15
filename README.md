@@ -18,9 +18,11 @@ Download the latest version from [GitHub Releases](https://github.com/achaudhary
 |---|---|
 | Ubuntu / Linux | `.deb` installer or `.AppImage` |
 | Windows | `.exe` installer |
-| macOS | Run from source (below); the latest release does not include a macOS installer |
+| macOS | `.dmg`: `arm64` for Apple Silicon, `x64` for Intel |
 
 For an AppImage, enable **Allow executing file as program** in its file properties. After its first launch, PaperReader adds an app-menu entry with its book logo; you can pin it to the dock. Keep the AppImage in a permanent folder.
+
+On macOS, open the `.dmg` and drag PaperReader to Applications. Mac builds are unsigned and not notarized, so macOS may require approval in **System Settings → Privacy & Security**. Mac updates currently require downloading the newer `.dmg`.
 
 Open **Settings** and add an API key. Supported providers: Groq, OpenRouter free models, and OpenAI-compatible APIs or local models. Desktop keys are stored locally using the system keyring. Choose provider order and your preferred Groq model in **Settings → AI providers**; a configured custom API takes priority.
 
