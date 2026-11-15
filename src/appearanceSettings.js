@@ -150,7 +150,7 @@ export function appearanceChoice(saved = {}, requested) {
       : theme.id !== 'midnight'
         ? theme.id
         : DEFAULT_THEME,
-    pdfDark: saved.pdfDark === true,
+    pdfDark: requested === 'midnight' ? true : saved.pdfDark !== false,
   };
 }
 

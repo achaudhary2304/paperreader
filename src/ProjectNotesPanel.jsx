@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ArrowDownToLine,
   ChevronDown,
   Layers3,
+  Ellipsis,
   Share2,
   StickyNote,
   UploadCloud,
@@ -26,6 +27,7 @@ export default function ProjectNotesPanel({
   onRemoveEntry,
   onOpenAnnotation,
 }) {
+  const [actionsOpen, setActionsOpen] = useState(false);
   return (
     <section className="project-notes-panel">
       <div className="project-notes-heading">
@@ -33,41 +35,56 @@ export default function ProjectNotesPanel({
           <StickyNote size={14} /> Notes{' '}
           <ChevronDown size={13} className={open ? '' : 'notes-collapsed'} />
         </button>
-        <div className="project-note-actions" hidden={!open}>
+        {open && (
           <button
-            onClick={onShare}
-            disabled={busy}
-            title="Export project with papers, annotations and README notes"
-            aria-label="Export project"
+            type="button"
+            className="notes-actions-toggle"
+            aria-label="Project note actions"
+            title="Project note actions"
+            aria-expanded={actionsOpen}
+            onClick={() => setActionsOpen((value) => !value)}
           >
-            <Share2 size={14} /> Share
+            <Ellipsis size={18} />
           </button>
-          <button
-            onClick={() => onImport()}
-            title="Import a shared project"
-            aria-label="Import project"
-          >
-            <UploadCloud size={14} /> Import
-          </button>
-          <button
-            onClick={() => onDownload()}
-            title="Download project README.md"
-            aria-label="Download project README.md"
-          >
-            <ArrowDownToLine size={14} /> Export notes
-          </button>
-          <button
-            onClick={() => onManage()}
-            title="Manage reading in project"
-            aria-label="Manage reading in project"
-          >
-            <Layers3 size={14} />
-          </button>
-        </div>
+        )}
       </div>
       {open && (
         <>
+          {actionsOpen && (
+            <div className="project-note-actions" onClick={() => setActionsOpen(false)}>
+              <button
+                onClick={onShare}
+                disabled={busy}
+                title="Export project with papers, annotations and README notes"
+                aria-label="Export project"
+              >
+                <Share2 size={14} /> Share
+              </button>
+              <button
+                onClick={() => onImport()}
+                title="Import a shared project"
+                aria-label="Import project"
+              >
+                <UploadCloud size={14} /> Import
+              </button>
+              <button
+                onClick={() => onDownload()}
+                title="Download project README.md"
+                aria-label="Download project README.md"
+              >
+                <ArrowDownToLine size={14} /> Export notes
+              </button>
+              <button
+                onClick={() => onManage()}
+                title="Manage reading in project"
+                aria-label="Manage reading in project"
+              >
+                <Layers3 size={14} /> Manage papers
+              </button>
+            </div>
+          )}
           <textarea
+            rows={3}
             aria-label={`${project.name} project notes`}
             value={project.notes || ''}
             onChange={(event) => onChange(event.target.value)}

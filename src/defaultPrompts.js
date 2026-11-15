@@ -8,5 +8,5 @@ export const DEFAULT_PROMPTS = {
 
 export function getDefaultPrompt(mode, overrides = {}) {
   const value = overrides?.[mode];
-  return typeof value === 'string' && value.trim() ? value : DEFAULT_PROMPTS[mode];
+  return typeof value === 'string' ? value : DEFAULT_PROMPTS[mode];
 }

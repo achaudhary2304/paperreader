@@ -299,3 +299,133 @@
 .settings-tabs {
   flex-wrap: wrap;
 }
+
+/* Adapt to the sidebar's actual width, including laptop display scaling. */
+.library-panel {
+  container-type: inline-size;
+  container-name: library;
+}
+@container library (max-width: 290px) {
+  :root[data-theme] .library-scroll {
+    padding: 12px;
+  }
+  :root[data-theme] .brand-row {
+    padding-inline: 12px;
+  }
+  :root[data-theme] .library-organize {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :root[data-theme] .library-kind-filters {
+    flex-wrap: wrap;
+  }
+  :root[data-theme] .library-kind-filters button {
+    flex: 1 1 65px;
+  }
+  :root[data-theme] .sidebar-footer {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 10px 12px;
+  }
+  :root[data-theme] .sidebar-footer .local-library-status {
+    flex: none;
+  }
+  :root[data-theme] .library-settings-button {
+    margin-left: 0;
+    justify-content: center;
+  }
+  :root[data-theme] .library-panel .section-heading {
+    margin-top: 18px;
+  }
+  :root[data-theme] .new-paper {
+    height: auto;
+    padding: 10px 8px;
+    text-align: left;
+  }
+}
+@media (max-height: 700px) {
+  :root[data-theme] .brand-row {
+    height: 58px;
+    padding-block: 12px;
+  }
+  :root[data-theme] .library-scroll {
+    padding-block: 10px;
+  }
+  :root[data-theme] .library-panel .section-heading {
+    margin-top: 18px;
+  }
+  :root[data-theme] .library-backup {
+    padding-block: 6px;
+  }
+  :root[data-theme] .sidebar-footer {
+    padding-block: 9px;
+  }
+}
+
+/* Show the library first; secondary tools expand only when needed. */
+.library-filter-menu {
+  margin: 8px 0 12px;
+}
+.library-filter-menu > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  list-style: none;
+  cursor: pointer;
+  padding: 6px 2px;
+  font-size: 13px;
+  color: var(--theme-muted);
+}
+.library-filter-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.library-filter-menu > summary > svg:last-child {
+  margin-left: auto;
+}
+.library-filter-menu[open] > summary > svg:last-child {
+  transform: rotate(180deg);
+}
+.filter-active-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--theme-accent);
+}
+:root[data-theme] .library-kind-filters button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+:root[data-theme] .project-notes-heading {
+  flex-direction: row;
+  align-items: center;
+  padding: 8px 10px;
+}
+:root[data-theme] .notes-actions-toggle {
+  margin-left: auto;
+  flex: none;
+}
+:root[data-theme] .project-notes-panel > .project-note-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--theme-line);
+}
+:root[data-theme] .project-notes-panel > .project-note-actions button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--theme-ink);
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 0;
+  text-align: left;
+}
+:root[data-theme] .project-notes-panel textarea {
+  min-height: 88px;
+  height: 100px;
+  max-height: 35dvh;
+}

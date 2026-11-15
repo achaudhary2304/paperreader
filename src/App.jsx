@@ -2595,49 +2595,60 @@ export default function App() {
                   placeholder="Find a paper or article…"
                 />
               </div>
-              <div className="library-kind-filters" role="group" aria-label="Document type">
-                {[
-                  ['all', 'All'],
-                  ['paper', 'Papers'],
-                  ['article', 'Articles'],
-                ].map(([kind, label]) => (
-                  <button
-                    key={kind}
-                    aria-pressed={libraryKind === kind}
-                    onClick={() => setLibraryKind(kind)}
+              <details className="library-filter-menu">
+                <summary>
+                  <Settings2 size={14} /> Filters &amp; sort
+                  {(libraryKind !== 'all' ||
+                    libraryStatus !== 'all' ||
+                    librarySort !== 'recent') && (
+                    <span className="filter-active-dot" aria-label="Custom filters active" />
+                  )}
+                  <ChevronDown size={13} />
+                </summary>
+                <div className="library-kind-filters" role="group" aria-label="Document type">
+                  {[
+                    ['all', 'All'],
+                    ['paper', 'Papers'],
+                    ['article', 'Articles'],
+                  ].map(([kind, label]) => (
+                    <button
+                      key={kind}
+                      aria-pressed={libraryKind === kind}
+                      onClick={() => setLibraryKind(kind)}
+                    >
+                      {label}{' '}
+                      <small>
+                        {kind === 'all'
+                          ? docs.length
+                          : docs.filter(
+                              (doc) => (doc.kind === 'article' ? 'article' : 'paper') === kind,
+                            ).length}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+                <div className="library-organize">
+                  <select
+                    aria-label="Filter reading status"
+                    value={libraryStatus}
+                    onChange={(event) => setLibraryStatus(event.target.value)}
                   >
-                    {label}{' '}
-                    <small>
-                      {kind === 'all'
-                        ? docs.length
-                        : docs.filter(
-                            (doc) => (doc.kind === 'article' ? 'article' : 'paper') === kind,
-                          ).length}
-                    </small>
-                  </button>
-                ))}
-              </div>
-              <div className="library-organize">
-                <select
-                  aria-label="Filter reading status"
-                  value={libraryStatus}
-                  onChange={(event) => setLibraryStatus(event.target.value)}
-                >
-                  <option value="all">Every status</option>
-                  <option value="unread">Unread</option>
-                  <option value="reading">Reading</option>
-                  <option value="finished">Finished</option>
-                </select>
-                <select
-                  aria-label="Sort library"
-                  value={librarySort}
-                  onChange={(event) => setLibrarySort(event.target.value)}
-                >
-                  <option value="recent">Recently added</option>
-                  <option value="title">Title A–Z</option>
-                  <option value="source">Author / website</option>
-                </select>
-              </div>
+                    <option value="all">Every status</option>
+                    <option value="unread">Unread</option>
+                    <option value="reading">Reading</option>
+                    <option value="finished">Finished</option>
+                  </select>
+                  <select
+                    aria-label="Sort library"
+                    value={librarySort}
+                    onChange={(event) => setLibrarySort(event.target.value)}
+                  >
+                    <option value="recent">Recently added</option>
+                    <option value="title">Title A–Z</option>
+                    <option value="source">Author / website</option>
+                  </select>
+                </div>
+              </details>
             </div>
           )}
           {sectionOpen('projects') && (

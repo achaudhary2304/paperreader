@@ -58,7 +58,11 @@ export default function Appearance({ embedded = false, hidden = false }) {
               id="color-mode"
               value={choice.mode}
               onChange={(event) =>
-                setChoice((current) => ({ ...current, mode: event.target.value }))
+                setChoice((current) => ({
+                  ...current,
+                  mode: event.target.value,
+                  pdfDark: event.target.value === 'light' ? current.pdfDark : true,
+                }))
               }
             >
               <option value="light">Light</option>
@@ -137,6 +141,7 @@ export default function Appearance({ embedded = false, hidden = false }) {
                       ...current,
                       theme: itemTheme.id,
                       mode: itemTheme.id === 'midnight' ? 'dark' : 'light',
+                      pdfDark: itemTheme.id === 'midnight' ? true : current.pdfDark,
                       lightTheme: itemTheme.id === 'midnight' ? current.lightTheme : itemTheme.id,
                     }))
                   }
@@ -180,7 +185,7 @@ export default function Appearance({ embedded = false, hidden = false }) {
                   lightTheme: DEFAULT_THEME,
                   font: DEFAULT_FONT,
                   mode: 'light',
-                  pdfDark: false,
+                  pdfDark: true,
                 })
               }
             >
@@ -211,7 +216,13 @@ export function DarkModeButton() {
       title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
       aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
       aria-pressed={dark}
-      onClick={() => setChoice({ ...choice, mode: dark ? 'light' : 'dark' })}
+      onClick={() =>
+        setChoice({
+          ...choice,
+          mode: dark ? 'light' : 'dark',
+          pdfDark: dark ? choice.pdfDark : true,
+        })
+      }
     >
       {dark ? <Sun size={18} /> : <Moon size={18} />}
     </button>

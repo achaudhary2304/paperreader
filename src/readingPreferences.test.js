@@ -3,13 +3,15 @@ import assert from 'node:assert/strict';
 import { DEFAULT_PROMPTS, getDefaultPrompt } from './defaultPrompts.js';
 import { captureReadingPosition } from './readingPosition.js';
 
-test('custom starting prompts preserve user text and empty values use defaults', () => {
+test('custom starting prompts preserve intentional blanks and missing values use defaults', () => {
   assert.equal(
     getDefaultPrompt('math', { math: 'Explain each symbol first.' }),
     'Explain each symbol first.',
   );
   for (const mode of Object.keys(DEFAULT_PROMPTS)) {
-    assert.equal(getDefaultPrompt(mode, { [mode]: '  ' }), DEFAULT_PROMPTS[mode]);
+    assert.equal(getDefaultPrompt(mode, { [mode]: '' }), '');
+    assert.equal(getDefaultPrompt(mode, { [mode]: '  ' }), '  ');
+    assert.equal(getDefaultPrompt(mode, {}), DEFAULT_PROMPTS[mode]);
     assert.equal(getDefaultPrompt(mode, { [mode]: 42 }), DEFAULT_PROMPTS[mode]);
   }
 });

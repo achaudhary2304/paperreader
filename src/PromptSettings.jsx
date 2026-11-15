@@ -14,7 +14,7 @@ export default function PromptSettings({ prompts, onChange }) {
     <>
       <p>
         Choose the starting question for each action. You can still edit it in chat before sending.
-        Changes save automatically.
+        Leave a prompt empty to start with a blank question. Changes save automatically.
       </p>
       {Object.entries(DEFAULT_PROMPTS).map(([mode, fallback]) => (
         <div className="prompt-setting" key={mode}>

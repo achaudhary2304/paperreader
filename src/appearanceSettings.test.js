@@ -36,3 +36,10 @@ test('new installs use the neutral interface palette and Source Sans 3', () => {
   const explicitViolet = appearanceChoice({ theme: 'violet', font: 'inter' });
   assert.equal(appearanceTheme(explicitViolet).id, 'violet', 'existing choices are preserved');
 });
+
+test('paper darkening defaults on while an explicit white-paper preference is preserved', () => {
+  assert.equal(appearanceChoice().pdfDark, true);
+  assert.equal(appearanceChoice({ mode: 'dark', pdfDark: false }).pdfDark, false);
+  assert.equal(appearanceChoice({ mode: 'dark' }).pdfDark, true);
+  assert.equal(appearanceChoice({ pdfDark: false }, 'midnight').pdfDark, true);
+});
