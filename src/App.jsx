@@ -2870,12 +2870,6 @@ export default function App() {
           style={{ '--overlay-panel-width': `${fittedCompanionWidth}px` }}
         />
         <div className="reader-controls" hidden={readerControlsHidden}>
-          <PanelHandle
-            edge="top"
-            open
-            label="reader controls"
-            onClick={() => setReaderControlsHidden(true)}
-          />
           <header className="topbar">
             <div className="crumb">
               <span className="crumb-muted">Library</span>
@@ -3110,6 +3104,16 @@ export default function App() {
             </div>
           )}
         </div>
+        {!readerControlsHidden && (
+          <div className="toolbar-handle-anchor">
+            <PanelHandle
+              edge="top"
+              open
+              label="reader controls"
+              onClick={() => setReaderControlsHidden(true)}
+            />
+          </div>
+        )}
         {readerControlsHidden && (
           <PanelHandle
             edge="top"
