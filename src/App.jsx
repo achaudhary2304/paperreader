@@ -1,3 +1,4 @@
+import PanelHandle from './PanelHandle.jsx';
 import { getDefaultPrompt } from './defaultPrompts.js';
 import { captureReadingPosition } from './readingPosition.js';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -30,7 +31,6 @@ import {
   Highlighter,
   LibraryBig,
   Lightbulb,
-  Menu,
   Plus,
   Search,
   Settings2,
@@ -40,8 +40,6 @@ import {
   X,
   ZoomIn,
   ZoomOut,
-  PanelRightClose,
-  PanelRightOpen,
   Layers3,
   FolderPlus,
   Globe,
@@ -2536,14 +2534,6 @@ export default function App() {
           <span className="brand-name">
             Paper<span>Reader</span>
           </span>
-          <button
-            className="icon-button collapse-left"
-            onClick={() => setLeftOpen(false)}
-            title="Hide library"
-            aria-label="Hide library"
-          >
-            <PanelRightOpen size={17} />
-          </button>
         </div>
         <div className="library-scroll">
           <button
@@ -2854,18 +2844,29 @@ export default function App() {
       </aside>
 
       <main className={`reader-column${readerControlsHidden ? ' controls-hidden' : ''}`}>
+        <PanelHandle
+          edge="left"
+          open={leftOpen}
+          label="library"
+          onClick={() => setLeftOpen((open) => !open)}
+          style={{ '--overlay-panel-width': `${fittedLibraryWidth}px` }}
+        />
+        <PanelHandle
+          edge="right"
+          open={sidebarOpen}
+          label="AI chat"
+          onClick={() => setSidebarOpen((open) => !open)}
+          style={{ '--overlay-panel-width': `${fittedCompanionWidth}px` }}
+        />
         <div className="reader-controls" hidden={readerControlsHidden}>
+          <PanelHandle
+            edge="top"
+            open
+            label="reader controls"
+            onClick={() => setReaderControlsHidden(true)}
+          />
           <header className="topbar">
             <div className="crumb">
-              <button
-                className="icon-button"
-                aria-label={leftOpen ? 'Hide library' : 'Show library'}
-                aria-expanded={leftOpen}
-                title={leftOpen ? 'Hide library' : 'Show library'}
-                onClick={() => setLeftOpen((open) => !open)}
-              >
-                <Menu size={19} />
-              </button>
               <span className="crumb-muted">Library</span>
               <ChevronRight size={14} />
               <strong>{hasActiveDoc ? ellipsis(activeDoc.name, 37) : 'Library'}</strong>
@@ -2873,14 +2874,7 @@ export default function App() {
             <div className="top-actions">
               <UpdateNotice onClick={() => openSettings('updates')} />
               <DarkModeButton />
-              <button
-                className="icon-button"
-                title="Hide reader controls"
-                aria-label="Hide reader controls"
-                onClick={() => setReaderControlsHidden(true)}
-              >
-                <ChevronUp size={18} />
-              </button>
+
               <button
                 className="icon-button"
                 title="Zen mode (Z)"
@@ -2898,15 +2892,6 @@ export default function App() {
                 title="Settings"
               >
                 <Settings2 size={18} /> Settings
-              </button>
-              <button
-                className="sidebar-toggle"
-                aria-expanded={sidebarOpen}
-                aria-label={sidebarOpen ? 'Hide AI chat' : 'Show AI chat'}
-                onClick={() => setSidebarOpen((o) => !o)}
-                title={sidebarOpen ? 'Hide AI chat' : 'Show AI chat'}
-              >
-                {sidebarOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
               </button>
             </div>
           </header>
@@ -3114,25 +3099,13 @@ export default function App() {
             </div>
           )}
         </div>
-        {readerControlsHidden && !leftOpen && !zenMode && (
-          <button
-            className="show-library-button"
-            aria-label="Show library"
-            title="Show library"
-            onClick={() => setLeftOpen(true)}
-          >
-            <Menu size={18} />
-          </button>
-        )}
         {readerControlsHidden && (
-          <button
-            className="show-reader-controls"
-            aria-label="Show reader controls"
-            title="Show reader controls"
+          <PanelHandle
+            edge="top"
+            open={false}
+            label="reader controls"
             onClick={() => setReaderControlsHidden(false)}
-          >
-            <ChevronDown size={18} />
-          </button>
+          />
         )}
         {paperSearchOpen && (
           <div className="paper-find">
@@ -3481,14 +3454,6 @@ export default function App() {
                 A+
               </button>
             </div>
-            <button
-              className="icon-button"
-              onClick={() => setSidebarOpen(false)}
-              title="Close AI chat"
-              aria-label="Close AI chat"
-            >
-              <X size={16} />
-            </button>
           </div>
         </div>
         {activeThread ? (

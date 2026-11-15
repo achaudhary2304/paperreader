@@ -1,3 +1,4 @@
+import { installDiagnostics } from './diagnostics.js';
 import electronUpdater from 'electron-updater';
 import { createUpdateService } from './updates.js';
 import { registerAppImage } from './linuxIntegration.js';
@@ -21,11 +22,20 @@ app.setPath('sessionData', app.getPath('userData'));
 const PORT = 37841; // Keep the origin stable so the browser library survives restarts.
 const desktopToken = randomBytes(32).toString('hex');
 let server;
+let mainWindow;
+let recordExit = () => {};
 
-if (!app.requestSingleInstanceLock()) app.quit();
-else app.on('second-instance', () => BrowserWindow.getAllWindows()[0]?.focus());
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.quit();
+else {
+  recordExit = installDiagnostics({ app, directory: join(profileDirectory, 'logs') });
+  app.on('second-instance', () => {
+    if (mainWindow?.isMinimized()) mainWindow.restore();
+    mainWindow?.focus();
+  });
+}
 
-app.whenReady().then(async () => {
+async function startDesktop() {
   if (process.platform === 'linux' && app.isPackaged && process.env.APPIMAGE) {
     try {
       await registerAppImage({
@@ -170,6 +180,31 @@ app.whenReady().then(async () => {
       preload: join(app.getAppPath(), 'desktop/preload.cjs'),
     },
   });
+  mainWindow = window;
+  window.on('closed', () => {
+    mainWindow = null;
+  });
+  window.webContents.on('render-process-gone', async (_event, details) => {
+    if (details.reason === 'clean-exit' || window.isDestroyed()) return;
+    try {
+      const result = await dialog.showMessageBox(window, {
+        type: 'error',
+        title: 'Reader stopped unexpectedly',
+        message:
+          details.reason === 'oom'
+            ? 'The reader ran out of memory.'
+            : 'The reader process stopped unexpectedly.',
+        detail:
+          'You can reload the reader. Saved papers, notes, and chats remain on this computer. Local diagnostics are in the app profile’s logs folder.',
+        buttons: ['Reload reader', 'Keep window open'],
+        defaultId: 0,
+        cancelId: 1,
+      });
+      if (result.response === 0 && !window.isDestroyed()) window.webContents.reload();
+    } catch {
+      recordExit('recovery-dialog-failed');
+    }
+  });
   installEditCommands(window.webContents);
   installWebpageView(window, origin);
   ipcMain.handle('reader:zen', (event, active) => {
@@ -212,8 +247,13 @@ app.whenReady().then(async () => {
             },
           },
           {
+            label: 'Open diagnostics folder…',
+            click: () => shell.openPath(join(profileDirectory, 'logs')),
+          },
+          {
             label: 'Restart PaperReader',
             click: () => {
+              recordExit('restart-requested');
               app.relaunch();
               app.quit();
             },
@@ -236,7 +276,17 @@ app.whenReady().then(async () => {
       { label: 'View', submenu: [{ role: 'reload' }, { role: 'togglefullscreen' }] },
     ]),
   );
-});
+}
+
+if (primaryInstance)
+  app
+    .whenReady()
+    .then(startDesktop)
+    .catch((error) => {
+      recordExit('startup-failed', { name: error.name, code: error.code });
+      dialog.showErrorBox('PaperReader could not start', error.message);
+      app.quit();
+    });
 
 app.on('window-all-closed', () => app.quit());
 app.on('before-quit', () => server?.close());

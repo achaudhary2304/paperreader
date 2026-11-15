@@ -3581,24 +3581,6 @@ textarea:focus-visible {
 .reader-controls[hidden] {
   display: none;
 }
-.show-reader-controls {
-  position: absolute;
-  right: 12px;
-  top: 10px;
-  z-index: 9;
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--theme-line, #ddd);
-  border-radius: 7px;
-  background: var(--theme-panel, #fff);
-  color: var(--theme-ink, #555);
-  opacity: 0.65;
-}
-.show-reader-controls:hover {
-  opacity: 1;
-}
 .reader-column.controls-hidden .paper-find {
   top: 12px;
 }
@@ -3745,17 +3727,80 @@ textarea:focus-visible {
   min-width: 0;
   margin-left: auto;
 }
-.show-library-button {
+
+/* Curved edge handles remain available when their panel is collapsed. */
+.reader-controls {
+  position: relative;
+}
+.panel-handle {
   position: absolute;
-  top: 10px;
-  left: 12px;
-  z-index: 9;
-  width: 32px;
-  height: 32px;
+  z-index: 12;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--theme-muted, #777);
+  cursor: pointer;
   display: grid;
   place-items: center;
-  border: 1px solid var(--theme-line, #ddd);
-  border-radius: 7px;
-  background: var(--theme-panel, #fff);
-  color: var(--theme-ink, #555);
+  touch-action: manipulation;
+}
+.panel-handle-shape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--theme-panel, #fff);
+  stroke: var(--theme-line, #ddd);
+  stroke-width: 1;
+  pointer-events: none;
+}
+.panel-handle > svg:not(.panel-handle-shape) {
+  position: relative;
+}
+.panel-handle:hover {
+  color: var(--theme-accent, #555);
+}
+.panel-handle:hover .panel-handle-shape {
+  fill: var(--theme-soft, #eee);
+}
+.panel-handle:focus-visible {
+  outline: 2px solid var(--theme-accent, #555);
+  outline-offset: 2px;
+}
+.panel-handle-left,
+.panel-handle-right {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 96px;
+}
+.panel-handle-left {
+  left: 0;
+}
+.panel-handle-right {
+  right: 0;
+}
+.panel-handle-right .panel-handle-shape {
+  transform: rotate(180deg);
+}
+.panel-handle-top {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 96px;
+  height: 24px;
+}
+.reader-controls > .panel-handle-top {
+  top: 100%;
+}
+.app-shell.zen-mode .panel-handle {
+  display: none;
+}
+@media (max-width: 750px) {
+  .panel-handle-left[aria-expanded='true'] {
+    left: min(var(--overlay-panel-width), calc(100% - 24px));
+  }
+  .panel-handle-right[aria-expanded='true'] {
+    right: min(var(--overlay-panel-width), calc(100% - 24px));
+  }
 }
