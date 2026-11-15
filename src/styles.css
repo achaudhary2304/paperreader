@@ -38,7 +38,7 @@ textarea:focus-visible {
 }
 .app-shell {
   height: 100dvh;
-  min-height: 640px;
+  min-height: 0;
   display: flex;
   overflow: hidden;
   background: #f7f7f5;
@@ -2942,29 +2942,23 @@ textarea:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-.answer-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.answer-controls label {
-  display: flex;
-  flex: 1;
-  min-width: 140px;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--theme-ink, #555);
-}
-.answer-controls select {
-  width: 100%;
-  padding: 6px;
+.answer-depth-toggle {
   border: 1px solid var(--theme-line, #ddd);
   border-radius: 6px;
-  background: var(--theme-panel, #fff);
-  color: inherit;
+  background: transparent;
+  color: var(--theme-ink, #555);
+  padding: 4px 9px;
   font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.answer-depth-toggle[aria-pressed='true'] {
+  background: var(--theme-soft, #eee);
+  border-color: var(--theme-accent, #777);
+}
+.answer-depth-toggle:focus-visible {
+  outline: 2px solid var(--theme-accent, #777);
+  outline-offset: 2px;
 }
 .stop-answer {
   border: 1px solid #a595c8;
@@ -3629,8 +3623,8 @@ textarea:focus-visible {
   background: #17132155;
 }
 .pdf-reference-preview {
-  width: min(960px, 100%);
-  height: min(640px, calc(100dvh - 32px));
+  width: min(620px, 100%);
+  height: min(380px, calc(100dvh - 32px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -3664,6 +3658,7 @@ textarea:focus-visible {
   font-size: 13px;
 }
 .pdf-reference-scroll {
+  flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 12px;
@@ -3703,7 +3698,7 @@ textarea:focus-visible {
 }
 .hover-preview .pdf-reference-preview {
   position: absolute;
-  width: min(960px, calc(100vw - 32px));
+  width: min(620px, calc(100vw - 32px));
   pointer-events: auto;
 }
 
@@ -3711,4 +3706,56 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* Keep navigation available in short windows and narrow reading columns. */
+.library-panel {
+  min-height: 0;
+  max-height: 100dvh;
+}
+.library-panel .brand-row,
+.library-panel .library-backup,
+.library-panel .sidebar-footer {
+  flex-shrink: 0;
+}
+.library-panel .library-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+.brand-row .brand-mark,
+.brand-row .collapse-left,
+.top-actions > button,
+.crumb > button {
+  flex-shrink: 0;
+}
+.topbar {
+  height: auto;
+  min-height: 60px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding-block: 10px;
+}
+.crumb {
+  flex: 1 1 140px;
+}
+.top-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  margin-left: auto;
+}
+.show-library-button {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 9;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--theme-line, #ddd);
+  border-radius: 7px;
+  background: var(--theme-panel, #fff);
+  color: var(--theme-ink, #555);
 }

@@ -54,6 +54,55 @@ function SettingsPanel({ id, tab, children }) {
   );
 }
 
+function InferencePreferences({
+  providerPriority,
+  setProviderPriority,
+  groqModel,
+  setGroqModel,
+  groqModels,
+  customProvider,
+}) {
+  return (
+    <>
+      <label htmlFor="provider-priority" className="model-label">
+        TRY FIRST
+      </label>
+      <select
+        id="provider-priority"
+        value={providerPriority}
+        disabled={customProvider}
+        title={
+          customProvider
+            ? 'The configured custom endpoint takes priority'
+            : 'Choose which provider to try first'
+        }
+        onChange={(event) => setProviderPriority(event.target.value)}
+      >
+        <option value="groq">Groq → OpenRouter free</option>
+        <option value="openrouter">OpenRouter free → Groq</option>
+      </select>
+      <label htmlFor="preferred-groq-model" className="model-label">
+        GROQ MODEL
+      </label>
+      <select
+        id="preferred-groq-model"
+        value={groqModel}
+        onChange={(event) => setGroqModel(event.target.value)}
+      >
+        {groqModels.map((model) => (
+          <option key={model.id} value={model.id}>
+            {model.name}
+          </option>
+        ))}
+      </select>
+      <p className="model-help">
+        Provider order and Groq model are saved automatically. A configured custom endpoint takes
+        priority.
+      </p>
+    </>
+  );
+}
+
 export default function ProviderSettings({
   initialTab = 'appearance',
   onClose,
@@ -61,6 +110,7 @@ export default function ProviderSettings({
   answerModel,
   setAnswerModel,
   availableAnswerModels,
+  inferencePreferences,
   freeOnlyMode,
   freeUsage,
   refreshFreeUsage,
@@ -218,6 +268,7 @@ export default function ProviderSettings({
               </button>
             </div>
           )}
+          <InferencePreferences {...inferencePreferences} />
           <label htmlFor="desktop-answer-model" className="model-label">
             ANSWER MODEL
           </label>
@@ -265,6 +316,7 @@ export function BrowserProviderSettings({
   answerModel,
   setAnswerModel,
   availableAnswerModels,
+  inferencePreferences,
 }) {
   const [tab, setTab] = useState(initialTab === 'updates' ? 'appearance' : initialTab);
   return (
@@ -288,7 +340,7 @@ export function BrowserProviderSettings({
             {customProvider
               ? 'This server uses the OpenAI-compatible endpoint configured in its .env file. Change LLM_BASE_URL and LLM_MODEL there to switch providers.'
               : freeOnlyMode
-                ? 'OpenRouter is configured on your local server. Choose provider priority beside the question box. OpenRouter requests are restricted to free models; Groq is available when its key is configured.'
+                ? 'OpenRouter is configured on your local server. Choose provider priority below. OpenRouter requests are restricted to free models; Groq is available when its key is configured.'
                 : 'Use your Groq API key to power the research paths. The key stays in this browser session and is sent to your local server for inference.'}
           </p>
           <label htmlFor="groq-key" hidden={customProvider}>
@@ -343,6 +395,7 @@ export function BrowserProviderSettings({
               </button>
             </div>
           )}
+          <InferencePreferences {...inferencePreferences} />
           <label htmlFor="answer-model" className="model-label">
             ANSWER MODEL
           </label>
@@ -361,7 +414,7 @@ export function BrowserProviderSettings({
             {customProvider
               ? 'Change the model in your server .env file. Set LLM_VISION_MODEL separately in the server environment to enable image questions.'
               : freeOnlyMode
-                ? 'OpenRouter uses verified free models with a zero-price cap. Choose provider order and your preferred Groq model beside the question box. The answer shows which provider responded.'
+                ? 'OpenRouter uses verified free models with a zero-price cap. Choose provider order and your preferred Groq model above. The answer shows which provider responded.'
                 : 'Preferred model for answers and math. Switches to another available Groq model on rate limits.'}{' '}
             The actual provider and model are shown on each answer.
           </p>

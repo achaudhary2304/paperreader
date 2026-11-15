@@ -2491,6 +2491,7 @@ export default function App() {
             className="icon-button collapse-left"
             onClick={() => setLeftOpen(false)}
             title="Hide library"
+            aria-label="Hide library"
           >
             <PanelRightOpen size={17} />
           </button>
@@ -2807,15 +2808,15 @@ export default function App() {
         <div className="reader-controls" hidden={readerControlsHidden}>
           <header className="topbar">
             <div className="crumb">
-              {!leftOpen && (
-                <button
-                  className="icon-button"
-                  title="Show library"
-                  onClick={() => setLeftOpen(true)}
-                >
-                  <Menu size={19} />
-                </button>
-              )}
+              <button
+                className="icon-button"
+                aria-label={leftOpen ? 'Hide library' : 'Show library'}
+                aria-expanded={leftOpen}
+                title={leftOpen ? 'Hide library' : 'Show library'}
+                onClick={() => setLeftOpen((open) => !open)}
+              >
+                <Menu size={19} />
+              </button>
               <span className="crumb-muted">Library</span>
               <ChevronRight size={14} />
               <strong>{hasActiveDoc ? ellipsis(activeDoc.name, 37) : 'Library'}</strong>
@@ -3064,6 +3065,16 @@ export default function App() {
             </div>
           )}
         </div>
+        {readerControlsHidden && !leftOpen && !zenMode && (
+          <button
+            className="show-library-button"
+            aria-label="Show library"
+            title="Show library"
+            onClick={() => setLeftOpen(true)}
+          >
+            <Menu size={18} />
+          </button>
+        )}
         {readerControlsHidden && (
           <button
             className="show-reader-controls"
@@ -3587,50 +3598,6 @@ export default function App() {
           </div>
         )}
         <div className="composer-wrap">
-          <div className="answer-controls">
-            <label>
-              Answer
-              <select
-                aria-label="Answer depth"
-                value={answerDepth}
-                onChange={(e) => setAnswerDepth(e.target.value)}
-              >
-                <option value="quick">Quick · document only</option>
-                <option value="deep">Deep · research</option>
-              </select>
-            </label>
-            <label>
-              Try first
-              <select
-                aria-label="Provider priority"
-                disabled={customProvider}
-                title={
-                  customProvider
-                    ? 'The configured custom endpoint takes priority'
-                    : 'Choose which provider to try first'
-                }
-                value={providerPriority}
-                onChange={(e) => setProviderPriority(e.target.value)}
-              >
-                <option value="groq">Groq → OpenRouter free</option>
-                <option value="openrouter">OpenRouter free → Groq</option>
-              </select>
-            </label>
-            <label>
-              Groq model
-              <select
-                aria-label="Preferred Groq model"
-                value={groqModel}
-                onChange={(e) => setGroqModel(e.target.value)}
-              >
-                {ANSWER_MODELS.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
           <div className="composer">
             <div className="composer-top">
               <button className="mode-select" onClick={() => setMenuOpen((o) => !o)}>
@@ -3641,6 +3608,20 @@ export default function App() {
                 </span>
                 {MODES[activeThread?.mode || mode]?.short}
                 <ChevronDown size={13} />
+              </button>
+              <button
+                type="button"
+                className="answer-depth-toggle"
+                aria-label="Deep research"
+                aria-pressed={answerDepth === 'deep'}
+                title={
+                  answerDepth === 'deep'
+                    ? 'Deep research enabled. Click for document-only answers.'
+                    : 'Quick document-only answers. Click to enable deep research.'
+                }
+                onClick={() => setAnswerDepth((depth) => (depth === 'deep' ? 'quick' : 'deep'))}
+              >
+                {answerDepth === 'deep' ? 'Deep' : 'Quick'}
               </button>
               {activeThread && (
                 <button className="new-thread-link" onClick={() => startBlank(mode)}>
@@ -4161,6 +4142,14 @@ export default function App() {
             answerModel={answerModel}
             setAnswerModel={setAnswerModel}
             availableAnswerModels={availableAnswerModels}
+            inferencePreferences={{
+              providerPriority,
+              setProviderPriority,
+              groqModel,
+              setGroqModel,
+              groqModels: ANSWER_MODELS,
+              customProvider,
+            }}
             freeOnlyMode={freeOnlyMode}
             freeUsage={freeUsage}
             refreshFreeUsage={refreshFreeUsage}
@@ -4179,6 +4168,14 @@ export default function App() {
             answerModel={answerModel}
             setAnswerModel={setAnswerModel}
             availableAnswerModels={availableAnswerModels}
+            inferencePreferences={{
+              providerPriority,
+              setProviderPriority,
+              groqModel,
+              setGroqModel,
+              groqModels: ANSWER_MODELS,
+              customProvider,
+            }}
           />
         ))}
     </div>

@@ -20,27 +20,35 @@ function referenceFraction(page, dest) {
     : 0;
 }
 
-// Float over the reading area and stay within the window, including narrow layouts.
+// Keep the preview near the reference without obscuring the reference itself.
 function previewPosition(anchor) {
   if (!anchor) return undefined;
   const bounds = anchor.getBoundingClientRect();
-  const reader = anchor.closest('.reader-scroll')?.getBoundingClientRect() || bounds;
-  const width = Math.min(960, window.innerWidth - 32);
-  const height = Math.min(640, window.innerHeight - 32);
-  const above = bounds.top - height - 12;
-  const below = bounds.bottom + 12;
-  const top =
-    above >= 16
-      ? above
-      : below + height <= window.innerHeight - 16
-        ? below
-        : bounds.top - height / 2;
+  const reader = anchor.closest('.reader-scroll')?.getBoundingClientRect();
+  const margin = 12;
+  const leftEdge = Math.max(margin, reader?.left ?? margin);
+  const rightEdge = Math.min(
+    window.innerWidth - margin,
+    reader?.right ?? window.innerWidth - margin,
+  );
+  const width = Math.max(1, Math.min(620, rightEdge - leftEdge));
+  const topEdge = Math.max(margin, reader?.top ?? margin);
+  const bottomEdge = Math.min(
+    window.innerHeight - margin,
+    reader?.bottom ?? window.innerHeight - margin,
+  );
+  const above = Math.max(0, bounds.top - topEdge - margin);
+  const below = Math.max(0, bottomEdge - bounds.bottom - margin);
+  const placeAbove = above >= 220 || above >= below;
+  const height = Math.max(1, Math.min(380, placeAbove ? above : below));
   return {
+    width,
+    height,
     left: Math.max(
-      16,
-      Math.min(reader.left + reader.width / 2 - width / 2, window.innerWidth - width - 16),
+      leftEdge,
+      Math.min(bounds.left + bounds.width / 2 - width / 2, rightEdge - width),
     ),
-    top: Math.max(16, Math.min(top, window.innerHeight - height - 16)),
+    top: placeAbove ? bounds.top - height - margin : bounds.bottom + margin,
   };
 }
 
@@ -61,8 +69,14 @@ export default function PdfReferencePreview({
   const [position, setPosition] = useState(() => previewPosition(anchor));
   useEffect(() => {
     const reposition = () => setPosition(previewPosition(anchor));
+    reposition();
     window.addEventListener('resize', reposition);
-    return () => window.removeEventListener('resize', reposition);
+    const reader = anchor?.closest('.reader-scroll');
+    reader?.addEventListener('scroll', reposition, { passive: true });
+    return () => {
+      window.removeEventListener('resize', reposition);
+      reader?.removeEventListener('scroll', reposition);
+    };
   }, [anchor]);
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) =>

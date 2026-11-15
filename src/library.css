@@ -186,6 +186,7 @@
   min-height: 32px;
 }
 :root[data-theme] .sidebar-footer {
+  height: auto;
   padding: 14px 16px;
   display: flex;
   flex-wrap: wrap;
@@ -269,4 +270,13 @@
 }
 :root[data-theme] .library-panel .thread-item.active {
   background: var(--theme-soft);
+}
+
+:root[data-theme] .library-settings-button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+:root[data-theme] .sidebar-footer .local-library-status {
+  flex: 1 1 100px;
+  min-width: 0;
 }
