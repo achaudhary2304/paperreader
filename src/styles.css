@@ -3749,10 +3749,10 @@ textarea:focus-visible {
   inset: 0;
   width: 100%;
   height: 100%;
-  fill: color-mix(in srgb, var(--theme-accent, #556b75) 18%, var(--theme-panel, #fff));
-  stroke: color-mix(in srgb, var(--theme-accent, #556b75) 55%, var(--theme-line, #ddd));
-  stroke-width: 1.2;
-  filter: drop-shadow(0 2px 2px #00000012);
+  fill: color-mix(in srgb, var(--theme-accent, #556b75) 12%, var(--theme-panel, #fff));
+  stroke: color-mix(in srgb, var(--theme-accent, #556b75) 35%, var(--theme-line, #ddd));
+  stroke-width: 1;
+  filter: drop-shadow(0 1px 1px #00000008);
   pointer-events: none;
 }
 .panel-handle > svg:not(.panel-handle-shape) {
@@ -3772,8 +3772,8 @@ textarea:focus-visible {
 .panel-handle-right {
   top: 50%;
   transform: translateY(-50%);
-  width: 24px;
-  height: 96px;
+  width: 14px;
+  height: 120px;
 }
 .panel-handle-left {
   left: 0;
@@ -3788,8 +3788,8 @@ textarea:focus-visible {
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 96px;
-  height: 24px;
+  width: 120px;
+  height: 14px;
 }
 .toolbar-handle-anchor {
   position: relative;
@@ -3805,9 +3805,9 @@ textarea:focus-visible {
 }
 @media (max-width: 750px) {
   .panel-handle-left[aria-expanded='true'] {
-    left: min(var(--overlay-panel-width), calc(100% - 24px));
+    left: min(var(--overlay-panel-width), calc(100% - 14px));
   }
   .panel-handle-right[aria-expanded='true'] {
-    right: min(var(--overlay-panel-width), calc(100% - 24px));
+    right: min(var(--overlay-panel-width), calc(100% - 14px));
   }
 }

@@ -8,19 +8,21 @@ Previously PaperLens. Existing libraries, notes, settings, and saved keys remain
 
 [Watch the 45-second demo](https://github.com/achaudhary2304/paperreader/blob/main/docs/media/paperreader-demo.mp4)
 
-## Install
+## Download the desktop app
 
-Download from [GitHub Releases](https://github.com/achaudhary2304/paperreader/releases/latest):
+Ready-to-run Ubuntu/Linux and Windows executables are published on GitHub. **You do not need Node.js, npm, or the source code to use these downloads.**
+
+Download the latest version from [GitHub Releases](https://github.com/achaudhary2304/paperreader/releases/latest):
 
 | System | Download |
 |---|---|
 | Ubuntu / Linux | `.deb` installer or `.AppImage` |
 | Windows | `.exe` installer |
-| macOS | `.dmg`: `arm64` for Apple Silicon, `x64` for Intel |
+| macOS | Run from source (below); the latest release does not include a macOS installer |
 
-For an AppImage, enable **Allow executing file as program** in its file properties. After its first launch, PaperReader adds an app-menu entry with its book logo; you can pin it to the dock. Keep the AppImage in a permanent folder. On macOS, drag PaperReader to Applications. The macOS builds are unsigned.
+For an AppImage, enable **Allow executing file as program** in its file properties. After its first launch, PaperReader adds an app-menu entry with its book logo; you can pin it to the dock. Keep the AppImage in a permanent folder.
 
-Open **Settings** and add an API key. Supported providers: Groq, OpenRouter free models, and OpenAI-compatible APIs or local models. Desktop keys are stored locally using the system keyring. Choose provider order beside the chat input; a configured custom API takes priority.
+Open **Settings** and add an API key. Supported providers: Groq, OpenRouter free models, and OpenAI-compatible APIs or local models. Desktop keys are stored locally using the system keyring. Choose provider order and your preferred Groq model in **Settings → AI providers**; a configured custom API takes priority.
 
 ## Updates
 

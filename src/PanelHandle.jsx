@@ -39,7 +39,7 @@ export default function PanelHandle({ edge, open, label, onClick, style }) {
           }
         />
       </svg>
-      <Arrow size={15} aria-hidden="true" />
+      <Arrow size={11} aria-hidden="true" />
     </button>
   );
 }
