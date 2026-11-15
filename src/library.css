@@ -280,3 +280,22 @@
   flex: 1 1 100px;
   min-width: 0;
 }
+
+.prompt-setting {
+  margin: 18px 0;
+}
+.prompt-setting textarea {
+  width: 100%;
+  min-height: 76px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--theme-line, #ddd);
+  border-radius: 6px;
+  background: var(--theme-bg, #fff);
+  color: var(--theme-ink, #333);
+  font: inherit;
+  line-height: 1.5;
+}
+.settings-tabs {
+  flex-wrap: wrap;
+}

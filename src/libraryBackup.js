@@ -14,6 +14,7 @@ export const BACKUP_KEYS = [
   'paperlens:reading',
   'paperlens:doubtDrafts',
   'paperlens:answerModel',
+  'paperlens:defaultPrompts',
   'paperlens:explanationFontSize',
   'paperlens:sidebarSections',
 ];

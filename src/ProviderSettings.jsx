@@ -1,3 +1,4 @@
+import PromptSettings from './PromptSettings.jsx';
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Check, Settings2, X } from 'lucide-react';
 import Appearance from './Appearance.jsx';
@@ -7,6 +8,7 @@ function SettingsTabs({ tab, onChange, desktop = false }) {
   const tabs = [
     ['appearance', 'Appearance'],
     ['providers', 'AI providers'],
+    ['prompts', 'Prompts'],
     ...(desktop ? [['updates', 'Updates']] : []),
   ];
   return (
@@ -111,6 +113,7 @@ export default function ProviderSettings({
   setAnswerModel,
   availableAnswerModels,
   inferencePreferences,
+  promptPreferences,
   freeOnlyMode,
   freeUsage,
   refreshFreeUsage,
@@ -227,6 +230,9 @@ export default function ProviderSettings({
         <SettingsPanel id="appearance" tab={tab}>
           <Appearance embedded />
         </SettingsPanel>
+        <SettingsPanel id="prompts" tab={tab}>
+          <PromptSettings {...promptPreferences} />
+        </SettingsPanel>
         <SettingsPanel id="providers" tab={tab}>
           {field('OPENROUTER_API_KEY', 'OPENROUTER KEY · FREE MODELS', 'sk-or-v1-…', true)}
           {field('GROQ_API_KEY', 'GROQ KEY', 'gsk_…', true)}
@@ -317,6 +323,7 @@ export function BrowserProviderSettings({
   setAnswerModel,
   availableAnswerModels,
   inferencePreferences,
+  promptPreferences,
 }) {
   const [tab, setTab] = useState(initialTab === 'updates' ? 'appearance' : initialTab);
   return (
@@ -334,6 +341,9 @@ export function BrowserProviderSettings({
         <SettingsTabs tab={tab} onChange={setTab} />
         <SettingsPanel id="appearance" tab={tab}>
           <Appearance embedded />
+        </SettingsPanel>
+        <SettingsPanel id="prompts" tab={tab}>
+          <PromptSettings {...promptPreferences} />
         </SettingsPanel>
         <SettingsPanel id="providers" tab={tab}>
           <p>

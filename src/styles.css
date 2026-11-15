@@ -3698,7 +3698,7 @@ textarea:focus-visible {
 }
 .hover-preview .pdf-reference-preview {
   position: absolute;
-  width: min(620px, calc(100vw - 32px));
+  width: calc(100vw - 32px);
   pointer-events: auto;
 }
 

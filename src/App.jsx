@@ -1,3 +1,5 @@
+import { getDefaultPrompt } from './defaultPrompts.js';
+import { captureReadingPosition } from './readingPosition.js';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Document, pdfjs } from 'react-pdf';
 import PdfPages from './PdfPages.jsx';
@@ -85,7 +87,6 @@ const MODES = {
     icon: Sparkles,
     color: 'purple',
     hint: 'A clear explanation grounded in the paper',
-    question: 'What does this passage mean?',
   },
   concept: {
     label: 'Explore concept',
@@ -93,7 +94,6 @@ const MODES = {
     icon: Lightbulb,
     color: 'orange',
     hint: 'Definitions and missing prerequisites',
-    question: 'Which concepts do I need to understand this?',
   },
   math: {
     label: 'Unpack the math',
@@ -101,7 +101,6 @@ const MODES = {
     icon: Sigma,
     color: 'blue',
     hint: 'Symbols, steps, and derivations',
-    question: 'Can you walk through the reasoning or equation here?',
   },
   literature: {
     label: 'Find related work',
@@ -109,7 +108,6 @@ const MODES = {
     icon: LibraryBig,
     color: 'green',
     hint: 'Foundational and related papers',
-    question: 'Which related papers help explain this?',
   },
   search: {
     label: 'Side search',
@@ -117,7 +115,6 @@ const MODES = {
     icon: Search,
     color: 'pink',
     hint: 'Research a tangent without leaving the paper',
-    question: 'What should I know about this topic beyond the passage?',
   },
 };
 
@@ -284,6 +281,12 @@ export default function App() {
   const [groqModel, setGroqModel] = useState(
     () => localStorage.getItem('paperlens:groqModel') || 'qwen/qwen3.8-27b',
   );
+  const [defaultPrompts, setDefaultPrompts] = useState(() =>
+    readJSON('paperlens:defaultPrompts', {}),
+  );
+  useEffect(() => {
+    localStorage.setItem('paperlens:defaultPrompts', JSON.stringify(defaultPrompts));
+  }, [defaultPrompts]);
   const [answerDepth, setAnswerDepth] = useState(
     () => localStorage.getItem('paperlens:answerDepth') || 'quick',
   );
@@ -344,7 +347,13 @@ export default function App() {
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchError, setSearchError] = useState('');
-  const [navigationTarget, setNavigationTarget] = useState(() => ({ docId, page, stamp: 0 }));
+  const [navigationTarget, setNavigationTarget] = useState(() => ({
+    docId,
+    page,
+    ...readJSON('paperlens:reading', {})[docId]?.position,
+    restore: true,
+    stamp: 0,
+  }));
   const [pageWidth, setPageWidth] = useState(650);
   const fileInput = useRef(null);
   const imageInput = useRef(null);
@@ -517,7 +526,15 @@ export default function App() {
     localStorage.setItem('paperlens:tabs', JSON.stringify(openTabs));
   }, [openTabs]);
   useEffect(() => {
-    readingState.current[docId] = { page, zoom, threadId, composer, mode, draftSelection };
+    readingState.current[docId] = {
+      ...readingState.current[docId],
+      page,
+      zoom,
+      threadId,
+      composer,
+      mode,
+      draftSelection,
+    };
     localStorage.setItem('paperlens:reading', JSON.stringify(readingState.current));
   }, [docId, page, zoom, threadId, composer, mode, draftSelection]);
   useEffect(() => {
@@ -662,7 +679,12 @@ export default function App() {
     if (!readerReady || navigationTarget.docId !== docId) return;
     const frame = requestAnimationFrame(() => {
       const root = readerRef.current;
-      if (article && navigationTarget.page === 1 && evidenceFocus?.docId !== docId) {
+      if (
+        article &&
+        navigationTarget.page === 1 &&
+        navigationTarget.yRatio === undefined &&
+        evidenceFocus?.docId !== docId
+      ) {
         root?.scrollTo({ top: 0 });
         return;
       }
@@ -675,7 +697,8 @@ export default function App() {
             root.getBoundingClientRect().top +
             root.scrollTop +
             bounds.height * (navigationTarget.yRatio || 0) -
-            16,
+            (navigationTarget.restore ? 0 : 16),
+          behavior: 'instant',
         });
       }
     });
@@ -1074,7 +1097,17 @@ export default function App() {
   const openPaper = (id) => {
     setOpenTabs((current) => (current.includes(id) ? current : [...current, id]));
     if (id === docId) return;
-    readingState.current[docId] = { page, zoom, threadId, composer, mode, draftSelection };
+    const position = captureReadingPosition(readerRef.current);
+    if (position) readingState.current[docId] = { ...readingState.current[docId], position };
+    readingState.current[docId] = {
+      ...readingState.current[docId],
+      page,
+      zoom,
+      threadId,
+      composer,
+      mode,
+      draftSelection,
+    };
     const saved = readingState.current[id] || {};
     currentDocId.current = id;
     setPdf(null);
@@ -1082,7 +1115,7 @@ export default function App() {
     setPdfFile(null);
     setPages(1);
     setDocId(id);
-    setPage(saved.page || 1);
+    setPage(saved.position?.page || saved.page || 1);
     setZoom(saved.zoom || 1);
     setThreadId(
       activeThread?.projectId &&
@@ -1092,7 +1125,13 @@ export default function App() {
     );
     setComposer(saved.composer || '');
     setMode(saved.mode || 'explain');
-    setNavigationTarget({ docId: id, page: saved.page || 1, stamp: Date.now() });
+    setNavigationTarget({
+      docId: id,
+      page: saved.page || 1,
+      ...saved.position,
+      restore: true,
+      stamp: Date.now(),
+    });
     setSearchMatches([]);
     setPaperSearch('');
     pendingSearchJump.current = null;
@@ -1124,7 +1163,15 @@ export default function App() {
   };
 
   const closeAllTabs = () => {
-    readingState.current[docId] = { page, zoom, threadId, composer, mode, draftSelection };
+    readingState.current[docId] = {
+      ...readingState.current[docId],
+      page,
+      zoom,
+      threadId,
+      composer,
+      mode,
+      draftSelection,
+    };
     currentDocId.current = '';
     setDocId('');
     setOpenTabs([]);
@@ -1897,7 +1944,7 @@ export default function App() {
     setDraftSelection({ text, page: section?.page || page, anchor, native: true });
     setThreadId(null);
     setMode('explain');
-    setComposer('What does this passage mean?');
+    setComposer(getDefaultPrompt('explain', defaultPrompts));
     setSidebarOpen(true);
     setZenMode(false);
     setSelection(null);
@@ -1907,7 +1954,7 @@ export default function App() {
     setDraftSelection(selection);
     setMode(selectedMode);
     setThreadId(null);
-    setComposer(MODES[selectedMode].question);
+    setComposer(getDefaultPrompt(selectedMode, defaultPrompts));
     setZenMode(false);
     setSidebarOpen(true);
     setSelection(null);
@@ -2395,6 +2442,8 @@ export default function App() {
         return bounds.top <= line && bounds.bottom > line;
       });
       if (active) setPage(Number(active.dataset.pdfPage));
+      const position = captureReadingPosition(root);
+      if (position) readingState.current[docId] = { ...readingState.current[docId], position };
     });
   };
 
@@ -3637,6 +3686,7 @@ export default function App() {
                         key={name}
                         onClick={() => {
                           setMode(name);
+                          if (!composer.trim()) setComposer(getDefaultPrompt(name, defaultPrompts));
                           setMenuOpen(false);
                           if (activeThread) setThreadId(null);
                         }}
@@ -4142,6 +4192,7 @@ export default function App() {
             answerModel={answerModel}
             setAnswerModel={setAnswerModel}
             availableAnswerModels={availableAnswerModels}
+            promptPreferences={{ prompts: defaultPrompts, onChange: setDefaultPrompts }}
             inferencePreferences={{
               providerPriority,
               setProviderPriority,
@@ -4168,6 +4219,7 @@ export default function App() {
             answerModel={answerModel}
             setAnswerModel={setAnswerModel}
             availableAnswerModels={availableAnswerModels}
+            promptPreferences={{ prompts: defaultPrompts, onChange: setDefaultPrompts }}
             inferencePreferences={{
               providerPriority,
               setProviderPriority,

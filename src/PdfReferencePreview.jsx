@@ -20,7 +20,7 @@ function referenceFraction(page, dest) {
     : 0;
 }
 
-// Keep the preview near the reference without obscuring the reference itself.
+// Prefer the space above the reference; never flip the preview underneath it.
 function previewPosition(anchor) {
   if (!anchor) return undefined;
   const bounds = anchor.getBoundingClientRect();
@@ -31,24 +31,20 @@ function previewPosition(anchor) {
     window.innerWidth - margin,
     reader?.right ?? window.innerWidth - margin,
   );
-  const width = Math.max(1, Math.min(620, rightEdge - leftEdge));
+  const width = Math.max(1, rightEdge - leftEdge);
   const topEdge = Math.max(margin, reader?.top ?? margin);
   const bottomEdge = Math.min(
     window.innerHeight - margin,
     reader?.bottom ?? window.innerHeight - margin,
   );
   const above = Math.max(0, bounds.top - topEdge - margin);
-  const below = Math.max(0, bottomEdge - bounds.bottom - margin);
-  const placeAbove = above >= 220 || above >= below;
-  const height = Math.max(1, Math.min(380, placeAbove ? above : below));
+  const availableHeight = Math.max(1, bottomEdge - topEdge);
+  const height = Math.min(380, above >= 180 ? above : availableHeight * 0.55);
   return {
     width,
     height,
-    left: Math.max(
-      leftEdge,
-      Math.min(bounds.left + bounds.width / 2 - width / 2, rightEdge - width),
-    ),
-    top: placeAbove ? bounds.top - height - margin : bounds.bottom + margin,
+    left: leftEdge,
+    top: Math.max(topEdge, bounds.top - height - margin),
   };
 }
 
