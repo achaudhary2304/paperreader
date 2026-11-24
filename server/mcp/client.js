@@ -7,13 +7,21 @@ import { createToolPool } from './toolPool.js';
 const tools = createToolPool(connect);
 
 async function connect(serverName) {
-  if (!['paper', 'math', 'research'].includes(serverName))
+  const getEnv = () => {
+    if (process.versions.electron) {
+      return { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
+    }
+    return process.env;
+  };
+
+  if (!['paper', 'math', 'research'].includes(serverName)) {
     throw new Error('Unknown local MCP server.');
+  }
   const client = new Client({ name: 'paperreader-api', version: '1.0.0' });
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [fileURLToPath(new URL(`./${serverName}.js`, import.meta.url))],
-    env: process.versions.electron ? { ...process.env, ELECTRON_RUN_AS_NODE: '1' } : process.env,
+    env: getEnv(),
   });
   try {
     await client.connect(transport);
@@ -29,11 +37,15 @@ export const callLocalTool = (server, tool, args) => tools.call(server, tool, ar
 
 async function withPaperIndex(tool, args) {
   const { pages, cacheKey, ...query } = args;
-  if (!cacheKey) return callLocalTool('paper', tool, args);
+  if (!cacheKey) {
+    return callLocalTool('paper', tool, args);
+  }
   try {
     return await callLocalTool('paper', tool, { ...query, cacheKey });
   } catch (error) {
-    if (!error.message.includes('PAPER_INDEX_MISS')) throw error;
+    if (!error.message.includes('PAPER_INDEX_MISS')) {
+      throw error;
+    }
     return callLocalTool('paper', tool, { ...query, cacheKey, pages });
   }
 }

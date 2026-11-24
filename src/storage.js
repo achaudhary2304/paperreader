@@ -5,7 +5,9 @@ function openDb() {
     const request = indexedDB.open(DB, 3);
     request.onupgradeneeded = () => {
       for (const name of ['pdfs', 'images', 'paperText']) {
-        if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name);
+        if (!request.result.objectStoreNames.contains(name)) {
+          request.result.createObjectStore(name);
+        }
       }
     };
     request.onsuccess = () => resolve(request.result);

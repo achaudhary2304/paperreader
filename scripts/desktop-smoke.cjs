@@ -48,6 +48,25 @@ async function checkWindow(window) {
       else if (Date.now() > end) { clearInterval(timer); reject(new Error('Reader UI or sample PDF did not load.')); }
     }, 100);
   })`);
+  // Send real native shortcuts: only the paper zoom should change.
+  for (const [keyCode, expected] of [
+    ['0', '100%'],
+    ['=', '110%'],
+    ['-', '100%'],
+  ]) {
+    let modifier = 'control';
+    if (process.platform === 'darwin') modifier = 'meta';
+    contents.sendInputEvent({ type: 'keyDown', keyCode, modifiers: [modifier] });
+    contents.sendInputEvent({ type: 'keyUp', keyCode, modifiers: [modifier] });
+    await contents.executeJavaScript(`new Promise((resolve, reject) => {
+      const end = Date.now() + 5000;
+      const timer = setInterval(() => {
+        if (document.querySelector('.zoom-controls span')?.textContent === ${JSON.stringify(expected)}) { clearInterval(timer); resolve(); }
+        else if (Date.now() > end) { clearInterval(timer); reject(new Error('Native paper zoom shortcut failed')); }
+      }, 50);
+    })`);
+    assert.equal(contents.getZoomFactor(), 1, 'Paper shortcuts must not zoom the application UI');
+  }
   assert.equal(
     await safeStorage.isAsyncEncryptionAvailable(),
     true,

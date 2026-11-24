@@ -19,19 +19,31 @@ export function createResearchAgents({ infer, freeOnly, compatibleConfigured, cl
     return answer
       .replace(/【\s*Paper\s+p\.\s*(\d+)\s*】/gi, '[Paper p. $1]')
       .replace(/【([^】]+)】/g, (_match, label) => {
-        if (/^\d+†/.test(label)) return '';
+        if (/^\d+†/.test(label)) {
+          return '';
+        }
         const source = sources.find((s) => label.toLowerCase().includes(s.title.toLowerCase()));
-        return source ? `[${source.title}](${source.url})` : label;
+        if (source) {
+          return `[${source.title}](${source.url})`;
+        } else {
+          return label;
+        }
       })
       .replace(/\[([^\]]+)\]\((?!https?:\/\/)[^)]+\)/g, '$1')
-      .replace(/\[\s*(Paper|P\d+)\s+p\.\s*(\d+)\s*\]/gi, (_citation, label, number) =>
-        allowedPages.has(`${label}:${number}`)
-          ? `[${label} p. ${number}]`
-          : '[paper page not available in context]',
-      )
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (link, label, url) =>
-        allowedUrls.has(url.replace(/\/$/, '')) ? link : label,
-      );
+      .replace(/\[\s*(Paper|P\d+)\s+p\.\s*(\d+)\s*\]/gi, (_citation, label, number) => {
+        if (allowedPages.has(`${label}:${number}`)) {
+          return `[${label} p. ${number}]`;
+        } else {
+          return '[paper page not available in context]';
+        }
+      })
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (link, label, url) => {
+        if (allowedUrls.has(url.replace(/\/$/, ''))) {
+          return link;
+        } else {
+          return label;
+        }
+      });
   }
 
   async function planSearch(key, question, selection, paperHint, history, onInferenceTiming) {
@@ -55,6 +67,16 @@ export function createResearchAgents({ infer, freeOnly, compatibleConfigured, cl
     }
     const fallback = { paperQueries: [question], externalQuery: clean(question || selection, 150) };
     try {
+      const getPaperQueries = () => {
+        if (Array.isArray(parsed.paperQueries)) {
+          return parsed.paperQueries
+            .filter((q) => typeof q === 'string')
+            .slice(0, 4)
+            .map((q) => clean(q, 180));
+        }
+        return fallback.paperQueries;
+      };
+
       const result = await infer(
         key,
         [
@@ -83,12 +105,7 @@ export function createResearchAgents({ infer, freeOnly, compatibleConfigured, cl
       );
       const parsed = JSON.parse(result.slice(result.indexOf('{'), result.lastIndexOf('}') + 1));
       return {
-        paperQueries: Array.isArray(parsed.paperQueries)
-          ? parsed.paperQueries
-              .filter((q) => typeof q === 'string')
-              .slice(0, 4)
-              .map((q) => clean(q, 180))
-          : fallback.paperQueries,
+        paperQueries: getPaperQueries(),
         externalQuery: clean(parsed.externalQuery, 180) || fallback.externalQuery,
       };
     } catch {
@@ -98,8 +115,17 @@ export function createResearchAgents({ infer, freeOnly, compatibleConfigured, cl
 
   async function browserResearch(key, question, selection, query, onInferenceTiming) {
     // Free-only mode performs external tool lookups without paid search plugins or extra model calls.
-    if (freeOnly() || compatibleConfigured()) return { report: '', sources: [] };
+    if (freeOnly() || compatibleConfigured()) {
+      return { report: '', sources: [] };
+    }
     try {
+      const getReport = () => {
+        if (urls.length) {
+          return clean(report, 4200);
+        }
+        return '';
+      };
+
       const report = await infer(
         key,
         [
@@ -134,7 +160,7 @@ export function createResearchAgents({ infer, freeOnly, compatibleConfigured, cl
         ),
       ].slice(0, 5);
       return {
-        report: urls.length ? clean(report, 4200) : '',
+        report: getReport(),
         sources: urls.map((url) => ({
           title: new URL(url).hostname,
           url,
@@ -148,12 +174,16 @@ export function createResearchAgents({ infer, freeOnly, compatibleConfigured, cl
   }
 
   async function originalLladaSource(question, selection) {
-    if (!/llada/i.test(`${question} ${selection}`)) return [];
+    if (!/llada/i.test(`${question} ${selection}`)) {
+      return [];
+    }
     try {
       const response = await fetch('https://export.arxiv.org/api/query?id_list=2502.09992', {
         signal: AbortSignal.timeout(7000),
       });
-      if (!response.ok) return [];
+      if (!response.ok) {
+        return [];
+      }
       const xml = await response.text();
       const entry = xml.match(/<entry>([\s\S]*?)<\/entry>/)?.[1] || '';
       const title = entry
@@ -164,16 +194,18 @@ export function createResearchAgents({ infer, freeOnly, compatibleConfigured, cl
         .match(/<summary>([\s\S]*?)<\/summary>/)?.[1]
         ?.replace(/\s+/g, ' ')
         .trim();
-      return title && summary
-        ? [
-            {
-              title,
-              url: 'https://arxiv.org/abs/2502.09992',
-              excerpt: summary.slice(0, 1200),
-              kind: 'Paper',
-            },
-          ]
-        : [];
+      if (title && summary) {
+        return [
+          {
+            title,
+            url: 'https://arxiv.org/abs/2502.09992',
+            excerpt: summary.slice(0, 1200),
+            kind: 'Paper',
+          },
+        ];
+      } else {
+        return [];
+      }
     } catch {
       return [];
     }

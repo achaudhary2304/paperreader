@@ -11,12 +11,15 @@ function inspect(expression, operation, variable) {
   ) {
     throw new Error('Only short arithmetic or symbolic expressions are supported.');
   }
-  if (operation === 'differentiate' && !/^[a-zA-Z]\w*$/.test(variable))
+  if (operation === 'differentiate' && !/^[a-zA-Z]\w*$/.test(variable)) {
     throw new Error('Choose a valid differentiation variable.');
-  const result =
-    operation === 'differentiate'
-      ? derivative(expression, variable).toString()
-      : simplify(expression).toString();
+  }
+  let result;
+  if (operation === 'differentiate') {
+    result = derivative(expression, variable).toString();
+  } else {
+    result = simplify(expression).toString();
+  }
   return { expression, operation, result };
 }
 

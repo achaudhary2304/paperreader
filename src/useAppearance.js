@@ -6,7 +6,9 @@ const EVENT = 'paperreader:appearance';
 const snapshot = () => localStorage.getItem(KEY) || '{}';
 const subscribe = (callback) => {
   const storage = (event) => {
-    if (!event.key || event.key === KEY) callback();
+    if (!event.key || event.key === KEY) {
+      callback();
+    }
   };
   window.addEventListener(EVENT, callback);
   window.addEventListener('storage', storage);
@@ -38,19 +40,29 @@ export function useAppearance() {
     return () => media.removeEventListener('change', change);
   }, []);
   useEffect(() => {
+    const getThemeIdMidnight = () => {
+      if (theme.id === 'midnight') {
+        return 'dark';
+      }
+      return 'light';
+    };
+
     const root = document.documentElement;
     root.dataset.theme = theme.id;
     root.dataset.pdfDark = String(choice.pdfDark && theme.id === 'midnight');
-    root.style.colorScheme = theme.id === 'midnight' ? 'dark' : 'light';
-    for (const key of ['accent', 'bg', 'panel', 'ink', 'muted', 'line'])
+    root.style.colorScheme = getThemeIdMidnight();
+    for (const key of ['accent', 'bg', 'panel', 'ink', 'muted', 'line']) {
       root.style.setProperty(`--theme-${key}`, theme[key]);
+    }
     root.style.setProperty('--theme-font', fontStack(choice.font));
   }, [theme, choice.font, choice.pdfDark]);
   const setChoice = (update) => {
-    const next =
-      typeof update === 'function'
-        ? update(appearanceChoice(parse(snapshot()), requested))
-        : update;
+    let next;
+    if (typeof update === 'function') {
+      next = update(appearanceChoice(parse(snapshot()), requested));
+    } else {
+      next = update;
+    }
     // A preview URL must not keep overriding a deliberate user selection.
     if (requested) {
       const url = new URL(location.href);

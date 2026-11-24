@@ -16,8 +16,9 @@ export function installDiagnostics({ app, process: runtime = process, directory 
   const record = (event, details = {}) => {
     try {
       mkdirSync(directory, { recursive: true });
-      if (existsSync(file) && statSync(file).size > 1024 * 1024)
+      if (existsSync(file) && statSync(file).size > 1024 * 1024) {
         renameSync(file, `${file}.previous`);
+      }
       appendFileSync(
         file,
         JSON.stringify({
@@ -40,7 +41,9 @@ export function installDiagnostics({ app, process: runtime = process, directory 
   };
   try {
     const previous = JSON.parse(readFileSync(marker, 'utf8'));
-    if (!previous.clean) record('previous-exit-unexpected', { previousPid: previous.pid });
+    if (!previous.clean) {
+      record('previous-exit-unexpected', { previousPid: previous.pid });
+    }
   } catch {}
   record('start', { platform: runtime.platform, electron: runtime.versions.electron });
   session(false);

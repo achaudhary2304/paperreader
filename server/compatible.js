@@ -1,14 +1,37 @@
 import { completionResponse, requestSignal } from './completionResponse.js';
 export function createCompatibleClient({ fetchImpl = fetch } = {}) {
   async function complete(key, messages, options = {}) {
+    const getKey = () => {
+      if (key) {
+        return { Authorization: `Bearer ${key}` };
+      }
+      return {};
+    };
+
+    const getOptionsOnToken = () => {
+      if (options.onToken) {
+        return { stream: true };
+      }
+      return {};
+    };
+
     const base = process.env.LLM_BASE_URL?.replace(/\/$/, '');
-    const model = options.vision ? process.env.LLM_VISION_MODEL : process.env.LLM_MODEL;
-    if (!base || !model)
-      throw new Error(
-        options.vision
-          ? 'Set LLM_VISION_MODEL to use images with this provider.'
-          : 'Set LLM_BASE_URL and LLM_MODEL.',
-      );
+    let model;
+    if (options.vision) {
+      model = process.env.LLM_VISION_MODEL;
+    } else {
+      model = process.env.LLM_MODEL;
+    }
+    if (!base || !model) {
+      const getOptionsVision = () => {
+        if (options.vision) {
+          return 'Set LLM_VISION_MODEL to use images with this provider.';
+        }
+        return 'Set LLM_BASE_URL and LLM_MODEL.';
+      };
+
+      throw new Error(getOptionsVision());
+    }
     const url = new URL(base);
     if (
       url.protocol !== 'https:' &&
@@ -20,12 +43,12 @@ export function createCompatibleClient({ fetchImpl = fetch } = {}) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(key ? { Authorization: `Bearer ${key}` } : {}),
+        ...getKey(),
       },
       body: JSON.stringify({
         model,
         messages,
-        ...(options.onToken ? { stream: true } : {}),
+        ...getOptionsOnToken(),
         max_tokens: options.maxTokens || 1800,
         temperature: options.temperature ?? 0.2,
       }),
@@ -38,13 +61,17 @@ export function createCompatibleClient({ fetchImpl = fetch } = {}) {
       throw error;
     }
     const raw = data.choices?.[0]?.message?.content;
-    const content =
-      typeof raw === 'string'
-        ? raw
-        : Array.isArray(raw)
-          ? raw.map((part) => part.text || '').join('')
-          : '';
-    if (!content.trim()) throw new Error(`${model} returned an empty answer.`);
+    let content;
+    if (typeof raw === 'string') {
+      content = raw;
+    } else if (Array.isArray(raw)) {
+      content = raw.map((part) => part.text || '').join('');
+    } else {
+      content = '';
+    }
+    if (!content.trim()) {
+      throw new Error(`${model} returned an empty answer.`);
+    }
     return {
       content: content.trim(),
       model,

@@ -10,10 +10,14 @@ export function createToolPool(connect) {
       try {
         const client = await pending;
         client.onclose = () => {
-          if (connections.get(name) === pending) connections.delete(name);
+          if (connections.get(name) === pending) {
+            connections.delete(name);
+          }
         };
       } catch (error) {
-        if (connections.get(name) === pending) connections.delete(name);
+        if (connections.get(name) === pending) {
+          connections.delete(name);
+        }
         throw error;
       }
     }
@@ -24,7 +28,9 @@ export function createToolPool(connect) {
     const client = await getClient(name);
     const result = await client.callTool({ name: tool, arguments: args });
     const text = result.content?.find((part) => part.type === 'text')?.text;
-    if (result.isError) throw new Error(text || `${tool} failed.`);
+    if (result.isError) {
+      throw new Error(text || `${tool} failed.`);
+    }
     return JSON.parse(text || 'null');
   }
 

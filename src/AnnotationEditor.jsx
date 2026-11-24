@@ -12,6 +12,19 @@ export default function AnnotationEditor({
   onSave,
   onDelete,
 }) {
+  function getAnnotationTitle() {
+    if (annotationDraft.id) {
+      return 'Edit annotation';
+    }
+    if (annotationDraft.kind === 'Comment') {
+      return 'Comment on passage';
+    }
+    if (annotationDraft.kind === 'Region') {
+      return 'Annotate figure or table';
+    }
+    return 'Annotate passage';
+  }
+
   return (
     <div
       className="modal-backdrop"
@@ -26,15 +39,7 @@ export default function AnnotationEditor({
             <X size={19} />
           </button>
         </div>
-        <h2>
-          {annotationDraft.id
-            ? 'Edit annotation'
-            : annotationDraft.kind === 'Comment'
-              ? 'Comment on passage'
-              : annotationDraft.kind === 'Region'
-                ? 'Annotate figure or table'
-                : 'Annotate passage'}
-        </h2>
+        <h2>{getAnnotationTitle()}</h2>
         <p className="annotation-quote">
           “{annotationDraft.text}”{' '}
           <span>
@@ -66,16 +71,24 @@ export default function AnnotationEditor({
           placeholder="method, question, result"
         />
         <div className="annotation-colors" role="group" aria-label="Annotation color">
-          {['yellow', 'green', 'blue'].map((color) => (
-            <button
-              key={color}
-              type="button"
-              className={`annotation-swatch annotation-${color} ${annotationDraft.color === color ? 'selected' : ''}`}
-              onClick={() => onChange((current) => ({ ...current, color }))}
-              aria-label={`${color} annotation`}
-              aria-pressed={annotationDraft.color === color}
-            />
-          ))}
+          {['yellow', 'green', 'blue'].map((color) => {
+            const getAnnotationDraftColorColorClassName = () => {
+              if (annotationDraft.color === color) {
+                return 'selected';
+              }
+              return '';
+            };
+            return (
+              <button
+                key={color}
+                type="button"
+                className={`annotation-swatch annotation-${color} ${getAnnotationDraftColorColorClassName()}`}
+                onClick={() => onChange((current) => ({ ...current, color }))}
+                aria-label={`${color} annotation`}
+                aria-pressed={annotationDraft.color === color}
+              />
+            );
+          })}
         </div>
         {projects.length > 0 && (
           <div className="annotation-project">

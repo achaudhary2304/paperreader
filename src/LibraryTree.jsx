@@ -3,11 +3,30 @@ import { filterLibrary } from './articleFormat.js';
 import { ChevronDown, FileText, Folder, FolderMinus, Globe, RefreshCw, X } from 'lucide-react';
 
 function TreePaper({ doc, active, projects, onOpen, onMove, onRemove, onDragStart, onDragEnd }) {
-  const kindIcon = doc.kind === 'article' ? <Globe size={14} /> : <FileText size={14} />;
+  const getActiveClassName = () => {
+    if (active) {
+      return 'active';
+    }
+    return '';
+  };
+
+  const getDocKindArticle = () => {
+    if (doc.kind === 'article') {
+      return 'Article';
+    }
+    return 'PDF';
+  };
+
+  let kindIcon;
+  if (doc.kind === 'article') {
+    kindIcon = <Globe size={14} />;
+  } else {
+    kindIcon = <FileText size={14} />;
+  }
   const owner = projects.find((project) => project.paperIds?.includes(doc.id))?.id || '';
   return (
     <div
-      className={`tree-file ${active ? 'active' : ''}`}
+      className={`tree-file ${getActiveClassName()}`}
       role="treeitem"
       draggable
       onDragStart={(event) => {
@@ -22,7 +41,7 @@ function TreePaper({ doc, active, projects, onOpen, onMove, onRemove, onDragStar
         <span>
           <strong>{doc.name}</strong>
           <small>
-            {doc.kind === 'article' ? 'Article' : 'PDF'} · {doc.status || 'unread'}
+            {getDocKindArticle()} · {doc.status || 'unread'}
           </small>
         </span>
       </button>
@@ -71,12 +90,22 @@ function ComputerFolderContents({
   const directories = new Set();
   for (const doc of documents) {
     const relativePath = String(doc.sourceRelativePath || doc.name).replaceAll('\\', '/');
-    const prefix = path ? `${path}/` : '';
-    if (!relativePath.startsWith(prefix)) continue;
+    let prefix;
+    if (path) {
+      prefix = `${path}/`;
+    } else {
+      prefix = '';
+    }
+    if (!relativePath.startsWith(prefix)) {
+      continue;
+    }
     const remainder = relativePath.slice(prefix.length);
     const slash = remainder.indexOf('/');
-    if (slash < 0) direct.push(doc);
-    else directories.add(remainder.slice(0, slash));
+    if (slash < 0) {
+      direct.push(doc);
+    } else {
+      directories.add(remainder.slice(0, slash));
+    }
   }
   return (
     <div className="tree-children" role="group">
@@ -95,7 +124,19 @@ function ComputerFolderContents({
       {[...directories]
         .sort((a, b) => a.localeCompare(b))
         .map((name) => {
-          const childPath = path ? `${path}/${name}` : name;
+          const getOpenClassName = () => {
+            if (open) {
+              return '';
+            }
+            return 'tree-collapsed';
+          };
+
+          let childPath;
+          if (path) {
+            childPath = `${path}/${name}`;
+          } else {
+            childPath = name;
+          }
           const folderKey = groupKey(childPath);
           const open = openFolders[folderKey] !== false;
           const nested = documents.filter((doc) =>
@@ -111,7 +152,7 @@ function ComputerFolderContents({
               key={folderKey}
             >
               <button onClick={() => onToggle(folderKey)}>
-                <ChevronDown size={12} className={open ? '' : 'tree-collapsed'} />
+                <ChevronDown size={12} className={getOpenClassName()} />
                 <Folder size={13} />
                 <span>{name}</span>
                 <small>{nested.length}</small>
@@ -161,34 +202,57 @@ export default function LibraryTree({
   onRefreshFolder,
   onForgetFolder,
 }) {
+  const getProjectIdClassName = () => {
+    if (!projectId) {
+      return 'selected';
+    }
+    return '';
+  };
+
+  const getOpenFoldersGeneralClassName = () => {
+    if (openFolders.general === false) {
+      return 'tree-collapsed';
+    }
+    return '';
+  };
+
   const draggedPaper = useRef(null);
   const projectByPaper = new Map();
-  for (const project of projects)
-    for (const paperId of project.paperIds || [])
-      if (!projectByPaper.has(paperId)) projectByPaper.set(paperId, project.id);
+  for (const project of projects) {
+    for (const paperId of project.paperIds || []) {
+      if (!projectByPaper.has(paperId)) {
+        projectByPaper.set(paperId, project.id);
+      }
+    }
+  }
   const treeDocs = filterLibrary(documents, projects, filters);
   const docsInFolder = (folderId) =>
-    treeDocs.filter((doc) =>
-      folderId
-        ? projectByPaper.get(doc.id) === folderId
-        : !projectByPaper.has(doc.id) &&
-          (!doc.sourceFolderId ||
-            !folderSources.some((folder) => folder.id === doc.sourceFolderId)),
-    );
+    treeDocs.filter((doc) => {
+      if (folderId) {
+        return projectByPaper.get(doc.id) === folderId;
+      } else {
+        return (
+          !projectByPaper.has(doc.id) &&
+          (!doc.sourceFolderId || !folderSources.some((folder) => folder.id === doc.sourceFolderId))
+        );
+      }
+    });
   const docsInComputerFolder = (folderId) =>
     treeDocs.filter((doc) => doc.sourceFolderId === folderId && !projectByPaper.has(doc.id));
 
   return (
     <div className="file-tree" role="tree" aria-label="Paper library">
       <div
-        className={`tree-folder ${!projectId ? 'selected' : ''}`}
+        className={`tree-folder ${getProjectIdClassName()}`}
         role="treeitem"
         aria-expanded={openFolders.general !== false}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
           onSelectProject('');
-          if (draggedPaper.current) onMove(draggedPaper.current, '');
+          if (draggedPaper.current) {
+            onMove(draggedPaper.current, '');
+          }
         }}
       >
         <button
@@ -197,10 +261,7 @@ export default function LibraryTree({
             onSelectProject('');
           }}
         >
-          <ChevronDown
-            size={14}
-            className={openFolders.general === false ? 'tree-collapsed' : ''}
-          />
+          <ChevronDown size={14} className={getOpenFoldersGeneralClassName()} />
           <Folder size={15} />
           <span>General</span>
           <small>{documents.filter((doc) => !projectByPaper.has(doc.id)).length}</small>
@@ -224,120 +285,144 @@ export default function LibraryTree({
                 onRemove={() => onRemove(doc.id)}
               />
             ))}
-            {folderSources.map((folder) => (
-              <div
-                className="tree-folder computer-folder"
-                key={folder.id}
-                role="treeitem"
-                aria-expanded={openFolders[`computer:${folder.id}`] !== false}
-                onDragOver={(event) => event.stopPropagation()}
-                onDrop={(event) => event.stopPropagation()}
-              >
-                <div className="computer-folder-row">
-                  <button
-                    className="computer-folder-toggle"
-                    onClick={() => onToggle(`computer:${folder.id}`)}
-                  >
-                    <ChevronDown
-                      size={13}
-                      className={
-                        openFolders[`computer:${folder.id}`] === false ? 'tree-collapsed' : ''
-                      }
+            {folderSources.map((folder) => {
+              const getOpenFoldersComputerFolderClassName = () => {
+                if (openFolders[`computer:${folder.id}`] === false) {
+                  return 'tree-collapsed';
+                }
+                return '';
+              };
+
+              const getFolderSyncBusyClassName = () => {
+                if (folderSyncBusy) {
+                  return 'spin-refresh';
+                }
+                return '';
+              };
+              return (
+                <div
+                  className="tree-folder computer-folder"
+                  key={folder.id}
+                  role="treeitem"
+                  aria-expanded={openFolders[`computer:${folder.id}`] !== false}
+                  onDragOver={(event) => event.stopPropagation()}
+                  onDrop={(event) => event.stopPropagation()}
+                >
+                  <div className="computer-folder-row">
+                    <button
+                      className="computer-folder-toggle"
+                      onClick={() => onToggle(`computer:${folder.id}`)}
+                    >
+                      <ChevronDown size={13} className={getOpenFoldersComputerFolderClassName()} />
+                      <Folder size={14} />
+                      <span>{folder.name}</span>
+                      <small>{docsInComputerFolder(folder.id).length}</small>
+                    </button>
+                    <button
+                      disabled={folderSyncBusy}
+                      onClick={() => onRefreshFolder(folder.id)}
+                      title="Scan for new or changed PDFs"
+                      aria-label={`Refresh ${folder.name}`}
+                    >
+                      <RefreshCw size={13} className={getFolderSyncBusyClassName()} />
+                    </button>
+                    <button
+                      onClick={() => onForgetFolder(folder.id)}
+                      title="Remove folder link; keep imported PDFs"
+                      aria-label={`Remove ${folder.name} folder link`}
+                    >
+                      <FolderMinus size={14} />
+                    </button>
+                  </div>
+                  {openFolders[`computer:${folder.id}`] !== false && (
+                    <ComputerFolderContents
+                      folderId={folder.id}
+                      documents={docsInComputerFolder(folder.id)}
+                      openFolders={openFolders}
+                      onToggle={onToggle}
+                      projects={projects}
+                      activeDocId={activeDocId}
+                      onDragStart={(id) => {
+                        draggedPaper.current = id;
+                      }}
+                      onDragEnd={() => {
+                        draggedPaper.current = '';
+                      }}
+                      onOpen={onOpen}
+                      onMove={onMove}
                     />
-                    <Folder size={14} />
-                    <span>{folder.name}</span>
-                    <small>{docsInComputerFolder(folder.id).length}</small>
-                  </button>
-                  <button
-                    disabled={folderSyncBusy}
-                    onClick={() => onRefreshFolder(folder.id)}
-                    title="Scan for new or changed PDFs"
-                    aria-label={`Refresh ${folder.name}`}
-                  >
-                    <RefreshCw size={13} className={folderSyncBusy ? 'spin-refresh' : ''} />
-                  </button>
-                  <button
-                    onClick={() => onForgetFolder(folder.id)}
-                    title="Remove folder link; keep imported PDFs"
-                    aria-label={`Remove ${folder.name} folder link`}
-                  >
-                    <FolderMinus size={14} />
-                  </button>
+                  )}
                 </div>
-                {openFolders[`computer:${folder.id}`] !== false && (
-                  <ComputerFolderContents
-                    folderId={folder.id}
-                    documents={docsInComputerFolder(folder.id)}
-                    openFolders={openFolders}
-                    onToggle={onToggle}
-                    projects={projects}
-                    activeDocId={activeDocId}
-                    onDragStart={(id) => {
-                      draggedPaper.current = id;
+              );
+            })}
+          </div>
+        )}
+      </div>
+      {projects.map((project) => {
+        const getProjectIdProjectIdClassName = () => {
+          if (project.id === projectId) {
+            return 'selected';
+          }
+          return '';
+        };
+
+        const getOpenFoldersProjectIdClassName = () => {
+          if (openFolders[project.id] === false) {
+            return 'tree-collapsed';
+          }
+          return '';
+        };
+        return (
+          <div
+            className={`tree-folder ${getProjectIdProjectIdClassName()}`}
+            key={project.id}
+            role="treeitem"
+            aria-expanded={openFolders[project.id] !== false}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              onSelectProject(project.id);
+              if (draggedPaper.current) {
+                onMove(draggedPaper.current, project.id);
+              }
+            }}
+          >
+            <button
+              onClick={() => {
+                onToggle(project.id);
+                onSelectProject(project.id, true);
+              }}
+            >
+              <ChevronDown size={14} className={getOpenFoldersProjectIdClassName()} />
+              <Folder size={15} />
+              <span>{project.name}</span>
+              <small>{(project.paperIds || []).length}</small>
+            </button>
+            {openFolders[project.id] !== false && (
+              <div className="tree-children" role="group">
+                {docsInFolder(project.id).map((doc) => (
+                  <TreePaper
+                    key={doc.id}
+                    doc={doc}
+                    active={activeDocId === doc.id}
+                    draggable
+                    onDragStart={() => {
+                      draggedPaper.current = doc.id;
                     }}
                     onDragEnd={() => {
                       draggedPaper.current = '';
                     }}
-                    onOpen={onOpen}
+                    onOpen={() => onOpen(doc.id)}
                     onMove={onMove}
+                    projects={projects}
+                    onRemove={() => onRemove(doc.id)}
                   />
-                )}
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </div>
-      {projects.map((project) => (
-        <div
-          className={`tree-folder ${project.id === projectId ? 'selected' : ''}`}
-          key={project.id}
-          role="treeitem"
-          aria-expanded={openFolders[project.id] !== false}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.preventDefault();
-            onSelectProject(project.id);
-            if (draggedPaper.current) onMove(draggedPaper.current, project.id);
-          }}
-        >
-          <button
-            onClick={() => {
-              onToggle(project.id);
-              onSelectProject(project.id, true);
-            }}
-          >
-            <ChevronDown
-              size={14}
-              className={openFolders[project.id] === false ? 'tree-collapsed' : ''}
-            />
-            <Folder size={15} />
-            <span>{project.name}</span>
-            <small>{(project.paperIds || []).length}</small>
-          </button>
-          {openFolders[project.id] !== false && (
-            <div className="tree-children" role="group">
-              {docsInFolder(project.id).map((doc) => (
-                <TreePaper
-                  key={doc.id}
-                  doc={doc}
-                  active={activeDocId === doc.id}
-                  draggable
-                  onDragStart={() => {
-                    draggedPaper.current = doc.id;
-                  }}
-                  onDragEnd={() => {
-                    draggedPaper.current = '';
-                  }}
-                  onOpen={() => onOpen(doc.id)}
-                  onMove={onMove}
-                  projects={projects}
-                  onRemove={() => onRemove(doc.id)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
+        );
+      })}
       {folderSyncError && (
         <p className="folder-sync-error" role="alert">
           {folderSyncError}

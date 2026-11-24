@@ -18,15 +18,20 @@ const TYPES = {
 
 function normalizedRect(points, viewport) {
   const converted = [];
-  for (let index = 0; index < points.length; index += 2)
+  for (let index = 0; index < points.length; index += 2) {
     converted.push(viewport.convertToViewportPoint(points[index], points[index + 1]));
+  }
   const xs = converted.map((point) => point[0]),
     ys = converted.map((point) => point[1]);
   const x = Math.min(...xs) / viewport.width,
     y = Math.min(...ys) / viewport.height;
   const w = (Math.max(...xs) - Math.min(...xs)) / viewport.width,
     h = (Math.max(...ys) - Math.min(...ys)) / viewport.height;
-  return [x, y, w, h].every(Number.isFinite) && w > 0 && h > 0 ? { x, y, w, h } : null;
+  if ([x, y, w, h].every(Number.isFinite) && w > 0 && h > 0) {
+    return { x, y, w, h };
+  } else {
+    return null;
+  }
 }
 
 function annotationRects(annotation, viewport) {
@@ -35,21 +40,39 @@ function annotationRects(annotation, viewport) {
     const rects = [];
     for (let index = 0; index + 7 < quads.length; index += 8) {
       const rect = normalizedRect(Array.from(quads.slice(index, index + 8)), viewport);
-      if (rect) rects.push(rect);
+      if (rect) {
+        rects.push(rect);
+      }
     }
-    if (rects.length) return rects;
+    if (rects.length) {
+      return rects;
+    }
   }
   const [left, bottom, right, top] = annotation.rect || [];
-  return [left, bottom, right, top].every(Number.isFinite)
-    ? [normalizedRect([left, bottom, right, top], viewport)].filter(Boolean)
-    : [];
+  if ([left, bottom, right, top].every(Number.isFinite)) {
+    return [normalizedRect([left, bottom, right, top], viewport)].filter(Boolean);
+  } else {
+    return [];
+  }
 }
 
 function colorName(rgb) {
-  if (!rgb || rgb.length < 3) return 'yellow';
-  const [red, green, blue] = Array.from(rgb, (value) => (value > 1 ? value / 255 : value));
-  if (blue > red * 1.15 && blue > green * 1.05) return 'blue';
-  if (green > red * 1.1 && green > blue * 0.9) return 'green';
+  if (!rgb || rgb.length < 3) {
+    return 'yellow';
+  }
+  const [red, green, blue] = Array.from(rgb, (value) => {
+    if (value > 1) {
+      return value / 255;
+    } else {
+      return value;
+    }
+  });
+  if (blue > red * 1.15 && blue > green * 1.05) {
+    return 'blue';
+  }
+  if (green > red * 1.1 && green > blue * 0.9) {
+    return 'green';
+  }
   return 'yellow';
 }
 
@@ -61,9 +84,13 @@ export async function readPdfAnnotations(document, docId) {
     const records = await page.getAnnotations({ intent: 'display' });
     for (const [index, annotation] of records.entries()) {
       const kind = TYPES[annotation.annotationType];
-      if (!kind || annotation.annotationType === 2 || annotation.annotationType === 16) continue;
+      if (!kind || annotation.annotationType === 2 || annotation.annotationType === 16) {
+        continue;
+      }
       const rects = annotationRects(annotation, viewport);
-      if (!rects.length) continue;
+      if (!rects.length) {
+        continue;
+      }
       const note = annotation.contentsObj?.str || annotation.contents || '';
       const label = annotation.titleObj?.str || kind;
       imported.push({

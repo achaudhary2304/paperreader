@@ -71,10 +71,12 @@ export async function completeWithFallback({
     }
   }
 
-  const openRouterModel =
-    options.model?.endsWith(':free') || options.model === 'openrouter/free'
-      ? options.model
-      : 'openrouter/free';
+  let openRouterModel;
+  if (options.model?.endsWith(':free') || options.model === 'openrouter/free') {
+    openRouterModel = options.model;
+  } else {
+    openRouterModel = 'openrouter/free';
+  }
   const openRouterStarted = performance.now();
   try {
     const result = await openRouterClient.complete(openRouterKey, messages, {

@@ -13,24 +13,31 @@ export function installWebpageView(window, origin) {
     previousZoom;
   const annotationSets = new Map();
   const syncAnnotations = () => {
-    if (view && source)
+    if (view && source) {
       view.webContents.send('webpage:annotations', annotationSets.get(source) || []);
+    }
   };
   const trusted = (event) =>
     event.sender === window.webContents && event.senderFrame?.origin === origin;
   const emit = (data) => {
-    if (!window.isDestroyed()) window.webContents.send('webpage:event', data);
+    if (!window.isDestroyed()) {
+      window.webContents.send('webpage:event', data);
+    }
   };
   const detach = () => {
     if (attached && view) {
       const restoreFocus = view.webContents.isFocused();
       window.contentView.removeChildView(view);
       attached = false;
-      if (restoreFocus) window.webContents.focus();
+      if (restoreFocus) {
+        window.webContents.focus();
+      }
     }
   };
   ipcMain.handle('webpage:show', async (event, options) => {
-    if (!trusted(event)) throw new Error('Untrusted webpage request.');
+    if (!trusted(event)) {
+      throw new Error('Untrusted webpage request.');
+    }
     const url = articleUrl(options.url).href;
     const bounds = Object.fromEntries(
       ['x', 'y', 'width', 'height'].map((key) => [
@@ -39,8 +46,9 @@ export function installWebpageView(window, origin) {
       ]),
     );
     const [width, height] = window.getContentSize();
-    if (bounds.x + bounds.width > width + 2 || bounds.y + bounds.height > height + 2)
+    if (bounds.x + bounds.width > width + 2 || bounds.y + bounds.height > height + 2) {
       throw new Error('Invalid webpage bounds.');
+    }
     if (!view) {
       const guest = session.fromPartition('paperlens-webpages');
       guest.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
@@ -56,9 +64,13 @@ export function installWebpageView(window, origin) {
           preload: fileURLToPath(new URL('./webpage-preload.cjs', import.meta.url)),
         },
       });
-      installEditCommands(view.webContents);
+      installEditCommands(view.webContents, {
+        onZoom: (direction) => window.webContents.send('reader:zoom', direction),
+      });
       view.webContents.setWindowOpenHandler(({ url: target }) => {
-        if (/^https?:\/\//.test(target)) shell.openExternal(target);
+        if (/^https?:\/\//.test(target)) {
+          shell.openExternal(target);
+        }
         return { action: 'deny' };
       });
       view.webContents.on('will-navigate', (navigation, target) => {
@@ -68,7 +80,9 @@ export function installWebpageView(window, origin) {
         next.hash = '';
         if (current.href !== next.href) {
           navigation.preventDefault();
-          if (/^https?:\/\//.test(target)) shell.openExternal(target);
+          if (/^https?:\/\//.test(target)) {
+            shell.openExternal(target);
+          }
         }
       });
       view.webContents.on('dom-ready', () => {
@@ -110,26 +124,49 @@ export function installWebpageView(window, origin) {
     return true;
   });
   ipcMain.handle('webpage:hide', (event) => {
-    if (!trusted(event)) throw new Error('Untrusted webpage request.');
+    if (!trusted(event)) {
+      throw new Error('Untrusted webpage request.');
+    }
     detach();
   });
   ipcMain.handle('webpage:annotations', (event, payload) => {
-    if (!trusted(event)) throw new Error('Untrusted annotation request.');
+    const getArrayIsArrayPayloadAnnotations = () => {
+      if (Array.isArray(payload.annotations)) {
+        return payload.annotations;
+      }
+      return [];
+    };
+
+    if (!trusted(event)) {
+      throw new Error('Untrusted annotation request.');
+    }
     const url = articleUrl(payload.url).href;
-    const items = (Array.isArray(payload.annotations) ? payload.annotations : [])
+    const items = getArrayIsArrayPayloadAnnotations()
       .slice(0, 3000)
-      .map((item) => ({
-        id: String(item.id).slice(0, 100),
-        text: String(item.text || '').slice(0, 1800),
-        color: ['green', 'blue'].includes(item.color) ? item.color : 'yellow',
-        anchor: {
-          prefix: String(item.anchor?.prefix || '').slice(-80),
-          suffix: String(item.anchor?.suffix || '').slice(0, 80),
-        },
-      }));
+      .map((item) => {
+        const getColor = () => {
+          if (['green', 'blue'].includes(item.color)) {
+            return item.color;
+          }
+          return 'yellow';
+        };
+        return {
+          id: String(item.id).slice(0, 100),
+          text: String(item.text || '').slice(0, 1800),
+          color: getColor(),
+          anchor: {
+            prefix: String(item.anchor?.prefix || '').slice(-80),
+            suffix: String(item.anchor?.suffix || '').slice(0, 80),
+          },
+        };
+      });
     annotationSets.set(url, items);
-    if (annotationSets.size > 20) annotationSets.delete(annotationSets.keys().next().value);
-    if (url === source) syncAnnotations();
+    if (annotationSets.size > 20) {
+      annotationSets.delete(annotationSets.keys().next().value);
+    }
+    if (url === source) {
+      syncAnnotations();
+    }
   });
   const interaction = (event, payload) => {
     if (
@@ -138,8 +175,9 @@ export function installWebpageView(window, origin) {
       event.sender !== view.webContents ||
       event.senderFrame !== view.webContents.mainFrame ||
       !payload
-    )
+    ) {
       return;
+    }
     if (
       payload.type === 'selection' &&
       typeof payload.text === 'string' &&
@@ -169,7 +207,9 @@ export function installWebpageView(window, origin) {
   };
   ipcMain.on('webpage:interaction', interaction);
   window.on('closed', () => {
-    if (view && !view.webContents.isDestroyed()) view.webContents.close();
+    if (view && !view.webContents.isDestroyed()) {
+      view.webContents.close();
+    }
     ipcMain.removeHandler('webpage:show');
     ipcMain.removeHandler('webpage:hide');
     ipcMain.removeHandler('webpage:annotations');

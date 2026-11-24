@@ -5,11 +5,159 @@ import { THEMES, FONTS, fontStack, DEFAULT_THEME, DEFAULT_FONT } from './appeara
 import { useAppearance } from './useAppearance.js';
 
 export default function Appearance({ embedded = false, hidden = false }) {
+  const getEmbeddedClassName = () => {
+    if (embedded) {
+      return ' embedded';
+    }
+    return '';
+  };
+
+  const getEmbeddedRole = () => {
+    if (embedded) {
+      return 'region';
+    }
+    return 'dialog';
+  };
+
+  const renderTabFonts = () => {
+    if (tab === 'fonts') {
+      return (
+        <div role="tabpanel" id="appearance-fonts" aria-labelledby="font-tab">
+          <div className="font-preview-sentence">
+            <strong>{FONTS[choice.font]}</strong>
+            <p>A clearer way to read, think, and connect ideas.</p>
+            <span>0123456789 · Aa Bb Cc · α β θ</span>
+          </div>
+          <div className="font-choice-grid">
+            {Object.entries(FONTS).map(([id, name]) => {
+              const getChoiceFontIdClassName = () => {
+                if (choice.font === id) {
+                  return 'selected';
+                }
+                return '';
+              };
+              return (
+                <button
+                  key={id}
+                  className={`font-choice ${getChoiceFontIdClassName()}`}
+                  aria-pressed={choice.font === id}
+                  onClick={() => setChoice((current) => ({ ...current, font: id }))}
+                  style={{ fontFamily: fontStack(id) }}
+                >
+                  <span>Aa</span>
+                  <strong>{name}</strong>
+                  {choice.font === id && <Check size={13} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div
+        className="appearance-grid"
+        role="tabpanel"
+        id="appearance-colors"
+        aria-labelledby="color-tab"
+      >
+        {THEMES.map((itemTheme) => {
+          const getThemeIdItemThemeIdClassName = () => {
+            if (theme.id === itemTheme.id) {
+              return 'selected';
+            }
+            return '';
+          };
+          return (
+            <button
+              key={itemTheme.id}
+              className={`appearance-card ${getThemeIdItemThemeIdClassName()}`}
+              aria-pressed={theme.id === itemTheme.id}
+              onClick={() =>
+                setChoice((current) => {
+                  const getItemThemeIdMidnightOnClick = () => {
+                    if (itemTheme.id === 'midnight') {
+                      return 'dark';
+                    }
+                    return 'light';
+                  };
+
+                  const getItemThemeIdMidnightOnClick2 = () => {
+                    if (itemTheme.id === 'midnight') {
+                      return true;
+                    }
+                    return current.pdfDark;
+                  };
+
+                  const getItemThemeIdMidnightOnClick3 = () => {
+                    if (itemTheme.id === 'midnight') {
+                      return current.lightTheme;
+                    }
+                    return itemTheme.id;
+                  };
+                  return {
+                    ...current,
+                    theme: itemTheme.id,
+                    mode: getItemThemeIdMidnightOnClick(),
+                    pdfDark: getItemThemeIdMidnightOnClick2(),
+                    lightTheme: getItemThemeIdMidnightOnClick3(),
+                  };
+                })
+              }
+              style={{
+                '--card-accent': itemTheme.accent,
+                '--card-bg': itemTheme.bg,
+                '--card-panel': itemTheme.panel,
+                '--card-ink': itemTheme.ink,
+                '--card-font': `"${FONTS[choice.font]}"`,
+              }}
+            >
+              <div className="appearance-mini">
+                <aside>
+                  <i />
+                  <i />
+                  <i />
+                </aside>
+                <div>
+                  <span>Read deeper.</span>
+                  <em>A little more clarity.</em>
+                  <b>
+                    Explain passage <span>↗</span>
+                  </b>
+                </div>
+                {theme.id === itemTheme.id && <Check size={15} className="appearance-check" />}
+              </div>
+              <strong>{itemTheme.name}</strong>
+              <small>{itemTheme.note.split(' · ').slice(0, 2).join(' · ')}</small>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderEmbedded = () => {
+    if (embedded) {
+      return (
+        <span className="appearance-applied">
+          <Check size={14} /> Changes apply immediately
+        </span>
+      );
+    }
+    return (
+      <button onClick={() => setOpen(false)}>
+        Keep this look <Check size={14} />
+      </button>
+    );
+  };
+
   const [open, setOpen] = useState(embedded);
   const [tab, setTab] = useState('fonts');
   const { choice, setChoice, theme } = useAppearance();
   useEffect(() => {
-    if (!open || embedded) return;
+    if (!open || embedded) {
+      return;
+    }
     const close = (event) => {
       if (event.key === 'Escape') {
         event.stopImmediatePropagation();
@@ -34,8 +182,8 @@ export default function Appearance({ embedded = false, hidden = false }) {
       )}
       {open && !hidden && (
         <section
-          className={`appearance-gallery${embedded ? ' embedded' : ''}`}
-          role={embedded ? 'region' : 'dialog'}
+          className={`appearance-gallery${getEmbeddedClassName()}`}
+          role={getEmbeddedRole()}
           aria-label="Appearance preview"
         >
           <header>
@@ -58,11 +206,19 @@ export default function Appearance({ embedded = false, hidden = false }) {
               id="color-mode"
               value={choice.mode}
               onChange={(event) =>
-                setChoice((current) => ({
-                  ...current,
-                  mode: event.target.value,
-                  pdfDark: event.target.value === 'light' ? current.pdfDark : true,
-                }))
+                setChoice((current) => {
+                  const getEventTargetValueLightOnChange = () => {
+                    if (event.target.value === 'light') {
+                      return current.pdfDark;
+                    }
+                    return true;
+                  };
+                  return {
+                    ...current,
+                    mode: event.target.value,
+                    pdfDark: getEventTargetValueLightOnChange(),
+                  };
+                })
               }
             >
               <option value="light">Light</option>
@@ -101,79 +257,7 @@ export default function Appearance({ embedded = false, hidden = false }) {
               Colors · {THEMES.length}
             </button>
           </div>
-          {tab === 'fonts' ? (
-            <div role="tabpanel" id="appearance-fonts" aria-labelledby="font-tab">
-              <div className="font-preview-sentence">
-                <strong>{FONTS[choice.font]}</strong>
-                <p>A clearer way to read, think, and connect ideas.</p>
-                <span>0123456789 · Aa Bb Cc · α β θ</span>
-              </div>
-              <div className="font-choice-grid">
-                {Object.entries(FONTS).map(([id, name]) => (
-                  <button
-                    key={id}
-                    className={`font-choice ${choice.font === id ? 'selected' : ''}`}
-                    aria-pressed={choice.font === id}
-                    onClick={() => setChoice((current) => ({ ...current, font: id }))}
-                    style={{ fontFamily: fontStack(id) }}
-                  >
-                    <span>Aa</span>
-                    <strong>{name}</strong>
-                    {choice.font === id && <Check size={13} />}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div
-              className="appearance-grid"
-              role="tabpanel"
-              id="appearance-colors"
-              aria-labelledby="color-tab"
-            >
-              {THEMES.map((itemTheme) => (
-                <button
-                  key={itemTheme.id}
-                  className={`appearance-card ${theme.id === itemTheme.id ? 'selected' : ''}`}
-                  aria-pressed={theme.id === itemTheme.id}
-                  onClick={() =>
-                    setChoice((current) => ({
-                      ...current,
-                      theme: itemTheme.id,
-                      mode: itemTheme.id === 'midnight' ? 'dark' : 'light',
-                      pdfDark: itemTheme.id === 'midnight' ? true : current.pdfDark,
-                      lightTheme: itemTheme.id === 'midnight' ? current.lightTheme : itemTheme.id,
-                    }))
-                  }
-                  style={{
-                    '--card-accent': itemTheme.accent,
-                    '--card-bg': itemTheme.bg,
-                    '--card-panel': itemTheme.panel,
-                    '--card-ink': itemTheme.ink,
-                    '--card-font': `"${FONTS[choice.font]}"`,
-                  }}
-                >
-                  <div className="appearance-mini">
-                    <aside>
-                      <i />
-                      <i />
-                      <i />
-                    </aside>
-                    <div>
-                      <span>Read deeper.</span>
-                      <em>A little more clarity.</em>
-                      <b>
-                        Explain passage <span>↗</span>
-                      </b>
-                    </div>
-                    {theme.id === itemTheme.id && <Check size={15} className="appearance-check" />}
-                  </div>
-                  <strong>{itemTheme.name}</strong>
-                  <small>{itemTheme.note.split(' · ').slice(0, 2).join(' · ')}</small>
-                </button>
-              ))}
-            </div>
-          )}
+          {renderTabFonts()}
           <p className="appearance-footnote">
             Saved on this computer. PDF darkening is display-only; exports keep the original colors.
           </p>
@@ -191,15 +275,7 @@ export default function Appearance({ embedded = false, hidden = false }) {
             >
               Reset appearance
             </button>
-            {embedded ? (
-              <span className="appearance-applied">
-                <Check size={14} /> Changes apply immediately
-              </span>
-            ) : (
-              <button onClick={() => setOpen(false)}>
-                Keep this look <Check size={14} />
-              </button>
-            )}
+            {renderEmbedded()}
           </footer>
         </section>
       )}
@@ -208,23 +284,57 @@ export default function Appearance({ embedded = false, hidden = false }) {
 }
 
 export function DarkModeButton() {
+  const getDarkTitle = () => {
+    if (dark) {
+      return 'Switch to light mode';
+    }
+    return 'Switch to dark mode';
+  };
+
+  const getDarkAriaLabel = () => {
+    if (dark) {
+      return 'Switch to light mode';
+    }
+    return 'Switch to dark mode';
+  };
+
+  const renderDark = () => {
+    if (dark) {
+      return <Sun size={18} />;
+    }
+    return <Moon size={18} />;
+  };
+
   const { choice, setChoice, theme } = useAppearance();
   const dark = theme.id === 'midnight';
   return (
     <button
       className="icon-button"
-      title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-      aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={getDarkTitle()}
+      aria-label={getDarkAriaLabel()}
       aria-pressed={dark}
-      onClick={() =>
-        setChoice({
+      onClick={() => {
+        const getDarkOnClick = () => {
+          if (dark) {
+            return 'light';
+          }
+          return 'dark';
+        };
+
+        const getDarkOnClick2 = () => {
+          if (dark) {
+            return choice.pdfDark;
+          }
+          return true;
+        };
+        return setChoice({
           ...choice,
-          mode: dark ? 'light' : 'dark',
-          pdfDark: dark ? choice.pdfDark : true,
-        })
-      }
+          mode: getDarkOnClick(),
+          pdfDark: getDarkOnClick2(),
+        });
+      }}
     >
-      {dark ? <Sun size={18} /> : <Moon size={18} />}
+      {renderDark()}
     </button>
   );
 }

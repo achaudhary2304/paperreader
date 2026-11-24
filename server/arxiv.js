@@ -4,7 +4,9 @@ export function parseArxivId(input) {
   let value = String(input || '')
     .trim()
     .replace(/^arxiv:\s*/i, '');
-  if (/^(?:www\.|export\.)?arxiv\.org\//i.test(value)) value = `https://${value}`;
+  if (/^(?:www\.|export\.)?arxiv\.org\//i.test(value)) {
+    value = `https://${value}`;
+  }
   if (/^https?:\/\//i.test(value)) {
     let url;
     try {
@@ -31,11 +33,15 @@ export function parseArxivId(input) {
 
 function decodeXml(text) {
   return text
-    .replace(/&#(x[\da-f]+|\d+);/gi, (_match, code) =>
-      String.fromCodePoint(
-        code[0].toLowerCase() === 'x' ? parseInt(code.slice(1), 16) : Number(code),
-      ),
-    )
+    .replace(/&#(x[\da-f]+|\d+);/gi, (_match, code) => {
+      const getCodeToLowerCaseX = () => {
+        if (code[0].toLowerCase() === 'x') {
+          return parseInt(code.slice(1), 16);
+        }
+        return Number(code);
+      };
+      return String.fromCodePoint(getCodeToLowerCaseX());
+    })
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
@@ -48,21 +54,32 @@ function decodeXml(text) {
 async function metadata(id) {
   const fallback = { name: `arXiv ${id}`, subtitle: `arXiv · ${id}` };
   try {
+    const getAuthors = () => {
+      if (authors.length > 2) {
+        return ' et al.';
+      }
+      return '';
+    };
+
     const response = await fetch(
       `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(id)}`,
       { signal: AbortSignal.timeout(8000) },
     );
-    if (!response.ok) return fallback;
+    if (!response.ok) {
+      return fallback;
+    }
     const xml = await response.text();
     const entry = xml.match(/<entry>([\s\S]*?)<\/entry>/)?.[1] || '';
     const title = entry.match(/<title>([\s\S]*?)<\/title>/)?.[1];
-    if (!title || /error/i.test(title)) return fallback;
+    if (!title || /error/i.test(title)) {
+      return fallback;
+    }
     const authors = [...entry.matchAll(/<author>\s*<name>([\s\S]*?)<\/name>/g)].map((match) =>
       decodeXml(match[1]),
     );
     return {
       name: decodeXml(title),
-      subtitle: `${authors.slice(0, 2).join(', ')}${authors.length > 2 ? ' et al.' : ''} · arXiv ${id}`,
+      subtitle: `${authors.slice(0, 2).join(', ')}${getAuthors()} · arXiv ${id}`,
     };
   } catch {
     return fallback;
@@ -74,12 +91,21 @@ async function downloadPdf(id) {
     signal: AbortSignal.timeout(60000),
   });
   if (!response.ok) {
-    const error = new Error(
-      response.status === 404
-        ? 'That arXiv paper or version was not found.'
-        : `arXiv could not provide this PDF (${response.status}). Try again or upload the PDF.`,
-    );
-    error.status = response.status === 404 ? 404 : 502;
+    const getResponseStatus = () => {
+      if (response.status === 404) {
+        return 'That arXiv paper or version was not found.';
+      }
+      return `arXiv could not provide this PDF (${response.status}). Try again or upload the PDF.`;
+    };
+    const getResponseStatus2 = () => {
+      if (response.status === 404) {
+        return 404;
+      }
+      return 502;
+    };
+
+    const error = new Error(getResponseStatus());
+    error.status = getResponseStatus2();
     throw error;
   }
   if (Number(response.headers.get('content-length')) > MAX_PDF_BYTES) {
@@ -90,13 +116,15 @@ async function downloadPdf(id) {
   let size = 0;
   for await (const chunk of response.body) {
     size += chunk.byteLength;
-    if (size > MAX_PDF_BYTES)
+    if (size > MAX_PDF_BYTES) {
       throw new Error('This PDF exceeds the 60 MB import limit. Download it and use Upload PDF.');
+    }
     chunks.push(Buffer.from(chunk));
   }
   const pdf = Buffer.concat(chunks);
-  if (!pdf.subarray(0, 1024).includes(Buffer.from('%PDF-')))
+  if (!pdf.subarray(0, 1024).includes(Buffer.from('%PDF-'))) {
     throw new Error('arXiv did not return a readable PDF. Try again or upload the PDF.');
+  }
   return pdf;
 }
 

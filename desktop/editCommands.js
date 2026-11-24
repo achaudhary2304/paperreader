@@ -1,23 +1,37 @@
+import { zoomShortcut } from '../shared/zoomShortcut.js';
 import { Menu } from 'electron';
 
-export function installEditCommands(contents) {
+export function installEditCommands(contents, { onZoom } = {}) {
   // Route paste to the actual view receiving the keyboard event, including embedded pages.
   contents.on('before-input-event', (event, input) => {
+    const direction = zoomShortcut(input);
+    if (input.type === 'keyDown' && direction !== null && onZoom) {
+      event.preventDefault();
+      onZoom(direction);
+      return;
+    }
+
     if (
       input.type !== 'keyDown' ||
       !(input.control || input.meta) ||
       input.alt ||
       input.key.toLowerCase() !== 'v'
-    )
+    ) {
       return;
+    }
     event.preventDefault();
-    if (input.shift) contents.pasteAndMatchStyle();
-    else contents.paste();
+    if (input.shift) {
+      contents.pasteAndMatchStyle();
+    } else {
+      contents.paste();
+    }
   });
   contents.on('context-menu', (_event, params) => {
     const actions = [];
-    if (params.selectionText) actions.push({ label: 'Copy', click: () => contents.copy() });
-    if (params.isEditable)
+    if (params.selectionText) {
+      actions.push({ label: 'Copy', click: () => contents.copy() });
+    }
+    if (params.isEditable) {
       actions.push(
         { label: 'Cut', click: () => contents.cut() },
         {
@@ -29,6 +43,9 @@ export function installEditCommands(contents) {
         },
         { label: 'Select all', click: () => contents.selectAll() },
       );
-    if (actions.length) Menu.buildFromTemplate(actions).popup();
+    }
+    if (actions.length) {
+      Menu.buildFromTemplate(actions).popup();
+    }
   });
 }

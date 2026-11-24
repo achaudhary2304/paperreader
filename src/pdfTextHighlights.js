@@ -48,16 +48,22 @@ export function highlightText(element, query, annotations) {
     for (let index = 0; index < record.original.length; index++) {
       const character = record.original[index];
       if (/\s/.test(character)) {
-        if (text.endsWith(' ')) continue;
+        if (text.endsWith(' ')) {
+          continue;
+        }
         text += ' ';
-      } else text += character.toLowerCase();
+      } else {
+        text += character.toLowerCase();
+      }
       offsets.push({ record, index });
     }
     previousRect = rect;
   }
   const markMatches = (value, annotation) => {
     const needle = value.toLowerCase().replace(/\s+/g, ' ').trim();
-    if (!needle) return;
+    if (!needle) {
+      return;
+    }
     const starts = [];
     for (
       let start = text.indexOf(needle);
@@ -66,55 +72,93 @@ export function highlightText(element, query, annotations) {
     ) {
       starts.push(start);
     }
-    const chosen =
-      annotation && starts.length > 1
-        ? [
-            starts.reduce(
-              (best, start) => {
-                const position = offsets[start];
-                const distance =
-                  position && Number.isInteger(annotation.anchorSpanIndex)
-                    ? Math.abs(position.record.spanIndex - annotation.anchorSpanIndex) * 100000 +
-                      Math.abs(position.index - (annotation.anchorCharOffset || 0))
-                    : start;
-                return distance < best.distance ? { start, distance } : best;
-              },
-              { start: starts[0], distance: Infinity },
-            ).start,
-          ]
-        : starts;
+    let chosen;
+    if (annotation && starts.length > 1) {
+      chosen = [
+        starts.reduce(
+          (best, start) => {
+            const position = offsets[start];
+            let distance;
+            if (position && Number.isInteger(annotation.anchorSpanIndex)) {
+              distance =
+                Math.abs(position.record.spanIndex - annotation.anchorSpanIndex) * 100000 +
+                Math.abs(position.index - (annotation.anchorCharOffset || 0));
+            } else {
+              distance = start;
+            }
+            if (distance < best.distance) {
+              return { start, distance };
+            } else {
+              return best;
+            }
+          },
+          { start: starts[0], distance: Infinity },
+        ).start,
+      ];
+    } else {
+      chosen = starts;
+    }
     for (const start of chosen) {
-      for (let index = start; index < start + needle.length; index++)
+      for (let index = start; index < start + needle.length; index++) {
         if (offsets[index]) {
           const { record, index: character } = offsets[index];
-          if (annotation) record.annotations.set(character, annotation);
-          else record.search.add(character);
+          if (annotation) {
+            record.annotations.set(character, annotation);
+          } else {
+            record.search.add(character);
+          }
         }
+      }
     }
   };
-  for (const annotation of annotations)
-    if (!annotation.embedded && ['Highlight', 'Comment'].includes(annotation.kind))
+  for (const annotation of annotations) {
+    if (!annotation.embedded && ['Highlight', 'Comment'].includes(annotation.kind)) {
       markMatches(annotation.text, annotation);
+    }
+  }
   markMatches(query, null);
   for (const record of records) {
     let html = '';
     let open = '';
     for (let index = 0; index < record.original.length; index++) {
       const annotation = record.annotations.get(index);
-      const key = `${record.search.has(index) ? 'search' : ''}:${annotation?.id || ''}`;
+      let searchKey = '';
+      if (record.search.has(index)) {
+        searchKey = 'search';
+      }
+      const key = `${searchKey}:${annotation?.id || ''}`;
       if (key !== open) {
-        if (open && open !== ':') html += '</mark>';
+        if (open && open !== ':') {
+          html += '</mark>';
+        }
         open = key;
         if (key !== ':') {
-          const color = ['yellow', 'green', 'blue'].includes(annotation?.color)
-            ? annotation.color
-            : 'yellow';
-          html += `<mark class="${record.search.has(index) ? 'search-hit ' : ''}${annotation ? `paper-annotation annotation-${color}` : ''}"${annotation ? ` data-annotation-id="${escapeHtml(annotation.id)}"` : ''}>`;
+          let color;
+          if (['yellow', 'green', 'blue'].includes(annotation?.color)) {
+            color = annotation.color;
+          } else {
+            color = 'yellow';
+          }
+          let classes = '';
+          let attributes = '';
+          if (record.search.has(index)) {
+            classes = 'search-hit ';
+          }
+          if (annotation) {
+            classes += `paper-annotation annotation-${color}`;
+            attributes = ` data-annotation-id="${escapeHtml(annotation.id)}"`;
+          }
+          html += `<mark class="${classes}"${attributes}>`;
         }
       }
       html += escapeHtml(record.original[index]);
     }
-    const nextHtml = html + (open && open !== ':' ? '</mark>' : '');
-    if (record.span.innerHTML !== nextHtml) record.span.innerHTML = nextHtml;
+    let nextHtml = html;
+    if (open && open !== ':') {
+      nextHtml += '</mark>';
+    }
+    if (record.span.innerHTML !== nextHtml) {
+      record.span.innerHTML = nextHtml;
+    }
   }
 }

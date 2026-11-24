@@ -11,13 +11,15 @@ function quoteExecutable(path) {
     .replaceAll('%', '%%')}"`;
 }
 
-export async function registerAppImage({
-  appImage,
-  iconPath,
-  dataHome = isAbsolute(process.env.XDG_DATA_HOME || '')
-    ? process.env.XDG_DATA_HOME
-    : join(homedir(), '.local', 'share'),
-}) {
+function defaultDataHome() {
+  const configured = process.env.XDG_DATA_HOME || '';
+  if (isAbsolute(configured)) {
+    return process.env.XDG_DATA_HOME;
+  }
+  return join(homedir(), '.local', 'share');
+}
+
+export async function registerAppImage({ appImage, iconPath, dataHome = defaultDataHome() }) {
   if (typeof appImage !== 'string' || !isAbsolute(appImage) || /[\r\n\0]/.test(appImage)) {
     throw new Error('Invalid AppImage path.');
   }
@@ -40,6 +42,8 @@ X-PaperReader-AppImage=true
 `;
   // Refresh the path after an AppImage is moved or updated, without a login service.
   const existing = await readFile(desktopPath, 'utf8').catch(() => '');
-  if (existing !== entry) await writeFile(desktopPath, entry, { mode: 0o644 });
+  if (existing !== entry) {
+    await writeFile(desktopPath, entry, { mode: 0o644 });
+  }
   return desktopPath;
 }

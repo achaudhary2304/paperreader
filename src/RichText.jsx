@@ -29,14 +29,44 @@ function html(text, evidence = [], documents = []) {
     .replaceAll('PAPERLENS_MATH_OPEN_BLOCK', '\\[')
     .replaceAll('PAPERLENS_MATH_CLOSE_BLOCK', '\\]')
     .replace(/\[(Paper|P\d+) p\.\s*(\d+)\]/gi, (_match, label, number) => {
+      const getSourceDocId = () => {
+        if (source?.docId) {
+          return ` data-paper-id="${source.docId}"`;
+        }
+        return '';
+      };
+
+      const getQuote = () => {
+        if (quote) {
+          return ` title="${quote}"`;
+        }
+        return '';
+      };
+
+      const getDocumentsFindDocDoc = () => {
+        if (documents.find((doc) => doc.id === source?.docId)?.kind === 'article') {
+          const getLabelPaper = () => {
+            if (label === 'Paper') {
+              return 'Article';
+            }
+            return label;
+          };
+
+          return `${getLabelPaper()} § ${number}`;
+        }
+        return `${label} p. ${number}`;
+      };
+
       const candidate = evidence[citationIndex++];
-      const source =
-        candidate?.label === label && candidate.page === Number(number)
-          ? candidate
-          : evidence.find((item) => item.label === label && item.page === Number(number));
+      let source;
+      if (candidate?.label === label && candidate.page === Number(number)) {
+        source = candidate;
+      } else {
+        source = evidence.find((item) => item.label === label && item.page === Number(number));
+      }
       const quote =
         source?.quote?.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') || '';
-      return `<a href="#paper-page-${number}" data-paper-page="${number}" data-citation-index="${evidence.indexOf(source)}"${source?.docId ? ` data-paper-id="${source.docId}"` : ''}${quote ? ` title="${quote}"` : ''}>${documents.find((doc) => doc.id === source?.docId)?.kind === 'article' ? `${label === 'Paper' ? 'Article' : label} § ${number}` : `${label} p. ${number}`}</a>`;
+      return `<a href="#paper-page-${number}" data-paper-page="${number}" data-citation-index="${evidence.indexOf(source)}"${getSourceDocId()}${getQuote()}>${getDocumentsFindDocDoc()}</a>`;
     });
   return DOMPurify.sanitize(rendered, {
     ADD_ATTR: ['data-paper-page', 'data-paper-id', 'data-citation-index'],
@@ -62,7 +92,9 @@ export default function RichText({
 
   function handleClick(event) {
     const anchor = event.target.closest('[data-paper-page]');
-    if (!anchor || !onCitation) return;
+    if (!anchor || !onCitation) {
+      return;
+    }
     event.preventDefault();
     onCitation(
       evidence[Number(anchor.dataset.citationIndex)] || {

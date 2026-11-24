@@ -128,34 +128,53 @@ export const FONTS = {
   merriweather: 'Merriweather',
   jetbrainsmono: 'JetBrains Mono',
 };
-export const fontStack = (id) =>
-  `"${FONTS[id]}", ${['lora', 'literata', 'merriweather'].includes(id) ? 'Georgia, serif' : id === 'jetbrainsmono' ? 'monospace' : 'system-ui, sans-serif'}`;
+export function fontStack(id) {
+  let fallback = 'system-ui, sans-serif';
+  if (['lora', 'literata', 'merriweather'].includes(id)) {
+    fallback = 'Georgia, serif';
+  } else if (id === 'jetbrainsmono') {
+    fallback = 'monospace';
+  }
+  return `"${FONTS[id]}", ${fallback}`;
+}
 
 export function appearanceChoice(saved = {}, requested) {
   const theme = THEMES.find((item) => item.id === (requested || saved.theme)) || THEMES[0];
-  return {
-    theme: theme.id,
-    font: requested ? theme.font : FONTS[saved.font] ? saved.font : theme.font,
-    mode: requested
-      ? theme.id === 'midnight'
-        ? 'dark'
-        : 'light'
-      : ['light', 'dark', 'system'].includes(saved.mode)
-        ? saved.mode
-        : theme.id === 'midnight'
-          ? 'dark'
-          : 'light',
-    lightTheme: THEMES.some((item) => item.id === saved.lightTheme && item.id !== 'midnight')
-      ? saved.lightTheme
-      : theme.id !== 'midnight'
-        ? theme.id
-        : DEFAULT_THEME,
-    pdfDark: requested === 'midnight' ? true : saved.pdfDark !== false,
-  };
+  let font = theme.font;
+  if (!requested && FONTS[saved.font]) {
+    font = saved.font;
+  }
+
+  let mode = 'light';
+  if (theme.id === 'midnight') {
+    mode = 'dark';
+  }
+  if (!requested && ['light', 'dark', 'system'].includes(saved.mode)) {
+    mode = saved.mode;
+  }
+
+  let lightTheme = DEFAULT_THEME;
+  if (theme.id !== 'midnight') {
+    lightTheme = theme.id;
+  }
+  if (THEMES.some((item) => item.id === saved.lightTheme && item.id !== 'midnight')) {
+    lightTheme = saved.lightTheme;
+  }
+
+  let pdfDark = saved.pdfDark !== false;
+  if (requested === 'midnight') {
+    pdfDark = true;
+  }
+  return { theme: theme.id, font, mode, lightTheme, pdfDark };
 }
 
 export function appearanceTheme(choice, systemDark = false) {
-  const dark = choice.mode === 'dark' || (choice.mode === 'system' && systemDark);
-  const id = dark ? 'midnight' : choice.theme === 'midnight' ? choice.lightTheme : choice.theme;
+  let id = choice.theme;
+  if (choice.theme === 'midnight') {
+    id = choice.lightTheme;
+  }
+  if (choice.mode === 'dark' || (choice.mode === 'system' && systemDark)) {
+    id = 'midnight';
+  }
   return THEMES.find((item) => item.id === id) || THEMES[0];
 }

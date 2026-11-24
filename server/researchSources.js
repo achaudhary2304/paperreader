@@ -42,7 +42,9 @@ export async function wikipediaResearch(query) {
   try {
     const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=2&format=json&origin=*`;
     const result = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!result.ok) return [];
+    if (!result.ok) {
+      return [];
+    }
     const json = await result.json();
     return (json.query?.search || [])
       .map((item) => ({
@@ -58,10 +60,15 @@ export async function wikipediaResearch(query) {
 }
 
 function abstractText(index) {
-  if (!index) return '';
+  if (!index) {
+    return '';
+  }
   const words = [];
-  for (const [word, positions] of Object.entries(index))
-    for (const position of positions) words[position] = word;
+  for (const [word, positions] of Object.entries(index)) {
+    for (const position of positions) {
+      words[position] = word;
+    }
+  }
   return words.join(' ').slice(0, 900);
 }
 
@@ -79,7 +86,9 @@ export async function openAlexResearch(query, { fetchImpl = fetch } = {}) {
         try {
           const url = `https://api.openalex.org/works?search=${encodeURIComponent(term)}&per-page=3&select=title,publication_year,doi,primary_location,authorships,abstract_inverted_index`;
           const result = await fetchImpl(url, { signal: AbortSignal.timeout(8000) });
-          if (!result.ok) return [];
+          if (!result.ok) {
+            return [];
+          }
           const json = await result.json();
           return (json.results || [])
             .map((item) => ({
@@ -108,7 +117,9 @@ export async function openAlexResearch(query, { fetchImpl = fetch } = {}) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, ' ')
         .trim();
-      if (!unique.has(key) || item.year < unique.get(key).year) unique.set(key, item);
+      if (!unique.has(key) || item.year < unique.get(key).year) {
+        unique.set(key, item);
+      }
     }
     return [...unique.values()].slice(0, 5);
   } catch {

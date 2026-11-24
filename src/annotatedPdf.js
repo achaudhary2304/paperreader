@@ -12,32 +12,53 @@ function locatedRects(annotation, textContent, viewport) {
       positions.push(null);
     }
     for (let charIndex = 0; charIndex < item.str.length; charIndex++) {
-      text += /\s/.test(item.str[charIndex]) ? ' ' : item.str[charIndex].toLowerCase();
+      if (/\s/.test(item.str[charIndex])) {
+        text += ' ';
+      } else {
+        text += item.str[charIndex].toLowerCase();
+      }
+
       positions.push({ item, itemIndex, charIndex });
     }
   });
   const needle = annotation.text.toLowerCase().replace(/\s+/g, ' ').trim();
   const matches = [];
-  for (let start = text.indexOf(needle); start >= 0; start = text.indexOf(needle, start + 1))
+  for (let start = text.indexOf(needle); start >= 0; start = text.indexOf(needle, start + 1)) {
     matches.push(start);
-  if (!matches.length) return [];
-  const start = Number.isInteger(annotation.anchorSpanIndex)
-    ? matches.reduce(
-        (best, candidate) => {
-          const position = positions[candidate];
-          const distance = position
-            ? Math.abs(position.itemIndex - annotation.anchorSpanIndex) * 100000 +
-              Math.abs(position.charIndex - (annotation.anchorCharOffset || 0))
-            : Infinity;
-          return distance < best.distance ? { start: candidate, distance } : best;
-        },
-        { start: matches[0], distance: Infinity },
-      ).start
-    : matches[0];
+  }
+  if (!matches.length) {
+    return [];
+  }
+  let start;
+  if (Number.isInteger(annotation.anchorSpanIndex)) {
+    start = matches.reduce(
+      (best, candidate) => {
+        const position = positions[candidate];
+        let distance;
+        if (position) {
+          distance =
+            Math.abs(position.itemIndex - annotation.anchorSpanIndex) * 100000 +
+            Math.abs(position.charIndex - (annotation.anchorCharOffset || 0));
+        } else {
+          distance = Infinity;
+        }
+        if (distance < best.distance) {
+          return { start: candidate, distance };
+        } else {
+          return best;
+        }
+      },
+      { start: matches[0], distance: Infinity },
+    ).start;
+  } else {
+    start = matches[0];
+  }
   const groups = new Map();
   for (let index = start; index < start + needle.length; index++) {
     const position = positions[index];
-    if (!position) continue;
+    if (!position) {
+      continue;
+    }
     const group = groups.get(position.itemIndex) || {
       item: position.item,
       from: position.charIndex,
@@ -74,8 +95,9 @@ export async function createAnnotatedPdf(sourceBytes, sourcePdf, annotations) {
   for (const annotation of annotations.filter((item) => item.embedded && item.edited)) {
     const page = output.getPage(annotation.page - 1);
     const entries = page?.node.Annots();
-    if (!entries)
+    if (!entries) {
       throw new Error(`Could not update imported annotation on page ${annotation.page}.`);
+    }
     const wantedRef = /^([0-9]+)R$/.exec(annotation.pdfObjectId || '');
     let original;
     for (const ref of entries.asArray()) {
@@ -93,33 +115,73 @@ export async function createAnnotatedPdf(sourceBytes, sourcePdf, annotations) {
         break;
       }
     }
-    if (!original)
+    if (!original) {
       throw new Error(`Could not locate imported annotation on page ${annotation.page}.`);
+    }
     original.set(PDFName.of('Contents'), PDFHexString.fromText(annotation.note || ''));
     original.set(PDFName.of('C'), output.context.obj(COLORS[annotation.color] || COLORS.yellow));
-    if (['Highlight', 'Underline'].includes(annotation.kind))
+    if (['Highlight', 'Underline'].includes(annotation.kind)) {
       original.set(PDFName.of('Subtype'), PDFName.of(annotation.kind));
-    if (['Highlight', 'Underline', 'Squiggle', 'Strikeout'].includes(annotation.kind))
+    }
+    if (['Highlight', 'Underline', 'Squiggle', 'Strikeout'].includes(annotation.kind)) {
       original.delete(PDFName.of('AP'));
-    if (annotation.tags?.length)
+    }
+    if (annotation.tags?.length) {
       original.set(PDFName.of('Subj'), PDFHexString.fromText(annotation.tags.join(', ')));
+    }
   }
   const additions = annotations.filter((item) => !item.embedded);
   for (const pageNumber of [...new Set(additions.map((item) => item.page))]) {
-    if (pageNumber < 1 || pageNumber > output.getPageCount()) continue;
+    if (pageNumber < 1 || pageNumber > output.getPageCount()) {
+      continue;
+    }
     const sourcePage = await sourcePdf.getPage(pageNumber);
     const viewport = sourcePage.getViewport({ scale: 1 });
-    const textContent = additions.some((item) => item.page === pageNumber && !item.rects?.length)
-      ? await sourcePage.getTextContent()
-      : null;
+    let textContent;
+    if (additions.some((item) => item.page === pageNumber && !item.rects?.length)) {
+      textContent = await sourcePage.getTextContent();
+    } else {
+      textContent = null;
+    }
     const outputPage = output.getPage(pageNumber - 1);
     for (const annotation of additions.filter((item) => item.page === pageNumber)) {
-      const rects = annotation.rects?.length
-        ? annotation.rects
-        : locatedRects(annotation, textContent, viewport);
+      const getSubtype = () => {
+        if (annotation.kind === 'Underline') {
+          return 'Underline';
+        }
+        return 'Highlight';
+      };
+      const getAnnotationKindComment = () => {
+        if (annotation.kind === 'Comment') {
+          return '';
+        }
+        return annotation.note || annotation.text;
+      };
+      const getAnnotationTags2 = () => {
+        if (annotation.tags?.length) {
+          return { Subj: PDFHexString.fromText(annotation.tags.join(', ')) };
+        }
+        return {};
+      };
+
+      let rects;
+      if (annotation.rects?.length) {
+        rects = annotation.rects;
+      } else {
+        rects = locatedRects(annotation, textContent, viewport);
+      }
       if (annotation.kind === 'Region') {
+        const getAnnotationTags = () => {
+          if (annotation.tags?.length) {
+            return { Subj: PDFHexString.fromText(annotation.tags.join(', ')) };
+          }
+          return {};
+        };
+
         const rect = rects[0];
-        if (!rect) continue;
+        if (!rect) {
+          continue;
+        }
         const topLeft = viewport.convertToPdfPoint(
           rect.x * viewport.width,
           rect.y * viewport.height,
@@ -145,9 +207,7 @@ export async function createAnnotatedPdf(sourceBytes, sourcePdf, annotations) {
             T: PDFHexString.fromText('PaperReader'),
             NM: PDFHexString.fromText(annotation.id || ''),
             BS: { Type: 'Border', W: 2 },
-            ...(annotation.tags?.length
-              ? { Subj: PDFHexString.fromText(annotation.tags.join(', ')) }
-              : {}),
+            ...getAnnotationTags(),
           }),
         );
         outputPage.node.addAnnot(ref);
@@ -156,8 +216,13 @@ export async function createAnnotatedPdf(sourceBytes, sourcePdf, annotations) {
       const quads = [];
       const bounds = [];
       for (const rect of rects) {
-        if (![rect.x, rect.y, rect.w, rect.h].every(Number.isFinite) || rect.w <= 0 || rect.h <= 0)
+        if (
+          ![rect.x, rect.y, rect.w, rect.h].every(Number.isFinite) ||
+          rect.w <= 0 ||
+          rect.h <= 0
+        ) {
           continue;
+        }
         const x1 = rect.x * viewport.width,
           x2 = (rect.x + rect.w) * viewport.width;
         const y1 = rect.y * viewport.height,
@@ -169,31 +234,36 @@ export async function createAnnotatedPdf(sourceBytes, sourcePdf, annotations) {
         quads.push(...topLeft, ...topRight, ...bottomLeft, ...bottomRight);
         bounds.push(topLeft, topRight, bottomLeft, bottomRight);
       }
-      if (!quads.length) continue;
+      if (!quads.length) {
+        continue;
+      }
       const xs = bounds.map((point) => point[0]),
         ys = bounds.map((point) => point[1]);
       const color = COLORS[annotation.color] || COLORS.yellow;
       const ref = output.context.register(
         output.context.obj({
           Type: 'Annot',
-          Subtype: annotation.kind === 'Underline' ? 'Underline' : 'Highlight',
+          Subtype: getSubtype(),
           Rect: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)],
           QuadPoints: quads,
           C: color,
           CA: 0.38,
           F: 4,
-          Contents: PDFHexString.fromText(
-            annotation.kind === 'Comment' ? '' : annotation.note || annotation.text,
-          ),
+          Contents: PDFHexString.fromText(getAnnotationKindComment()),
           T: PDFHexString.fromText('PaperReader'),
           NM: PDFHexString.fromText(annotation.id || ''),
-          ...(annotation.tags?.length
-            ? { Subj: PDFHexString.fromText(annotation.tags.join(', ')) }
-            : {}),
+          ...getAnnotationTags2(),
         }),
       );
       outputPage.node.addAnnot(ref);
       if (annotation.kind === 'Comment') {
+        const getAnnotationTags3 = () => {
+          if (annotation.tags?.length) {
+            return { Subj: PDFHexString.fromText(annotation.tags.join(', ')) };
+          }
+          return {};
+        };
+
         const rect = rects[0];
         const point = viewport.convertToPdfPoint(rect.x * viewport.width, rect.y * viewport.height);
         const noteRef = output.context.register(
@@ -206,9 +276,7 @@ export async function createAnnotatedPdf(sourceBytes, sourcePdf, annotations) {
             Contents: PDFHexString.fromText(annotation.note || ''),
             T: PDFHexString.fromText('PaperReader'),
             NM: PDFHexString.fromText(`${annotation.id || ''}-note`),
-            ...(annotation.tags?.length
-              ? { Subj: PDFHexString.fromText(annotation.tags.join(', ')) }
-              : {}),
+            ...getAnnotationTags3(),
           }),
         );
         outputPage.node.addAnnot(noteRef);

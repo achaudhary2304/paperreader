@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld('paperlensDesktop', {
   },
   getProviderSettings: () => ipcRenderer.invoke('provider-settings:get'),
   saveProviderSettings: (changes) => ipcRenderer.invoke('provider-settings:save', changes),
+  onReaderZoom: (callback) => {
+    const handler = (_event, direction) => callback(direction);
+    ipcRenderer.on('reader:zoom', handler);
+    return () => ipcRenderer.removeListener('reader:zoom', handler);
+  },
   setZenMode: (active) => ipcRenderer.invoke('reader:zen', active),
   onOpenProviderSettings: (callback) => {
     const handler = (_event, tab) => callback(tab);

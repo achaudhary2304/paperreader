@@ -19,8 +19,9 @@ export function articleUrl(input) {
     url.username ||
     url.password ||
     (url.port && !['80', '443'].includes(url.port))
-  )
+  ) {
     throw new Error('Use a public HTTP or HTTPS article link.');
+  }
   url.hash = '';
   return url;
 }
@@ -40,18 +41,33 @@ export async function fetchArticleResource(
   const url = articleUrl(input);
   const hostname = url.hostname.replace(/^\[|\]$/g, '');
   const addresses = await lookup(hostname, { all: true });
-  if (!addresses.length || addresses.some((item) => !publicAddress(item.address)))
+  if (!addresses.length || addresses.some((item) => !publicAddress(item.address))) {
     throw new Error(
       'Only public websites can be imported. Local and private network addresses are blocked.',
     );
+  }
   signal.throwIfAborted();
   const response = await new Promise((resolve, reject) => {
-    const request = (url.protocol === 'https:' ? https : http).get(
+    const getUrlProtocolHttps = () => {
+      if (url.protocol === 'https:') {
+        return https;
+      }
+      return http;
+    };
+
+    const getUrlProtocolHttps2 = () => {
+      if (url.protocol === 'https:') {
+        return 443;
+      }
+      return 80;
+    };
+
+    const request = getUrlProtocolHttps().get(
       {
         hostname: addresses[0].address,
         family: addresses[0].family,
         servername: hostname,
-        port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        port: url.port || getUrlProtocolHttps2(),
         path: `${url.pathname}${url.search}`,
         headers: {
           Host: url.host,
@@ -70,7 +86,9 @@ export async function fetchArticleResource(
   });
   if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
     response.resume();
-    if (!redirects || !response.headers.location) throw new Error('Too many website redirects.');
+    if (!redirects || !response.headers.location) {
+      throw new Error('Too many website redirects.');
+    }
     return fetchArticleResource(new URL(response.headers.location, url).href, {
       maxBytes,
       signal,
@@ -85,14 +103,23 @@ export async function fetchArticleResource(
   }
   const encodings = { gzip: createGunzip, br: createBrotliDecompress, deflate: createInflate };
   const decompress = encodings[response.headers['content-encoding']]?.();
-  const stream = decompress ? response.pipe(decompress) : response;
-  if (decompress) response.on('error', (error) => decompress.destroy(error));
+  let stream;
+  if (decompress) {
+    stream = response.pipe(decompress);
+  } else {
+    stream = response;
+  }
+  if (decompress) {
+    response.on('error', (error) => decompress.destroy(error));
+  }
   const chunks = [];
   let size = 0;
   try {
     for await (const chunk of stream) {
       size += chunk.length;
-      if (size > maxBytes) throw new Error('This article or image is too large to import.');
+      if (size > maxBytes) {
+        throw new Error('This article or image is too large to import.');
+      }
       chunks.push(chunk);
     }
   } finally {
@@ -109,13 +136,17 @@ export async function fetchArticleResource(
 
 function textOf(node) {
   const copy = node.cloneNode(true);
-  for (const img of copy.querySelectorAll('img'))
+  for (const img of copy.querySelectorAll('img')) {
     img.replaceWith(` [Image: ${img.getAttribute('alt') || 'figure'}] `);
-  for (const cell of copy.querySelectorAll('th,td')) cell.append(' | ');
+  }
+  for (const cell of copy.querySelectorAll('th,td')) {
+    cell.append(' | ');
+  }
   for (const element of copy.querySelectorAll(
     'p,h1,h2,h3,h4,h5,h6,li,tr,pre,blockquote,figcaption,br',
-  ))
+  )) {
     element.append('\n');
+  }
   return copy.textContent
     .replace(/[ \t]+/g, ' ')
     .replace(/\n\s*\n+/g, '\n\n')
@@ -127,12 +158,14 @@ export function extractArticle(html, sourceUrl) {
   Object.defineProperty(document, 'documentURI', { value: sourceUrl });
   Object.defineProperty(document, 'baseURI', { value: sourceUrl });
   // Preserve common math representations before removing active webpage content.
-  for (const element of document.querySelectorAll('script[type^="math/tex"]'))
+  for (const element of document.querySelectorAll('script[type^="math/tex"]')) {
     element.replaceWith(document.createTextNode(` $$${element.textContent}$$ `));
+  }
   for (const element of document.querySelectorAll(
     'script,style,iframe,object,embed,form,button,input,nav,footer,header,noscript',
-  ))
+  )) {
     element.remove();
+  }
   const fallback = document.cloneNode(true);
   let result;
   try {
@@ -155,10 +188,11 @@ export function extractArticle(html, sourceUrl) {
       /enable javascript|checking your browser|verify you are human|sign in to continue/i.test(
         result.textContent,
       ))
-  )
+  ) {
     throw new Error(
       'This page does not expose readable content. Open it in your browser, save the loaded page as HTML, and import that file instead.',
     );
+  }
   const parsed = parseHTML(`<html><body>${result.content}</body></html>`).document;
   // A small, passive subset: no remote scripts/styles, frames, event handlers, or tracking requests.
   const allowed = new Set(
@@ -174,9 +208,14 @@ export function extractArticle(html, sourceUrl) {
     const attrs = Object.fromEntries(
       [...element.attributes].map((attr) => [attr.name, attr.value]),
     );
-    for (const attr of [...element.attributes]) element.removeAttribute(attr.name);
-    for (const name of ['alt', 'title', 'colspan', 'rowspan', 'display', 'encoding'])
-      if (attrs[name]) element.setAttribute(name, attrs[name].slice(0, 500));
+    for (const attr of [...element.attributes]) {
+      element.removeAttribute(attr.name);
+    }
+    for (const name of ['alt', 'title', 'colspan', 'rowspan', 'display', 'encoding']) {
+      if (attrs[name]) {
+        element.setAttribute(name, attrs[name].slice(0, 500));
+      }
+    }
     if (element.localName === 'a') {
       try {
         const href = new URL(attrs.href || '', sourceUrl);
@@ -195,9 +234,11 @@ export function extractArticle(html, sourceUrl) {
         if (
           /^data:image\/(?:png|jpeg|webp|gif|avif);base64,[a-z0-9+/]+=*$/i.test(src || '') &&
           src.length < 2_000_000
-        )
+        ) {
           element.setAttribute('src', src);
-        else element.setAttribute('data-image-url', articleUrl(new URL(src, sourceUrl).href).href);
+        } else {
+          element.setAttribute('data-image-url', articleUrl(new URL(src, sourceUrl).href).href);
+        }
       } catch {
         /* leave an alt label */
       }
@@ -206,8 +247,11 @@ export function extractArticle(html, sourceUrl) {
   const leaves = [];
   const flatten = (node) => {
     for (const child of [...node.childNodes]) {
-      if (['DIV', 'SECTION', 'ARTICLE'].includes(child.nodeName)) flatten(child);
-      else if (child.nodeType === 1 || child.textContent.trim()) leaves.push(child);
+      if (['DIV', 'SECTION', 'ARTICLE'].includes(child.nodeName)) {
+        flatten(child);
+      } else if (child.nodeType === 1 || child.textContent.trim()) {
+        leaves.push(child);
+      }
     }
   };
   flatten(parsed.body);
@@ -223,8 +267,9 @@ export function extractArticle(html, sourceUrl) {
     if (
       (/^H[1-3]$/.test(node.nodeName) && block.textContent.trim()) ||
       textOf(block).length + node.textContent.length > 10000
-    )
+    ) {
       finish();
+    }
     block.append(node);
   }
   finish();
@@ -246,8 +291,9 @@ export async function importArticle(
   const url = articleUrl(input);
   const signal = AbortSignal.timeout(60000);
   const resource = await fetchResource(url.href, { signal });
-  if (!['text/html', 'application/xhtml+xml'].includes(resource.type))
+  if (!['text/html', 'application/xhtml+xml'].includes(resource.type)) {
     throw new Error('This link is not an HTML article. For PDFs, use Upload PDF or an arXiv link.');
+  }
   const article = extractArticle(resource.bytes.toString('utf8'), resource.url);
   return saveArticleSnapshot(article, { fetchResource, signal, downloadImages });
 }
@@ -262,7 +308,9 @@ async function saveArticleSnapshot(
   for (const section of article.sections) {
     const { document } = parseHTML(`<html><body>${section.html}</body></html>`);
     for (const img of document.querySelectorAll('img')) {
-      if (img.getAttribute('src')?.startsWith('data:image/')) continue;
+      if (img.getAttribute('src')?.startsWith('data:image/')) {
+        continue;
+      }
       const src = img.getAttribute('data-image-url');
       img.removeAttribute('data-image-url');
       if (!downloadImages && src && !src.startsWith('https://saved-page.invalid/')) {
@@ -276,13 +324,15 @@ async function saveArticleSnapshot(
           src.startsWith('https://saved-page.invalid/') ||
           imageCount++ >= 24 ||
           imageBytes > 8_000_000
-        )
+        ) {
           throw new Error('Image limit');
+        }
         const image = await fetchResource(src, { signal, maxBytes: 1_500_000 });
         if (
           !['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'].includes(image.type)
-        )
+        ) {
           throw new Error('Unsupported image');
+        }
         imageBytes += image.bytes.length;
         img.setAttribute('src', `data:${image.type};base64,${image.bytes.toString('base64')}`);
         img.setAttribute('loading', 'lazy');
@@ -296,8 +346,9 @@ async function saveArticleSnapshot(
     section.html = document.body.innerHTML;
   }
   article.imagesOnDemand = !downloadImages;
-  if (missingImages)
+  if (missingImages) {
     article.warning = `${missingImages} image(s) could not be saved. You can open the original article to view them.`;
+  }
   const id = `article:${createHash('sha256').update(identity).digest('hex').slice(0, 24)}`;
   return {
     document: {
@@ -323,9 +374,15 @@ export async function importSavedWebpage(
     downloadImages = false,
   } = {},
 ) {
-  if (typeof html !== 'string' || html.length > 5_000_000)
+  if (typeof html !== 'string' || html.length > 5_000_000) {
     throw new Error('Saved HTML files must be smaller than 5 MB.');
-  const url = sourceUrl ? articleUrl(sourceUrl).href : 'https://saved-page.invalid/';
+  }
+  let url;
+  if (sourceUrl) {
+    url = articleUrl(sourceUrl).href;
+  } else {
+    url = 'https://saved-page.invalid/';
+  }
   const article = extractArticle(html, url);
   article.localFile = true;
   if (!sourceUrl) {
@@ -358,8 +415,9 @@ export async function articleImage(input) {
     !['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif', 'image/svg+xml'].includes(
       image.type,
     )
-  )
+  ) {
     throw new Error('Unsupported article image.');
+  }
   imageCache.set(url, image);
   imageCacheBytes += image.bytes.length;
   while (imageCacheBytes > 24_000_000 && imageCache.size) {

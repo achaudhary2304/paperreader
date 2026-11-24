@@ -16,6 +16,36 @@ const PdfPage = React.memo(function PdfPage({
   onTextReady,
   onReference,
 }) {
+  const renderVisible = () => {
+    if (visible) {
+      return (
+        <Page
+          pageNumber={number}
+          width={width}
+          renderTextLayer
+          renderAnnotationLayer
+          onLoadSuccess={(page) => {
+            loadedPage.current = page;
+            const viewport = page.getViewport({ scale: 1 });
+            setPageRatio(viewport.height / viewport.width);
+          }}
+          onRenderTextLayerSuccess={textReady}
+          loading={
+            <div className="page-placeholder" style={{ height: Math.ceil(width * pageRatio) }}>
+              <span className="spinner" />
+              Rendering page {number}…
+            </div>
+          }
+        />
+      );
+    }
+    return (
+      <div className="page-placeholder" style={{ height: Math.ceil(width * pageRatio) }}>
+        Page {number}
+      </div>
+    );
+  };
+
   const element = useRef(null);
   const loadedPage = useRef(null);
   const referenceTimer = useRef(null);
@@ -30,23 +60,38 @@ const PdfPage = React.memo(function PdfPage({
     return () => observer.disconnect();
   }, [scrollRoot]);
   const textReady = useCallback(() => {
-    if (!element.current) return;
-    highlightText(element.current, matching ? searchQuery : focusQuote, annotations);
+    const getMatching = () => {
+      if (matching) {
+        return searchQuery;
+      }
+      return focusQuote;
+    };
+
+    if (!element.current) {
+      return;
+    }
+    highlightText(element.current, getMatching(), annotations);
     onTextReady(number);
   }, [matching, searchQuery, focusQuote, annotations, number, onTextReady]);
   useEffect(() => {
-    if (visible) textReady();
+    if (visible) {
+      textReady();
+    }
   }, [matching, searchQuery, focusQuote, annotations, visible]);
   useEffect(() => () => clearTimeout(referenceTimer.current), []);
   const previewReference = (event) => {
     const anchor = event.target.closest?.('.linkAnnotation a');
-    if (!anchor || anchor.contains(event.relatedTarget)) return;
+    if (!anchor || anchor.contains(event.relatedTarget)) {
+      return;
+    }
     clearTimeout(referenceTimer.current);
     referenceTimer.current = setTimeout(async () => {
       const links = await loadedPage.current?.getAnnotations().catch(() => []);
       const id = anchor.closest('[data-annotation-id]')?.dataset.annotationId;
       const link = links?.find((item) => item.id === id);
-      if (link?.dest && anchor.matches(':hover')) onReference?.({ dest: link.dest, anchor });
+      if (link?.dest && anchor.matches(':hover')) {
+        onReference?.({ dest: link.dest, anchor });
+      }
     }, 500);
   };
   return (
@@ -58,34 +103,13 @@ const PdfPage = React.memo(function PdfPage({
       aria-label={`PDF page ${number}`}
       onMouseOver={previewReference}
       onMouseOut={(event) => {
-        if (event.target.closest?.('.linkAnnotation a')) clearTimeout(referenceTimer.current);
+        if (event.target.closest?.('.linkAnnotation a')) {
+          clearTimeout(referenceTimer.current);
+        }
       }}
     >
       <div className="pdf-page-frame" style={{ minHeight: Math.ceil(width * pageRatio) }}>
-        {visible ? (
-          <Page
-            pageNumber={number}
-            width={width}
-            renderTextLayer
-            renderAnnotationLayer
-            onLoadSuccess={(page) => {
-              loadedPage.current = page;
-              const viewport = page.getViewport({ scale: 1 });
-              setPageRatio(viewport.height / viewport.width);
-            }}
-            onRenderTextLayerSuccess={textReady}
-            loading={
-              <div className="page-placeholder" style={{ height: Math.ceil(width * pageRatio) }}>
-                <span className="spinner" />
-                Rendering page {number}…
-              </div>
-            }
-          />
-        ) : (
-          <div className="page-placeholder" style={{ height: Math.ceil(width * pageRatio) }}>
-            Page {number}
-          </div>
-        )}
+        {renderVisible()}
         {visible &&
           annotations
             .filter((item) => item.embedded && item.kind !== 'Region')
@@ -108,19 +132,27 @@ const PdfPage = React.memo(function PdfPage({
           annotations
             .filter((item) => item.kind === 'Region')
             .flatMap((item) =>
-              item.rects.map((rect, index) => (
-                <span
-                  key={`${item.id}:${index}`}
-                  className={`figure-region${item.embedded ? ' embedded-annotation-hit' : ''}`}
-                  data-annotation-id={item.id}
-                  style={{
-                    left: `${rect.x * 100}%`,
-                    top: `${rect.y * 100}%`,
-                    width: `${rect.w * 100}%`,
-                    height: `${rect.h * 100}%`,
-                  }}
-                />
-              )),
+              item.rects.map((rect, index) => {
+                const getItemEmbeddedClassName = () => {
+                  if (item.embedded) {
+                    return ' embedded-annotation-hit';
+                  }
+                  return '';
+                };
+                return (
+                  <span
+                    key={`${item.id}:${index}`}
+                    className={`figure-region${getItemEmbeddedClassName()}`}
+                    data-annotation-id={item.id}
+                    style={{
+                      left: `${rect.x * 100}%`,
+                      top: `${rect.y * 100}%`,
+                      width: `${rect.w * 100}%`,
+                      height: `${rect.h * 100}%`,
+                    }}
+                  />
+                );
+              }),
             )}
       </div>
       <div className="pdf-page-label">
@@ -144,22 +176,30 @@ function PdfPages({
 }) {
   return (
     <>
-      {Array.from({ length: total }, (_, index) => (
-        <PdfPage
-          key={index + 1}
-          number={index + 1}
-          total={total}
-          width={width}
-          ratio={ratio}
-          scrollRoot={scrollRoot}
-          searchQuery={searchQuery}
-          matching={matchingPages.has(index + 1)}
-          focusQuote={evidenceFocus?.page === index + 1 ? evidenceFocus.quote : ''}
-          annotations={annotationsByPage[index + 1] || EMPTY_ANNOTATIONS}
-          onTextReady={onTextReady}
-          onReference={onReference}
-        />
-      ))}
+      {Array.from({ length: total }, (_, index) => {
+        const getEvidenceFocusPageIndexFocusQuote = () => {
+          if (evidenceFocus?.page === index + 1) {
+            return evidenceFocus.quote;
+          }
+          return '';
+        };
+        return (
+          <PdfPage
+            key={index + 1}
+            number={index + 1}
+            total={total}
+            width={width}
+            ratio={ratio}
+            scrollRoot={scrollRoot}
+            searchQuery={searchQuery}
+            matching={matchingPages.has(index + 1)}
+            focusQuote={getEvidenceFocusPageIndexFocusQuote()}
+            annotations={annotationsByPage[index + 1] || EMPTY_ANNOTATIONS}
+            onTextReady={onTextReady}
+            onReference={onReference}
+          />
+        );
+      })}
     </>
   );
 }

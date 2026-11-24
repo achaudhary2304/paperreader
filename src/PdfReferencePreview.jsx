@@ -3,26 +3,49 @@ import { Page } from 'react-pdf';
 import { ArrowRight, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 function referenceFraction(page, dest) {
-  if (!page) return 0;
+  if (!page) {
+    return 0;
+  }
   const viewport = page.getViewport({ scale: 1 });
   const type = dest?.[1]?.name;
-  const y =
-    type === 'XYZ'
-      ? dest[3]
-      : ['FitH', 'FitBH'].includes(type)
-        ? dest[2]
-        : type === 'FitR'
-          ? dest[5]
-          : null;
-  const x = type === 'FitR' || type === 'XYZ' ? dest[2] : null;
-  return Number.isFinite(y)
-    ? Math.max(0, viewport.convertToViewportPoint(x ?? viewport.viewBox[0], y)[1] / viewport.height)
-    : 0;
+  let y;
+  if (type === 'XYZ') {
+    y = dest[3];
+  } else if (['FitH', 'FitBH'].includes(type)) {
+    y = dest[2];
+  } else if (type === 'FitR') {
+    y = dest[5];
+  } else {
+    y = null;
+  }
+  let x;
+  if (type === 'FitR' || type === 'XYZ') {
+    x = dest[2];
+  } else {
+    x = null;
+  }
+  if (Number.isFinite(y)) {
+    return Math.max(
+      0,
+      viewport.convertToViewportPoint(x ?? viewport.viewBox[0], y)[1] / viewport.height,
+    );
+  } else {
+    return 0;
+  }
 }
 
 // Prefer the space above the reference; never flip the preview underneath it.
 function previewPosition(anchor) {
-  if (!anchor) return undefined;
+  const getAbove = () => {
+    if (above >= 180) {
+      return above;
+    }
+    return availableHeight * 0.55;
+  };
+
+  if (!anchor) {
+    return undefined;
+  }
   const bounds = anchor.getBoundingClientRect();
   const reader = anchor.closest('.reader-scroll')?.getBoundingClientRect();
   const margin = 12;
@@ -39,7 +62,7 @@ function previewPosition(anchor) {
   );
   const above = Math.max(0, bounds.top - topEdge - margin);
   const availableHeight = Math.max(1, bottomEdge - topEdge);
-  const height = Math.min(380, above >= 180 ? above : availableHeight * 0.55);
+  const height = Math.min(380, getAbove());
   return {
     width,
     height,
@@ -57,6 +80,34 @@ export default function PdfReferencePreview({
   onClose,
   onOpen,
 }) {
+  const getAnchorClassName = () => {
+    if (anchor) {
+      return ' hover-preview';
+    }
+    return '';
+  };
+
+  const renderError = () => {
+    if (error) {
+      return <p role="alert">{error}</p>;
+    }
+    return (
+      <Page
+        pdf={pdf}
+        pageNumber={page}
+        width={width}
+        renderTextLayer
+        renderAnnotationLayer={false}
+        onLoadSuccess={(value) => {
+          loadedPage.current = value;
+        }}
+        onRenderSuccess={revealTarget}
+        onLoadError={() => setError('This reference page could not be loaded.')}
+        loading={<p>Loading reference…</p>}
+      />
+    );
+  };
+
   const scroll = useRef(null);
   const loadedPage = useRef(null);
   const [page, setPage] = useState(pageNumber);
@@ -93,8 +144,9 @@ export default function PdfReferencePreview({
         anchor &&
         !anchor.contains(event.target) &&
         !scroll.current?.closest('section').contains(event.target)
-      )
+      ) {
         closeTimer = setTimeout(onClose, 250);
+      }
     };
     window.addEventListener('pointermove', leave);
     return () => {
@@ -105,19 +157,27 @@ export default function PdfReferencePreview({
     };
   }, [onClose, anchor]);
   const revealTarget = () => {
-    if (!loadedPage.current || !scroll.current) return;
+    const getPagePageNumber = () => {
+      if (page === pageNumber) {
+        return Math.max(0, viewport.height * referenceFraction(loadedPage.current, dest) - 30);
+      }
+      return 0;
+    };
+
+    if (!loadedPage.current || !scroll.current) {
+      return;
+    }
     const original = loadedPage.current.getViewport({ scale: 1 });
     const viewport = loadedPage.current.getViewport({ scale: width / original.width });
-    scroll.current.scrollTop =
-      page === pageNumber
-        ? Math.max(0, viewport.height * referenceFraction(loadedPage.current, dest) - 30)
-        : 0;
+    scroll.current.scrollTop = getPagePageNumber();
   };
   return (
     <div
-      className={`pdf-reference-backdrop${anchor ? ' hover-preview' : ''}`}
+      className={`pdf-reference-backdrop${getAnchorClassName()}`}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
       }}
     >
       <section
@@ -137,23 +197,7 @@ export default function PdfReferencePreview({
           </button>
         </header>
         <div className="pdf-reference-scroll" ref={scroll}>
-          {error ? (
-            <p role="alert">{error}</p>
-          ) : (
-            <Page
-              pdf={pdf}
-              pageNumber={page}
-              width={width}
-              renderTextLayer
-              renderAnnotationLayer={false}
-              onLoadSuccess={(value) => {
-                loadedPage.current = value;
-              }}
-              onRenderSuccess={revealTarget}
-              onLoadError={() => setError('This reference page could not be loaded.')}
-              loading={<p>Loading reference…</p>}
-            />
-          )}
+          {renderError()}
         </div>
         <footer>
           <div>
@@ -176,9 +220,15 @@ export default function PdfReferencePreview({
             </button>
           </div>
           <button
-            onClick={() =>
-              onOpen(page, page === pageNumber ? referenceFraction(loadedPage.current, dest) : 0)
-            }
+            onClick={() => {
+              const getPagePageNumberOnClick = () => {
+                if (page === pageNumber) {
+                  return referenceFraction(loadedPage.current, dest);
+                }
+                return 0;
+              };
+              return onOpen(page, getPagePageNumberOnClick());
+            }}
           >
             Open in paper <ArrowRight size={14} />
           </button>

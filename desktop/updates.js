@@ -6,7 +6,14 @@ export function createUpdateService({
   notify = () => {},
   confirmInstall = async () => false,
 }) {
-  let state = { version, supported, phase: supported ? 'idle' : 'unsupported' };
+  const getPhase = () => {
+    if (supported) {
+      return 'idle';
+    }
+    return 'unsupported';
+  };
+
+  let state = { version, supported, phase: getPhase() };
   let checking;
   let downloading;
   const listeners = [];
@@ -45,8 +52,12 @@ export function createUpdateService({
   return {
     status: () => ({ ...state }),
     async check() {
-      if (!supported || ['downloading', 'ready', 'confirming', 'installing'].includes(state.phase))
+      if (
+        !supported ||
+        ['downloading', 'ready', 'confirming', 'installing'].includes(state.phase)
+      ) {
         return { ...state };
+      }
       if (!checking) {
         set({ phase: 'checking', error: '' });
         checking = Promise.resolve()
@@ -60,12 +71,16 @@ export function createUpdateService({
       return { ...state };
     },
     async download() {
-      if (!supported) return { ...state };
+      if (!supported) {
+        return { ...state };
+      }
       if (downloading) {
         await downloading;
         return { ...state };
       }
-      if (state.phase !== 'available') return { ...state };
+      if (state.phase !== 'available') {
+        return { ...state };
+      }
       set({ phase: 'downloading', percent: 0, error: '' });
       downloading = Promise.resolve()
         .then(() => updater.downloadUpdate())
@@ -77,7 +92,9 @@ export function createUpdateService({
       return { ...state };
     },
     async install() {
-      if (!supported || state.phase !== 'ready') return { ...state };
+      if (!supported || state.phase !== 'ready') {
+        return { ...state };
+      }
       // Change state before awaiting the dialog to prevent two install prompts.
       set({ phase: 'confirming' });
       try {
@@ -93,7 +110,9 @@ export function createUpdateService({
       return { ...state };
     },
     dispose() {
-      for (const [event, listener] of listeners) updater.removeListener(event, listener);
+      for (const [event, listener] of listeners) {
+        updater.removeListener(event, listener);
+      }
     },
   };
 }

@@ -28,15 +28,25 @@ function tokens(value) {
   )
     .flatMap((token) => token.split('-'))
     .filter((token) => token.length > 1 && !STOP.has(token))
-    .map((token) => (token.endsWith('s') && token.length > 4 ? token.slice(0, -1) : token));
+    .map((token) => {
+      if (token.endsWith('s') && token.length > 4) {
+        return token.slice(0, -1);
+      } else {
+        return token;
+      }
+    });
 }
 
 function expandedTokens(value) {
   const words = new Set(tokens(value));
   const lower = String(value || '').toLowerCase();
-  for (const group of SYNONYMS)
-    if (group.some((word) => new RegExp(`\\b${word}\\b`).test(lower)))
-      for (const word of tokens(group.join(' '))) words.add(word);
+  for (const group of SYNONYMS) {
+    if (group.some((word) => new RegExp(`\\b${word}\\b`).test(lower))) {
+      for (const word of tokens(group.join(' '))) {
+        words.add(word);
+      }
+    }
+  }
   return [...words];
 }
 
@@ -47,7 +57,9 @@ function chunksFor(page) {
     let end = Math.min(start + 2200, text.length);
     if (end < text.length) {
       const line = text.lastIndexOf('\n', end);
-      if (line > start + 1100) end = line + 1;
+      if (line > start + 1100) {
+        end = line + 1;
+      }
     }
     pieces.push({
       page: page.page,
@@ -56,7 +68,9 @@ function chunksFor(page) {
       start,
       end,
     });
-    if (end === text.length) break;
+    if (end === text.length) {
+      break;
+    }
     start = end - 600;
   }
   return pieces;
@@ -70,8 +84,12 @@ export function createPaperIndex(allPages) {
     const words = tokens(chunk.text);
     chunk.wordCount = words.length;
     chunk.tf = new Map();
-    for (const word of words) chunk.tf.set(word, (chunk.tf.get(word) || 0) + 1);
-    for (const word of chunk.tf.keys()) df.set(word, (df.get(word) || 0) + 1);
+    for (const word of words) {
+      chunk.tf.set(word, (chunk.tf.get(word) || 0) + 1);
+    }
+    for (const word of chunk.tf.keys()) {
+      df.set(word, (df.get(word) || 0) + 1);
+    }
     totalLength += words.length;
   }
   const averageLength = totalLength / chunks.length || 1;
@@ -88,20 +106,26 @@ export function retrieveIndexedEvidence(
 ) {
   // Scores and ordering are per question; the cached frequencies remain immutable.
   const chunks = index.chunks.map((chunk) => ({ ...chunk }));
-  if (!chunks.length) return [];
+  if (!chunks.length) {
+    return [];
+  }
   const { df, averageLength } = index;
   const querySets = [expandedTokens(question), ...queries.slice(0, 4).map(expandedTokens)];
   // Follow-up pronouns need the earlier user's topic, without recycling assistant claims.
-  if (tokens(question).length < 8)
-    for (const turn of history.filter((m) => m.role === 'user').slice(-2))
+  if (tokens(question).length < 8) {
+    for (const turn of history.filter((m) => m.role === 'user').slice(-2)) {
       querySets.push(tokens(turn.content));
+    }
+  }
   const numerical =
     /percent|proportion|fraction|how much|how many|share|ratio|breakdown|amount/i.test(question);
   const rowWords = new Set(querySets.flat());
   const score = (chunk, words) =>
     words.reduce((sum, word) => {
       const frequency = chunk.tf.get(word) || 0;
-      if (!frequency) return sum;
+      if (!frequency) {
+        return sum;
+      }
       const idf = Math.log(
         1 + (chunks.length - (df.get(word) || 0) + 0.5) / ((df.get(word) || 0) + 0.5),
       );
@@ -119,10 +143,12 @@ export function retrieveIndexedEvidence(
       numerical &&
       /\btable\s+\d+|\bmetric|contribution/i.test(chunk.text) &&
       /\b0\.\d+|\d+(?:\.\d+)?\s*%/.test(chunk.text)
-    )
+    ) {
       chunk.score *= 1.35;
-    if (numerical && chunk.text.split('\n').some((line) => /[a-z].*\s{2,}\d+\.\d+/i.test(line)))
+    }
+    if (numerical && chunk.text.split('\n').some((line) => /[a-z].*\s{2,}\d+\.\d+/i.test(line))) {
       chunk.score *= 1.8;
+    }
     if (numerical) {
       const rowHits = chunk.text
         .split('\n')
@@ -138,21 +164,29 @@ export function retrieveIndexedEvidence(
   const perPage = new Map();
   let size = 0;
   for (const chunk of ranked) {
-    if ((perPage.get(chunk.page) || 0) >= 2 || size + chunk.text.length > 14000) continue;
+    if ((perPage.get(chunk.page) || 0) >= 2 || size + chunk.text.length > 14000) {
+      continue;
+    }
     selected.push(chunk);
     size += chunk.text.length;
     perPage.set(chunk.page, (perPage.get(chunk.page) || 0) + 1);
-    if (selected.length >= 8) break;
+    if (selected.length >= 8) {
+      break;
+    }
   }
   const anchor = ranked
     .filter((chunk) => chunk.page === anchorPage)
     .sort(
       (a, b) => score(b, tokens(selection || question)) - score(a, tokens(selection || question)),
     )[0];
-  if (anchor && !selected.some((chunk) => chunk.page === anchorPage)) selected.push(anchor);
+  if (anchor && !selected.some((chunk) => chunk.page === anchorPage)) {
+    selected.push(anchor);
+  }
   const grouped = new Map();
   for (const chunk of selected) {
-    if (!grouped.has(chunk.page)) grouped.set(chunk.page, []);
+    if (!grouped.has(chunk.page)) {
+      grouped.set(chunk.page, []);
+    }
     grouped.get(chunk.page).push(chunk);
   }
   const merge = (ranges) =>
@@ -160,9 +194,11 @@ export function retrieveIndexedEvidence(
       .sort((a, b) => a.start - b.start)
       .reduce((merged, range) => {
         const previous = merged.at(-1);
-        if (previous && range.start <= previous.end)
+        if (previous && range.start <= previous.end) {
           previous.end = Math.max(previous.end, range.end);
-        else merged.push({ start: range.start, end: range.end });
+        } else {
+          merged.push({ start: range.start, end: range.end });
+        }
         return merged;
       }, []);
   const rangesByPage = [...grouped].map(([page, evidence]) => ({ page, ranges: merge(evidence) }));

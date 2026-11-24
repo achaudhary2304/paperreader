@@ -6,6 +6,13 @@ const words = (value) =>
   );
 
 function bestQuote(text, claim) {
+  const getMatch = () => {
+    if (match) {
+      return best.toLowerCase().indexOf(match);
+    }
+    return 0;
+  };
+
   const query = words(claim);
   const lines = String(text)
     .split(/\n+/)
@@ -14,13 +21,19 @@ function bestQuote(text, claim) {
   const best = lines.reduce(
     (chosen, line) => {
       const score = [...words(line)].filter((word) => query.has(word)).length;
-      return score > chosen.score ? { line, score } : chosen;
+      if (score > chosen.score) {
+        return { line, score };
+      } else {
+        return chosen;
+      }
     },
     { line: lines[0] || '', score: -1 },
   ).line;
-  if (best.length <= 300) return best;
+  if (best.length <= 300) {
+    return best;
+  }
   const match = [...query].find((word) => best.toLowerCase().includes(word));
-  const start = Math.max(0, (match ? best.toLowerCase().indexOf(match) : 0) - 70);
+  const start = Math.max(0, getMatch() - 70);
   return best.slice(start, start + 300).trim();
 }
 
@@ -32,7 +45,9 @@ export function answerEvidence(answer, pages) {
     const label = match[1],
       page = Number(match[2]);
     const source = pages.find((item) => (item.label || 'Paper') === label && item.page === page);
-    if (!source) continue;
+    if (!source) {
+      continue;
+    }
     const claim = answer.slice(
       Math.max(0, answer.lastIndexOf('.', match.index - 2) + 1),
       match.index,

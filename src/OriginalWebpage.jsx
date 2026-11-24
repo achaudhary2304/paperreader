@@ -28,12 +28,24 @@ export default function OriginalWebpage({
   useEffect(
     () =>
       window.paperlensDesktop.onWebpageEvent((event) => {
-        if (event.url && event.url !== url) return;
-        if (event.type === 'selection') callbacks.current.onSelection(event);
-        if (event.type === 'annotation') callbacks.current.onAnnotation(event.id);
-        if (event.type === 'hover') callbacks.current.onHover(event);
-        if (event.type === 'error') setError(event.error);
-        if (event.type === 'loading') setError('');
+        if (event.url && event.url !== url) {
+          return;
+        }
+        if (event.type === 'selection') {
+          callbacks.current.onSelection(event);
+        }
+        if (event.type === 'annotation') {
+          callbacks.current.onAnnotation(event.id);
+        }
+        if (event.type === 'hover') {
+          callbacks.current.onHover(event);
+        }
+        if (event.type === 'error') {
+          setError(event.error);
+        }
+        if (event.type === 'loading') {
+          setError('');
+        }
       }),
     [url],
   );
@@ -44,12 +56,15 @@ export default function OriginalWebpage({
     }
     let active = true;
     const update = () => {
-      if (!active || !element.current) return;
+      if (!active || !element.current) {
+        return;
+      }
       const { x, y, width, height } = element.current.getBoundingClientRect();
-      if (width > 0 && height > 0)
+      if (width > 0 && height > 0) {
         window.paperlensDesktop
           .showWebpage({ url, zoom, bounds: { x, y, width, height } })
           .catch((error) => setError(error.message));
+      }
     };
     const observer = new ResizeObserver(update);
     observer.observe(element.current);

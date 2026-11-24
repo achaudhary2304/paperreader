@@ -17,9 +17,13 @@ export async function* eventStream(body) {
           .filter((line) => line.startsWith('data:'))
           .map((line) => line.slice(5).trimStart())
           .join('\n');
-        if (data) yield data;
+        if (data) {
+          yield data;
+        }
       }
-      if (done) break;
+      if (done) {
+        break;
+      }
     }
   } finally {
     await reader.cancel().catch(() => {});

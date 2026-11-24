@@ -18,10 +18,12 @@ export function usePanelLayout({ leftOpen, sidebarOpen }) {
   }, [companionWidth]);
   useEffect(() => {
     const move = (event) => {
-      if (resizePanel.current === 'library')
+      if (resizePanel.current === 'library') {
         setLibraryWidth(Math.max(210, Math.min(440, event.clientX)));
-      if (resizePanel.current === 'companion')
+      }
+      if (resizePanel.current === 'companion') {
         setCompanionWidth(Math.max(310, Math.min(650, window.innerWidth - event.clientX)));
+      }
     };
     const finish = () => {
       resizePanel.current = null;
@@ -44,14 +46,31 @@ export function usePanelLayout({ leftOpen, sidebarOpen }) {
     document.body.classList.add('resizing-panels');
   };
   const docked = workspaceWidth > 750;
-  const fittedLibraryWidth = docked
-    ? Math.min(libraryWidth, Math.max(210, workspaceWidth - (sidebarOpen ? 310 : 0) - 240))
-    : libraryWidth;
-  const fittedCompanionWidth = docked
-    ? Math.min(
-        companionWidth,
-        Math.max(310, workspaceWidth - (leftOpen ? fittedLibraryWidth : 0) - 240),
-      )
-    : companionWidth;
+  let chatMinimumWidth = 0;
+  if (sidebarOpen) {
+    chatMinimumWidth = 310;
+  }
+  let fittedLibraryWidth;
+  if (docked) {
+    fittedLibraryWidth = Math.min(
+      libraryWidth,
+      Math.max(210, workspaceWidth - chatMinimumWidth - 240),
+    );
+  } else {
+    fittedLibraryWidth = libraryWidth;
+  }
+  let visibleLibraryWidth = 0;
+  if (leftOpen) {
+    visibleLibraryWidth = fittedLibraryWidth;
+  }
+  let fittedCompanionWidth;
+  if (docked) {
+    fittedCompanionWidth = Math.min(
+      companionWidth,
+      Math.max(310, workspaceWidth - visibleLibraryWidth - 240),
+    );
+  } else {
+    fittedCompanionWidth = companionWidth;
+  }
   return { fittedLibraryWidth, fittedCompanionWidth, beginPanelResize };
 }

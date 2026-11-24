@@ -27,13 +27,26 @@ export default function ProjectNotesPanel({
   onRemoveEntry,
   onOpenAnnotation,
 }) {
+  const getOpenClassName = () => {
+    if (open) {
+      return '';
+    }
+    return 'notes-collapsed';
+  };
+
+  const getAnswersOpenClassName = () => {
+    if (answersOpen) {
+      return '';
+    }
+    return 'notes-collapsed';
+  };
+
   const [actionsOpen, setActionsOpen] = useState(false);
   return (
     <section className="project-notes-panel">
       <div className="project-notes-heading">
         <button onClick={() => onToggle()} aria-expanded={open}>
-          <StickyNote size={14} /> Notes{' '}
-          <ChevronDown size={13} className={open ? '' : 'notes-collapsed'} />
+          <StickyNote size={14} /> Notes <ChevronDown size={13} className={getOpenClassName()} />
         </button>
         {open && (
           <button
@@ -97,37 +110,45 @@ export default function ProjectNotesPanel({
                 onClick={() => onToggleAnswers()}
                 aria-expanded={answersOpen}
               >
-                <ChevronDown size={13} className={answersOpen ? '' : 'notes-collapsed'} /> SAVED
-                ANSWERS · {project.entries.length}
+                <ChevronDown size={13} className={getAnswersOpenClassName()} /> SAVED ANSWERS ·{' '}
+                {project.entries.length}
               </button>
               {answersOpen &&
-                project.entries.map((entry) => (
-                  <article key={entry.id} className="project-note-entry">
-                    <div>
-                      <span>
-                        {documents.find((doc) => doc.id === entry.paperId)?.name || 'Document'} ·{' '}
-                        {documents.find((doc) => doc.id === entry.paperId)?.kind === 'article'
-                          ? '§'
-                          : 'p.'}{' '}
-                        {entry.page}
-                      </span>
-                      <button
-                        aria-label="Remove saved answer"
-                        title="Remove saved answer"
-                        onClick={() => onRemoveEntry(entry.id)}
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                    <b>{entry.question}</b>
-                    {entry.annotationId && (
-                      <button className="note-source-link" onClick={() => onOpenAnnotation(entry)}>
-                        Open annotation · p. {entry.page}
-                      </button>
-                    )}
-                    <RichText className="project-note-summary" text={entry.summary} />
-                  </article>
-                ))}
+                project.entries.map((entry) => {
+                  const getDocumentsFindDocDoc = () => {
+                    if (documents.find((doc) => doc.id === entry.paperId)?.kind === 'article') {
+                      return '§';
+                    }
+                    return 'p.';
+                  };
+                  return (
+                    <article key={entry.id} className="project-note-entry">
+                      <div>
+                        <span>
+                          {documents.find((doc) => doc.id === entry.paperId)?.name || 'Document'} ·{' '}
+                          {getDocumentsFindDocDoc()} {entry.page}
+                        </span>
+                        <button
+                          aria-label="Remove saved answer"
+                          title="Remove saved answer"
+                          onClick={() => onRemoveEntry(entry.id)}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                      <b>{entry.question}</b>
+                      {entry.annotationId && (
+                        <button
+                          className="note-source-link"
+                          onClick={() => onOpenAnnotation(entry)}
+                        >
+                          Open annotation · p. {entry.page}
+                        </button>
+                      )}
+                      <RichText className="project-note-summary" text={entry.summary} />
+                    </article>
+                  );
+                })}
             </div>
           )}
         </>

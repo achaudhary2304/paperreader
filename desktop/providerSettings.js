@@ -47,8 +47,11 @@ export function createProviderSettings(
 
   function apply() {
     for (const field of FIELDS) {
-      if (values[field]) process.env[field] = values[field];
-      else delete process.env[field];
+      if (values[field]) {
+        process.env[field] = values[field];
+      } else {
+        delete process.env[field];
+      }
     }
   }
 
@@ -63,7 +66,12 @@ export function createProviderSettings(
 
   async function load() {
     await secureStoreAvailable();
-    const old = existsSync(optionsPath) ? parse(readFileSync(optionsPath)) : {};
+    let old;
+    if (existsSync(optionsPath)) {
+      old = parse(readFileSync(optionsPath));
+    } else {
+      old = {};
+    }
     values = {
       ...empty(),
       ...Object.fromEntries(FIELDS.map((field) => [field, old[field] || ''])),
@@ -72,35 +80,46 @@ export function createProviderSettings(
     if (existsSync(secretsPath)) {
       const result = await safeStorage.decryptStringAsync(readFileSync(secretsPath));
       const secrets = JSON.parse(result.result);
-      for (const field of KEYS) values[field] = secrets[field] || values[field];
-      if (result.shouldReEncrypt)
+      for (const field of KEYS) {
+        values[field] = secrets[field] || values[field];
+      }
+      if (result.shouldReEncrypt) {
         writePrivate(
           secretsPath,
           await safeStorage.encryptStringAsync(
             JSON.stringify(Object.fromEntries(KEYS.map((field) => [field, values[field]]))),
           ),
         );
+      }
     }
-    if (legacyPlaintext && (await secureStoreAvailable())) await persist();
+    if (legacyPlaintext && (await secureStoreAvailable())) {
+      await persist();
+    }
     apply();
     return status();
   }
 
   async function persist() {
     if (KEYS.some((field) => values[field])) {
-      if (!(await secureStoreAvailable()))
-        throw new Error(
-          platform === 'linux'
-            ? 'A system keyring is required to save API keys. Unlock GNOME Keyring or KWallet, then try again.'
-            : 'Protected system storage is unavailable. Restart PaperReader and try again.',
-        );
+      if (!(await secureStoreAvailable())) {
+        const getPlatformLinux = () => {
+          if (platform === 'linux') {
+            return 'A system keyring is required to save API keys. Unlock GNOME Keyring or KWallet, then try again.';
+          }
+          return 'Protected system storage is unavailable. Restart PaperReader and try again.';
+        };
+
+        throw new Error(getPlatformLinux());
+      }
       writePrivate(
         secretsPath,
         await safeStorage.encryptStringAsync(
           JSON.stringify(Object.fromEntries(KEYS.map((field) => [field, values[field]]))),
         ),
       );
-    } else if (existsSync(secretsPath)) unlinkSync(secretsPath);
+    } else if (existsSync(secretsPath)) {
+      unlinkSync(secretsPath);
+    }
     writePrivate(
       optionsPath,
       `${OPTIONS.map((field) => `${field}=${JSON.stringify(values[field])}`).join('\n')}\n`,
@@ -110,22 +129,31 @@ export function createProviderSettings(
   }
 
   async function save(changes) {
-    if (!changes || typeof changes !== 'object' || Array.isArray(changes))
+    if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
       throw new Error('Invalid provider settings.');
+    }
     const next = { ...values };
     for (const field of FIELDS) {
-      if (!(field in changes)) continue;
+      if (!(field in changes)) {
+        continue;
+      }
       const value = changes[field];
-      if (typeof value !== 'string' || value.length > 500 || /[\r\n]/.test(value))
+      if (typeof value !== 'string' || value.length > 500 || /[\r\n]/.test(value)) {
         throw new Error(`Invalid ${field}.`);
-      if (!KEYS.includes(field) || value.trim()) next[field] = value.trim();
+      }
+      if (!KEYS.includes(field) || value.trim()) {
+        next[field] = value.trim();
+      }
     }
     if (
       changes.clear !== undefined &&
       (!Array.isArray(changes.clear) || changes.clear.some((field) => !KEYS.includes(field)))
-    )
+    ) {
       throw new Error('Invalid key to remove.');
-    for (const field of changes.clear || []) next[field] = '';
+    }
+    for (const field of changes.clear || []) {
+      next[field] = '';
+    }
     const previous = values;
     values = next;
     try {

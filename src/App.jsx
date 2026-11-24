@@ -1,3 +1,5 @@
+import { MODES } from './readerModes.js';
+import { zoomShortcut } from '../shared/zoomShortcut.js';
 import PanelHandle from './PanelHandle.jsx';
 import { getDefaultPrompt } from './defaultPrompts.js';
 import { captureReadingPosition } from './readingPosition.js';
@@ -30,11 +32,9 @@ import {
   FileText,
   Highlighter,
   LibraryBig,
-  Lightbulb,
   Plus,
   Search,
   Settings2,
-  Sigma,
   Sparkles,
   UploadCloud,
   X,
@@ -78,44 +78,6 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-const MODES = {
-  explain: {
-    label: 'Explain passage',
-    short: 'Explain',
-    icon: Sparkles,
-    color: 'purple',
-    hint: 'A clear explanation grounded in the paper',
-  },
-  concept: {
-    label: 'Explore concept',
-    short: 'Concept',
-    icon: Lightbulb,
-    color: 'orange',
-    hint: 'Definitions and missing prerequisites',
-  },
-  math: {
-    label: 'Unpack the math',
-    short: 'Math',
-    icon: Sigma,
-    color: 'blue',
-    hint: 'Symbols, steps, and derivations',
-  },
-  literature: {
-    label: 'Find related work',
-    short: 'Literature',
-    icon: LibraryBig,
-    color: 'green',
-    hint: 'Foundational and related papers',
-  },
-  search: {
-    label: 'Side search',
-    short: 'Search',
-    icon: Search,
-    color: 'pink',
-    hint: 'Research a tangent without leaving the paper',
-  },
-};
-
 const SAMPLE = {
   id: 'sample',
   name: 'Understanding Variational Inference',
@@ -149,16 +111,28 @@ function imageDataUrl(blob) {
   });
 }
 function ellipsis(value, length = 48) {
-  return value.length > length ? `${value.slice(0, length).trim()}…` : value;
+  if (value.length > length) {
+    return `${value.slice(0, length).trim()}…`;
+  } else {
+    return value;
+  }
 }
 function annotationSummary(item) {
-  return [
-    `> ${item.text}`,
-    item.note && item.note !== item.text ? item.note : '',
-    item.tags?.length ? `Tags: ${item.tags.join(', ')}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n\n');
+  const getItemNoteItemNote = () => {
+    if (item.note && item.note !== item.text) {
+      return item.note;
+    }
+    return '';
+  };
+
+  const getItemTags = () => {
+    if (item.tags?.length) {
+      return `Tags: ${item.tags.join(', ')}`;
+    }
+    return '';
+  };
+
+  return [`> ${item.text}`, getItemNoteItemNote(), getItemTags()].filter(Boolean).join('\n\n');
 }
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -172,6 +146,437 @@ function downloadBlob(blob, filename) {
 }
 
 export default function App() {
+  const getZenModeClassName = () => {
+    if (zenMode) {
+      return ' zen-mode';
+    }
+    return '';
+  };
+
+  const getLeftOpenClassName = () => {
+    if (leftOpen) {
+      return '';
+    }
+    return 'collapsed';
+  };
+
+  const renderDocThreads = () => {
+    if (docThreads.length) {
+      return (
+        <div className="thread-list">
+          {docThreads.map((thread) => {
+            const getThreadIdThreadIdClassName = () => {
+              if (threadId === thread.id) {
+                return 'active';
+              }
+              return '';
+            };
+
+            const getDocsFindDocDoc2 = () => {
+              if (docs.find((doc) => doc.id === thread.docId)?.kind === 'article') {
+                return '§';
+              }
+              return 'p.';
+            };
+
+            const getThreadBusy = () => {
+              if (thread.busy) {
+                return ' · Thinking…';
+              }
+              return '';
+            };
+
+            const Icon = MODES[thread.mode]?.icon || Sparkles;
+            return (
+              <div className={`thread-item ${getThreadIdThreadIdClassName()}`} key={thread.id}>
+                <button onClick={() => jumpToThread(thread)}>
+                  <span className={`thread-icon ${MODES[thread.mode]?.color}`}>
+                    <Icon size={15} />
+                  </span>
+                  <span>
+                    <strong>{thread.title}</strong>
+                    <small>
+                      {MODES[thread.mode]?.short} · {getDocsFindDocDoc2()} {thread.page}
+                      {getThreadBusy()}
+                    </small>
+                  </span>
+                </button>
+                <button
+                  className="delete-item"
+                  title={`Delete ${thread.title}`}
+                  aria-label={`Delete ${thread.title}`}
+                  onClick={() => removeThread(thread.id)}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+    return (
+      <div className="empty-doubts">
+        <p>No questions yet.</p>
+        <span>Select a passage or ask in AI chat.</span>
+      </div>
+    );
+  };
+
+  const renderDocAnnotations = () => {
+    if (docAnnotations.length) {
+      return (
+        <div className="annotation-list">
+          {docAnnotations.map((item) => {
+            const getIsArticle3 = () => {
+              if (isArticle) {
+                return '§';
+              }
+              return 'p.';
+            };
+
+            const getItemEmbedded = () => {
+              if (item.embedded) {
+                return ` · PDF ${item.kind}`;
+              }
+              return '';
+            };
+
+            const getItemNoteItemNote2 = () => {
+              if (item.note && item.note !== item.text) {
+                return ` · ${ellipsis(item.note, 55)}`;
+              }
+              return '';
+            };
+
+            const getItemTags2 = () => {
+              if (item.tags?.length) {
+                return ` · ${item.tags.join(', ')}`;
+              }
+              return '';
+            };
+            return (
+              <div className="annotation-item" key={item.id}>
+                <button onClick={() => jumpToAnnotation(item)} title="Jump to annotation">
+                  <span className={`annotation-dot annotation-${item.color}`} />
+                  <span>
+                    <strong>{ellipsis(item.text, 70)}</strong>
+                    <small>
+                      {getIsArticle3()} {item.page}
+                      {getItemEmbedded()}
+                      {getItemNoteItemNote2()}
+                      {getItemTags2()}
+                    </small>
+                  </span>
+                </button>
+                <button
+                  className="annotation-edit"
+                  onClick={() => {
+                    setAnnotationProjectId(projectId || '');
+                    setAnnotationDraft({ ...item });
+                  }}
+                  title="Edit annotation"
+                  aria-label="Edit annotation"
+                >
+                  <StickyNote size={14} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+    return <p className="annotation-empty">Select text in the PDF to highlight or add a note.</p>;
+  };
+
+  const getBackupBusy = () => {
+    if (backupBusy) {
+      return 'Working…';
+    }
+    return 'Export';
+  };
+
+  const getReaderControlsHiddenClassName = () => {
+    if (readerControlsHidden) {
+      return ' controls-hidden';
+    }
+    return '';
+  };
+
+  const getHasActiveDocClassName = () => {
+    if (!hasActiveDoc) {
+      return ' empty-reader-toolbar';
+    }
+    return '';
+  };
+
+  const getHasActiveDoc2 = () => {
+    if (hasActiveDoc) {
+      return activeDoc.name;
+    }
+    return 'No paper open';
+  };
+
+  const getHasActiveDoc3 = () => {
+    if (hasActiveDoc) {
+      return activeDoc.subtitle;
+    }
+    return 'Your papers are safe in the library.';
+  };
+
+  const getIsArticle2 = () => {
+    if (isArticle) {
+      return '§ ';
+    }
+    return '';
+  };
+
+  const getRegionModeClassName = () => {
+    if (regionMode) {
+      return 'active';
+    }
+    return '';
+  };
+
+  const getIsArticleTitle = () => {
+    if (isArticle) {
+      return 'Download saved article';
+    }
+    return 'Download original PDF';
+  };
+
+  const getIsArticlePlaceholder = () => {
+    if (isArticle) {
+      return 'Search this article';
+    }
+    return 'Search this paper';
+  };
+
+  const getOriginalViewClassName = () => {
+    if (originalView) {
+      return ' original-mode';
+    }
+    return '';
+  };
+
+  const getRegionModeClassName2 = () => {
+    if (regionMode) {
+      return ' region-mode';
+    }
+    return '';
+  };
+
+  const getHoveredAnnotationAboveStyle = () => {
+    if (hoveredAnnotation.above) {
+      return hoveredAnnotation.top - 16;
+    }
+    return hoveredAnnotation.top;
+  };
+
+  const getHoveredAnnotationAboveStyle2 = () => {
+    if (hoveredAnnotation.above) {
+      return 'translateY(-100%)';
+    }
+    return undefined;
+  };
+
+  const getHoveredAnnotationItemEmbedded = () => {
+    if (hoveredAnnotation.item.embedded) {
+      return `PDF ${hoveredAnnotation.item.kind.toUpperCase()}`;
+    }
+    return 'YOUR ANNOTATION';
+  };
+
+  const getSidebarOpenClassName = () => {
+    if (sidebarOpen) {
+      return '';
+    }
+    return 'closed';
+  };
+
+  const getAnswerDepthDeepTitle = () => {
+    if (answerDepth === 'deep') {
+      return 'Deep research enabled. Click for document-only answers.';
+    }
+    return 'Quick document-only answers. Click to enable deep research.';
+  };
+
+  const getAnswerDepthDeep = () => {
+    if (answerDepth === 'deep') {
+      return 'Deep';
+    }
+    return 'Quick';
+  };
+
+  const getActiveThreadProjectId = () => {
+    if (activeThread?.projectId) {
+      return projects.find((project) => project.id === activeThread.projectId)?.name || 'project';
+    }
+    return activeProject?.name;
+  };
+
+  const getDocsFindDocDoc = () => {
+    if (docs.find((doc) => doc.id === citationPreview.source.docId)?.kind === 'article') {
+      return 'SECTION';
+    }
+    return 'PAGE';
+  };
+
+  const getImportKindArticle = () => {
+    if (importKind === 'article') {
+      return 'Save a public blog, tutorial, documentation page, or webpage as a readable article. Select passages to ask questions or add annotations.';
+    }
+    return 'Paste an arXiv link or paper ID, or upload a PDF.';
+  };
+
+  const getImportKindArticle2 = () => {
+    if (importKind === 'article') {
+      return 'ARTICLE URL';
+    }
+    return 'ARXIV LINK OR PAPER ID';
+  };
+
+  const getImportKindArticlePlaceholder = () => {
+    if (importKind === 'article') {
+      return 'https://example.com/research-post';
+    }
+    return 'https://arxiv.org/abs/2502.09992';
+  };
+
+  const getImportKindArticle3 = () => {
+    if (importKind === 'article') {
+      return 'For login-only or JavaScript pages, save the loaded page as HTML in your browser, then import it below.';
+    }
+    return 'Abstract, PDF and HTML links work, including specific versions.';
+  };
+
+  const renderImportBusy = () => {
+    const getImportKindArticle4 = () => {
+      if (importKind === 'article') {
+        return 'Save article';
+      }
+      return 'Import from arXiv';
+    };
+
+    if (importBusy) {
+      return (
+        <>
+          <span className="spinner" /> Importing…
+        </>
+      );
+    }
+    return (
+      <>
+        <Plus size={16} /> {getImportKindArticle4()}
+      </>
+    );
+  };
+
+  const renderDesktopApp = () => {
+    if (desktopApp) {
+      return (
+        <ProviderSettings
+          initialTab={settingsTab}
+          onClose={() => setSettingsOpen(false)}
+          onSaved={refreshProviderState}
+          answerModel={answerModel}
+          setAnswerModel={setAnswerModel}
+          availableAnswerModels={availableAnswerModels}
+          promptPreferences={{ prompts: defaultPrompts, onChange: setDefaultPrompts }}
+          inferencePreferences={{
+            providerPriority,
+            setProviderPriority,
+            groqModel,
+            setGroqModel,
+            groqModels: ANSWER_MODELS,
+            customProvider,
+          }}
+          freeOnlyMode={freeOnlyMode}
+          freeUsage={freeUsage}
+          refreshFreeUsage={refreshFreeUsage}
+        />
+      );
+    }
+    return (
+      <BrowserProviderSettings
+        initialTab={settingsTab}
+        onClose={() => setSettingsOpen(false)}
+        customProvider={customProvider}
+        freeOnlyMode={freeOnlyMode}
+        serverKey={serverKey}
+        apiKey={key}
+        setApiKey={setKey}
+        freeUsage={freeUsage}
+        refreshFreeUsage={refreshFreeUsage}
+        answerModel={answerModel}
+        setAnswerModel={setAnswerModel}
+        availableAnswerModels={availableAnswerModels}
+        promptPreferences={{ prompts: defaultPrompts, onChange: setDefaultPrompts }}
+        inferencePreferences={{
+          providerPriority,
+          setProviderPriority,
+          groqModel,
+          setGroqModel,
+          groqModels: ANSWER_MODELS,
+          customProvider,
+        }}
+      />
+    );
+  };
+
+  function renderDocumentIcon() {
+    if (hasActiveDoc) {
+      if (isArticle) {
+        return <Globe size={18} />;
+      }
+      return <FileText size={18} />;
+    }
+    return <BookOpenText size={18} />;
+  }
+
+  function getSearchStatus() {
+    if (searchBusy) {
+      return 'Searching…';
+    }
+    if (searchError) {
+      return 'Search failed';
+    }
+    if (!paperSearch.trim()) {
+      return '';
+    }
+    if (searchMatches.length) {
+      return `${searchMatchIndex + 1}/${searchMatches.length} pages`;
+    }
+    return 'No matches';
+  }
+
+  function getQuestionPlaceholder() {
+    const getIsArticle = () => {
+      if (isArticle) {
+        return 'article';
+      }
+      return 'paper';
+    };
+
+    if (activeThread) {
+      return 'Ask a follow-up about this doubt…';
+    }
+    if (draftSelection) {
+      return 'Write your question about the selected text…';
+    }
+    return `Ask anything about this ${getIsArticle()}…`;
+  }
+
+  function getQuestionContextLabel() {
+    if (activeThread) {
+      return `Using ${locationLabel.toLowerCase()} ${activeThread.page} + this thread`;
+    }
+    if (draftSelection) {
+      return `Selected text · ${locationLabel.toLowerCase()} ${draftSelection.page}`;
+    }
+    return `Using ${locationLabel.toLowerCase()} ${page} context`;
+  }
+
   // Library and projects
   const [docs, setDocs] = useState(() => readJSON('paperlens:docs', INITIAL_DOCS));
   const [projects, setProjects] = useState(() => readJSON('paperlens:projects', []));
@@ -206,20 +611,37 @@ export default function App() {
   const [noteErrors, setNoteErrors] = useState({});
   // Active document and reading position
   const [docId, setDocId] = useState(() => localStorage.getItem('paperlens:active') || SAMPLE.id);
-  const [openTabs, setOpenTabs] = useState(() => [
-    ...new Set([
-      ...readJSON('paperlens:tabs', docId ? [docId] : []).filter((id) =>
-        docs.some((doc) => doc.id === id),
-      ),
-      ...(docId && docs.some((doc) => doc.id === docId) ? [docId] : []),
-    ]),
-  ]);
+  const [openTabs, setOpenTabs] = useState(() => {
+    const getDocId = () => {
+      if (docId) {
+        return [docId];
+      }
+      return [];
+    };
+
+    const getDocIdDocsSomeDoc = () => {
+      if (docId && docs.some((doc) => doc.id === docId)) {
+        return [docId];
+      }
+      return [];
+    };
+    return [
+      ...new Set([
+        ...readJSON('paperlens:tabs', getDocId()).filter((id) => docs.some((doc) => doc.id === id)),
+        ...getDocIdDocsSomeDoc(),
+      ]),
+    ];
+  });
   const [pdfFile, setPdfFile] = useState(null);
   const [pdf, setPdf] = useState(null);
   const [article, setArticle] = useState(null);
-  const [articleView, setArticleView] = useState(() =>
-    window.paperlensDesktop?.showWebpage ? 'original' : 'reader',
-  );
+  const [articleView, setArticleView] = useState(() => {
+    if (window.paperlensDesktop?.showWebpage) {
+      return 'original';
+    } else {
+      return 'reader';
+    }
+  });
   const webpageInput = useRef(null);
   const [importKind, setImportKind] = useState('paper');
   const [libraryKind, setLibraryKind] = useState('all');
@@ -321,9 +743,13 @@ export default function App() {
   const [arxivInput, setArxivInput] = useState('');
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState('');
-  const [key, setKey] = useState(() =>
-    window.paperlensDesktop ? '' : sessionStorage.getItem('paperlens:groqKey') || '',
-  );
+  const [key, setKey] = useState(() => {
+    if (window.paperlensDesktop) {
+      return '';
+    } else {
+      return sessionStorage.getItem('paperlens:groqKey') || '';
+    }
+  });
   const [serverKey, setServerKey] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 750);
   const [leftOpen, setLeftOpen] = useState(() => window.innerWidth > 1050);
@@ -378,9 +804,13 @@ export default function App() {
   const changeZoom = useCallback(
     (direction) => {
       rememberReaderPosition();
-      setZoom((value) =>
-        direction === 0 ? 1 : Math.max(0.5, Math.min(3, +(value + direction * 0.1).toFixed(2))),
-      );
+      setZoom((value) => {
+        if (direction === 0) {
+          return 1;
+        } else {
+          return Math.max(0.5, Math.min(3, +(value + direction * 0.1).toFixed(2)));
+        }
+      });
     },
     [rememberReaderPosition],
   );
@@ -447,9 +877,12 @@ export default function App() {
           (t.projectId &&
             projects.find((project) => project.id === t.projectId)?.paperIds?.includes(docId))),
     ) || null;
-  const activeThread = selectedThread
-    ? { ...selectedThread, ...streamViews[selectedThread.id] }
-    : null;
+  let activeThread;
+  if (selectedThread) {
+    activeThread = { ...selectedThread, ...streamViews[selectedThread.id] };
+  } else {
+    activeThread = null;
+  }
   const isArticle = activeDoc.kind === 'article';
   const readerReady = Boolean(pdf || article);
   const originalView = Boolean(
@@ -468,7 +901,12 @@ export default function App() {
     citationPreview ||
     pdfReference,
   );
-  const locationLabel = isArticle ? 'Section' : 'Page';
+  let locationLabel;
+  if (isArticle) {
+    locationLabel = 'Section';
+  } else {
+    locationLabel = 'Page';
+  }
   const hasKey = Boolean(key || serverKey);
 
   // Persist the existing workspace format
@@ -493,11 +931,15 @@ export default function App() {
         assigned.add(id);
         return true;
       });
-      return paperIds.length === (project.paperIds || []).length
-        ? project
-        : { ...project, paperIds };
+      if (paperIds.length === (project.paperIds || []).length) {
+        return project;
+      } else {
+        return { ...project, paperIds };
+      }
     });
-    if (changed) setProjects(normalized);
+    if (changed) {
+      setProjects(normalized);
+    }
   }, [projects]);
   useEffect(() => {
     localStorage.setItem('paperlens:treeFolders', JSON.stringify(treeFolders));
@@ -540,7 +982,9 @@ export default function App() {
     localStorage.setItem('paperlens:doubtDrafts', JSON.stringify(doubtDrafts.current));
   }, [docId, threadId, composer]);
   useEffect(() => {
-    if (!window.paperlensDesktop) sessionStorage.setItem('paperlens:groqKey', key);
+    if (!window.paperlensDesktop) {
+      sessionStorage.setItem('paperlens:groqKey', key);
+    }
   }, [key]);
   useEffect(() => {
     localStorage.setItem('paperlens:answerModel', answerModel);
@@ -552,11 +996,15 @@ export default function App() {
     for (const id of new Set(
       threads.flatMap((thread) => thread.messages.flatMap((message) => message.imageIds || [])),
     )) {
-      if (imageUrls[id] || loadingImages.current.has(id)) continue;
+      if (imageUrls[id] || loadingImages.current.has(id)) {
+        continue;
+      }
       loadingImages.current.add(id);
       getImage(id)
         .then((blob) => {
-          if (blob) setImageUrls((current) => ({ ...current, [id]: URL.createObjectURL(blob) }));
+          if (blob) {
+            setImageUrls((current) => ({ ...current, [id]: URL.createObjectURL(blob) }));
+          }
         })
         .catch(() => {})
         .finally(() => loadingImages.current.delete(id));
@@ -565,9 +1013,17 @@ export default function App() {
   // Provider configuration
   const refreshFreeUsage = () =>
     fetch('/api/free-usage')
-      .then((response) => (response.ok ? response.json() : null))
+      .then((response) => {
+        if (response.ok) {
+          return response.json();
+        } else {
+          return null;
+        }
+      })
       .then((usage) => {
-        if (usage) setFreeUsage(usage);
+        if (usage) {
+          setFreeUsage(usage);
+        }
       })
       .catch(() => {});
   const refreshProviderState = async () => {
@@ -587,22 +1043,31 @@ export default function App() {
     } else if (d.freeOnly) {
       refreshFreeUsage();
       setAvailableAnswerModels([{ id: 'openrouter/free', name: 'Automatic · OpenRouter Free' }]);
-      setAnswerModel((current) =>
-        current.endsWith(':free') || current === 'openrouter/free' ? current : 'openrouter/free',
-      );
+      setAnswerModel((current) => {
+        if (current.endsWith(':free') || current === 'openrouter/free') {
+          return current;
+        } else {
+          return 'openrouter/free';
+        }
+      });
       const data = await fetch('/api/models')
         .then((r) => r.json())
         .catch(() => ({}));
-      if (data.models?.length)
+      if (data.models?.length) {
         setAvailableAnswerModels([
           { id: 'openrouter/free', name: 'Automatic · OpenRouter Free' },
           ...data.models.filter((item) => item.id !== 'openrouter/free'),
         ]);
+      }
     } else {
       setAvailableAnswerModels(ANSWER_MODELS);
-      setAnswerModel((current) =>
-        ANSWER_MODELS.some((item) => item.id === current) ? current : ANSWER_MODELS[0].id,
-      );
+      setAnswerModel((current) => {
+        if (ANSWER_MODELS.some((item) => item.id === current)) {
+          return current;
+        } else {
+          return ANSWER_MODELS[0].id;
+        }
+      });
     }
   };
   useEffect(() => {
@@ -641,14 +1106,18 @@ export default function App() {
             await savePdf(docId, blob);
           }
         }
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
         if (!blob) {
           setDocError('This document is missing from local storage. Please import it again.');
           return;
         }
         if (activeDoc.kind === 'article') {
           const saved = await readArticle(blob);
-          if (cancelled) return;
+          if (cancelled) {
+            return;
+          }
           setArticle(saved);
           setPages(saved.sections.length);
           return;
@@ -657,15 +1126,21 @@ export default function App() {
         setPdfFile(objectUrl);
       })
       .catch((error) => {
-        if (!cancelled) setDocError(error.message || 'Unable to open this document.');
+        if (!cancelled) {
+          setDocError(error.message || 'Unable to open this document.');
+        }
       });
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
     };
   }, [docId, pdfRevision]);
   useEffect(() => {
-    if (!readerRef.current) return;
+    if (!readerRef.current) {
+      return;
+    }
     const resize = new ResizeObserver(([entry]) => {
       rememberReaderPosition();
       setPageWidth(Math.max(1, Math.floor(entry.contentRect.width)));
@@ -674,7 +1149,9 @@ export default function App() {
     return () => resize.disconnect();
   }, [rememberReaderPosition]);
   useEffect(() => {
-    if (!readerReady || navigationTarget.docId !== docId) return;
+    if (!readerReady || navigationTarget.docId !== docId) {
+      return;
+    }
     const frame = requestAnimationFrame(() => {
       const root = readerRef.current;
       if (
@@ -688,6 +1165,13 @@ export default function App() {
       }
       const target = root?.querySelector(`[data-pdf-page="${navigationTarget.page}"]`);
       if (target) {
+        const getNavigationTargetRestore = () => {
+          if (navigationTarget.restore) {
+            return 0;
+          }
+          return 16;
+        };
+
         const bounds = (target.querySelector('.pdf-page-frame') || target).getBoundingClientRect();
         root.scrollTo({
           top:
@@ -695,7 +1179,7 @@ export default function App() {
             root.getBoundingClientRect().top +
             root.scrollTop +
             bounds.height * (navigationTarget.yRatio || 0) -
-            (navigationTarget.restore ? 0 : 16),
+            getNavigationTargetRestore(),
           behavior: 'instant',
         });
       }
@@ -712,7 +1196,12 @@ export default function App() {
     const dismiss = () => {
       const selected = window.getSelection();
       const node = selected?.anchorNode;
-      const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+      let element;
+      if (node?.nodeType === Node.ELEMENT_NODE) {
+        element = node;
+      } else {
+        element = node?.parentElement;
+      }
       if (
         !selected?.rangeCount ||
         selected.isCollapsed ||
@@ -720,10 +1209,23 @@ export default function App() {
         !readerRef.current?.contains(selected.anchorNode) ||
         !readerRef.current?.contains(selected.focusNode)
       ) {
-        setSelection((current) => (current ? null : current));
+        setSelection((current) => {
+          if (current) {
+            return null;
+          } else {
+            return current;
+          }
+        });
       }
-      if (!selected?.toString().trim() || !element?.closest('.conversation .answer-content'))
-        setAnswerSelection((current) => (current ? null : current));
+      if (!selected?.toString().trim() || !element?.closest('.conversation .answer-content')) {
+        setAnswerSelection((current) => {
+          if (current) {
+            return null;
+          } else {
+            return current;
+          }
+        });
+      }
     };
     document.addEventListener('selectionchange', dismiss);
     return () => document.removeEventListener('selectionchange', dismiss);
@@ -732,16 +1234,26 @@ export default function App() {
     const root = conversationRef.current;
     const question =
       latestQuestionId && root?.querySelector(`[data-message-id="${latestQuestionId}"]`);
-    if (question)
+    if (question) {
       root.scrollTop +=
         question.getBoundingClientRect().top - root.getBoundingClientRect().top - 16;
+    }
   }, [latestQuestionId, threadId]);
 
   useEffect(() => {
     const onKey = (event) => {
       const modifier = event.metaKey || event.ctrlKey;
-      if (modifier && !event.altKey && !document.querySelector('[role="dialog"],.modal-backdrop')) {
-        const tabIndex = /^[1-9]$/.test(event.key) ? Number(event.key) - 1 : -1;
+      if (
+        modifier &&
+        !event.altKey &&
+        !document.querySelector('[aria-modal="true"],.modal-backdrop')
+      ) {
+        let tabIndex;
+        if (/^[1-9]$/.test(event.key)) {
+          tabIndex = Number(event.key) - 1;
+        } else {
+          tabIndex = -1;
+        }
         if (
           tabIndex >= 0 &&
           openTabs[tabIndex] &&
@@ -751,14 +1263,10 @@ export default function App() {
           openPaper(openTabs[tabIndex]);
           return;
         }
-        if (
-          ['+', '=', '-', '_', '0'].includes(event.key) ||
-          ['NumpadAdd', 'NumpadSubtract'].includes(event.code)
-        ) {
+        const direction = zoomShortcut(event);
+        if (direction !== null) {
           event.preventDefault();
-          if (event.key === '0') changeZoom(0);
-          else
-            changeZoom(['-', '_'].includes(event.key) || event.code === 'NumpadSubtract' ? -1 : 1);
+          changeZoom(direction);
           return;
         }
       }
@@ -776,7 +1284,9 @@ export default function App() {
         setShortcutsOpen(false);
         setAnnotationDraft(null);
         setPaperSearchOpen(false);
-        if (!importBusy) setAddPaperOpen(false);
+        if (!importBusy) {
+          setAddPaperOpen(false);
+        }
       }
       if (
         event.metaKey ||
@@ -784,8 +1294,9 @@ export default function App() {
         event.altKey ||
         event.target.closest?.('input,textarea,select,[contenteditable="true"]') ||
         document.querySelector('.modal-backdrop,[role="dialog"]')
-      )
+      ) {
         return;
+      }
       const actions = {
         j: () => goToPage(page + 1),
         k: () => goToPage(page - 1),
@@ -805,14 +1316,26 @@ export default function App() {
         actions[event.key]();
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [importBusy, page, pages, pdf, selection, docId, openTabs]);
+  useEffect(() => {
+    return window.paperlensDesktop?.onReaderZoom?.((direction) => {
+      if (
+        [-1, 0, 1].includes(direction) &&
+        !document.querySelector('.modal-backdrop,[aria-modal="true"]')
+      ) {
+        changeZoom(direction);
+      }
+    });
+  }, [changeZoom]);
   // Projects and linked computer folders
   const createProject = (event) => {
     event.preventDefault();
     const name = projectName.trim();
-    if (!name) return;
+    if (!name) {
+      return;
+    }
     const project = { id: uid(), name, paperIds: [], notes: '', entries: [] };
     setProjects((current) => [project, ...current]);
     setProjectId(project.id);
@@ -824,13 +1347,19 @@ export default function App() {
     setProjects((current) =>
       current.map((project) => {
         const paperIds = project.paperIds || [];
-        if (project.id === targetProjectId)
+        if (project.id === targetProjectId) {
+          const getPaperIds = () => {
+            if (paperIds.includes(paperId)) {
+              return paperIds.filter((id) => id !== paperId);
+            }
+            return [...paperIds, paperId];
+          };
+
           return {
             ...project,
-            paperIds: paperIds.includes(paperId)
-              ? paperIds.filter((id) => id !== paperId)
-              : [...paperIds, paperId],
+            paperIds: getPaperIds(),
           };
+        }
         return { ...project, paperIds: paperIds.filter((id) => id !== paperId) };
       }),
     );
@@ -838,24 +1367,38 @@ export default function App() {
     setProjects((current) =>
       current.map((project) => {
         const paperIds = (project.paperIds || []).filter((id) => id !== paperId);
-        return project.id === targetProjectId
-          ? { ...project, paperIds: [...paperIds, paperId] }
-          : { ...project, paperIds };
+        if (project.id === targetProjectId) {
+          return { ...project, paperIds: [...paperIds, paperId] };
+        } else {
+          return { ...project, paperIds };
+        }
       }),
     );
   const toggleTreeFolder = (folderId) =>
     setTreeFolders((current) => ({ ...current, [folderId]: current[folderId] === false }));
   const syncComputerFolder = async (scan) => {
-    if (!scan?.folder) return;
-    setFolderSources((current) =>
-      current.some((folder) => folder.id === scan.folder.id)
-        ? current.map((folder) => (folder.id === scan.folder.id ? scan.folder : folder))
-        : [...current, scan.folder],
-    );
+    if (!scan?.folder) {
+      return;
+    }
+    setFolderSources((current) => {
+      if (current.some((folder) => folder.id === scan.folder.id)) {
+        return current.map((folder) => {
+          if (folder.id === scan.folder.id) {
+            return scan.folder;
+          } else {
+            return folder;
+          }
+        });
+      } else {
+        return [...current, scan.folder];
+      }
+    });
     const updates = [];
     for (const file of scan.files || []) {
       const old = libraryDocsRef.current.find((doc) => doc.id === file.id);
-      if (old?.sourceModifiedAt === file.modifiedAt) continue;
+      if (old?.sourceModifiedAt === file.modifiedAt) {
+        continue;
+      }
       const bytes = await window.paperlensDesktop.readLibraryPdf(file.id);
       const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
       await savePdf(file.id, blob);
@@ -885,18 +1428,23 @@ export default function App() {
         ...updateById.values(),
         ...current.filter((doc) => !updateById.has(doc.id)),
       ]);
-      if (updates.some((doc) => doc.id === currentDocId.current))
+      if (updates.some((doc) => doc.id === currentDocId.current)) {
         setPdfRevision((value) => value + 1);
+      }
     }
   };
   const addComputerFolder = async () => {
-    if (!window.paperlensDesktop?.chooseLibraryFolder || folderSyncLock.current) return;
+    if (!window.paperlensDesktop?.chooseLibraryFolder || folderSyncLock.current) {
+      return;
+    }
     folderSyncLock.current = true;
     setFolderSyncBusy(true);
     setFolderSyncError('');
     try {
       const scan = await window.paperlensDesktop.chooseLibraryFolder();
-      if (scan) await syncComputerFolder(scan);
+      if (scan) {
+        await syncComputerFolder(scan);
+      }
     } catch (error) {
       setFolderSyncError(error.message || 'Could not add this folder.');
     } finally {
@@ -905,7 +1453,9 @@ export default function App() {
     }
   };
   const refreshComputerFolder = async (folderId) => {
-    if (!window.paperlensDesktop?.scanLibraryFolder || folderSyncLock.current) return;
+    if (!window.paperlensDesktop?.scanLibraryFolder || folderSyncLock.current) {
+      return;
+    }
     folderSyncLock.current = true;
     setFolderSyncBusy(true);
     setFolderSyncError('');
@@ -919,24 +1469,36 @@ export default function App() {
     }
   };
   useEffect(() => {
-    if (!window.paperlensDesktop?.scanLibraryFolders) return undefined;
+    if (!window.paperlensDesktop?.scanLibraryFolders) {
+      return undefined;
+    }
     let mounted = true;
     const refresh = async () => {
-      if (folderSyncLock.current) return;
+      if (folderSyncLock.current) {
+        return;
+      }
       folderSyncLock.current = true;
       setFolderSyncBusy(true);
       try {
         const scans = await window.paperlensDesktop.scanLibraryFolders();
         for (const scan of scans) {
-          if (!mounted) return;
+          if (!mounted) {
+            return;
+          }
           await syncComputerFolder(scan);
         }
-        if (mounted) setFolderSyncError('');
+        if (mounted) {
+          setFolderSyncError('');
+        }
       } catch (error) {
-        if (mounted) setFolderSyncError(error.message || 'Could not refresh computer folders.');
+        if (mounted) {
+          setFolderSyncError(error.message || 'Could not refresh computer folders.');
+        }
       } finally {
         folderSyncLock.current = false;
-        if (mounted) setFolderSyncBusy(false);
+        if (mounted) {
+          setFolderSyncBusy(false);
+        }
       }
     };
     refresh();
@@ -951,17 +1513,19 @@ export default function App() {
       await window.paperlensDesktop.removeLibraryFolder(folderId);
       setFolderSources((current) => current.filter((folder) => folder.id !== folderId));
       setDocs((current) =>
-        current.map((doc) =>
-          doc.sourceFolderId === folderId
-            ? (({
-                sourceFolderId,
-                sourceFolderName,
-                sourceRelativePath,
-                sourceModifiedAt,
-                ...rest
-              }) => rest)(doc)
-            : doc,
-        ),
+        current.map((doc) => {
+          if (doc.sourceFolderId === folderId) {
+            return (({
+              sourceFolderId,
+              sourceFolderName,
+              sourceRelativePath,
+              sourceModifiedAt,
+              ...rest
+            }) => rest)(doc);
+          } else {
+            return doc;
+          }
+        }),
       );
     } catch (error) {
       setFolderSyncError(error.message || 'Could not remove this folder link.');
@@ -969,7 +1533,13 @@ export default function App() {
   };
   const updateProjectNotes = (targetProjectId, notes) =>
     setProjects((current) =>
-      current.map((project) => (project.id === targetProjectId ? { ...project, notes } : project)),
+      current.map((project) => {
+        if (project.id === targetProjectId) {
+          return { ...project, notes };
+        } else {
+          return project;
+        }
+      }),
     );
   const saveAnswerToNotes = async (message, thread) => {
     const targetId = noteProjectByMessage[message.id] || projectId;
@@ -979,8 +1549,9 @@ export default function App() {
       projects
         .find((project) => project.id === targetId)
         ?.entries?.some((entry) => entry.messageId === message.id)
-    )
+    ) {
       return;
+    }
     const index = thread.messages.findIndex((item) => item.id === message.id);
     const question =
       thread.messages
@@ -1003,8 +1574,9 @@ export default function App() {
         }),
       });
       const result = await response.json();
-      if (!response.ok || !result.summary)
+      if (!response.ok || !result.summary) {
         throw new Error(result.error || 'Could not shorten the answer.');
+      }
       const entry = {
         id: uid(),
         messageId: message.id,
@@ -1015,18 +1587,20 @@ export default function App() {
         savedAt: Date.now(),
       };
       setProjects((current) =>
-        current.map((project) =>
-          project.id === targetId
-            ? {
-                ...project,
-                paperIds: [...new Set([...(project.paperIds || []), thread.docId])],
-                entries: [...(project.entries || []), entry],
-              }
-            : {
-                ...project,
-                paperIds: (project.paperIds || []).filter((id) => id !== thread.docId),
-              },
-        ),
+        current.map((project) => {
+          if (project.id === targetId) {
+            return {
+              ...project,
+              paperIds: [...new Set([...(project.paperIds || []), thread.docId])],
+              entries: [...(project.entries || []), entry],
+            };
+          } else {
+            return {
+              ...project,
+              paperIds: (project.paperIds || []).filter((id) => id !== thread.docId),
+            };
+          }
+        }),
       );
       setProjectId(targetId);
       setSidebarSections((current) => ({
@@ -1042,7 +1616,9 @@ export default function App() {
         [message.id]: error.message || 'Could not save this note.',
       }));
     } finally {
-      if (freeOnlyMode) refreshFreeUsage();
+      if (freeOnlyMode) {
+        refreshFreeUsage();
+      }
       setNoteSaving((current) => ({ ...current, [message.id]: false }));
     }
   };
@@ -1051,7 +1627,9 @@ export default function App() {
     downloadBlob(blob, 'README.md');
   };
   const shareProject = async () => {
-    if (!activeProject || backupBusy) return;
+    if (!activeProject || backupBusy) {
+      return;
+    }
     setBackupBusy(true);
     setBackupError('');
     try {
@@ -1060,15 +1638,21 @@ export default function App() {
       const projectDocs = docs.filter((doc) => ids.has(doc.id));
       const papers = [];
       for (const doc of projectDocs) {
-        let blob =
-          doc.id === SAMPLE.id
-            ? await fetch('/sample-paper.pdf').then((response) => response.blob())
-            : await getPdf(doc.id);
+        let blob;
+        if (doc.id === SAMPLE.id) {
+          blob = await fetch('/sample-paper.pdf').then((response) => response.blob());
+        } else {
+          blob = await getPdf(doc.id);
+        }
         if (!blob && doc.id === GUIDE_PAPER.id) {
           const response = await fetch('/scaling-inherently-interpretable-language-models.pdf');
-          if (response.ok) blob = await response.blob();
+          if (response.ok) {
+            blob = await response.blob();
+          }
         }
-        if (!blob) throw new Error(`The saved document for ${doc.name} is missing.`);
+        if (!blob) {
+          throw new Error(`The saved document for ${doc.name} is missing.`);
+        }
         papers.push({ id: doc.id, blob });
       }
       const sharedProject = {
@@ -1093,10 +1677,30 @@ export default function App() {
 
   // Document tabs and imports
   const openPaper = (id) => {
-    setOpenTabs((current) => (current.includes(id) ? current : [...current, id]));
-    if (id === docId) return;
+    const getActiveThreadProjectIdProjectsFind = () => {
+      if (
+        activeThread?.projectId &&
+        projects.find((project) => project.id === activeThread.projectId)?.paperIds?.includes(id)
+      ) {
+        return activeThread.id;
+      }
+      return saved.threadId || null;
+    };
+
+    setOpenTabs((current) => {
+      if (current.includes(id)) {
+        return current;
+      } else {
+        return [...current, id];
+      }
+    });
+    if (id === docId) {
+      return;
+    }
     const position = captureReadingPosition(readerRef.current);
-    if (position) readingState.current[docId] = { ...readingState.current[docId], position };
+    if (position) {
+      readingState.current[docId] = { ...readingState.current[docId], position };
+    }
     readingState.current[docId] = {
       ...readingState.current[docId],
       page,
@@ -1115,12 +1719,7 @@ export default function App() {
     setDocId(id);
     setPage(saved.position?.page || saved.page || 1);
     setZoom(saved.zoom || 1);
-    setThreadId(
-      activeThread?.projectId &&
-        projects.find((project) => project.id === activeThread.projectId)?.paperIds?.includes(id)
-        ? activeThread.id
-        : saved.threadId || null,
-    );
+    setThreadId(getActiveThreadProjectIdProjectsFind());
     setComposer(saved.composer || '');
     setMode(saved.mode || 'explain');
     setNavigationTarget({
@@ -1138,15 +1737,17 @@ export default function App() {
     setSelection(null);
     setMenuOpen(false);
     setPaperSearchOpen(false);
-    if (readerRef.current) readerRef.current.scrollTop = 0;
+    if (readerRef.current) {
+      readerRef.current.scrollTop = 0;
+    }
   };
 
   const closeTab = (id) => {
     const remaining = openTabs.filter((tab) => tab !== id);
     if (docId === id) {
-      if (remaining.length)
+      if (remaining.length) {
         openPaper(remaining[Math.min(openTabs.indexOf(id), remaining.length - 1)]);
-      else {
+      } else {
         currentDocId.current = '';
         setDocId('');
         setPdf(null);
@@ -1183,11 +1784,15 @@ export default function App() {
   };
 
   const reorderTab = (source, target) => {
-    if (!source || source === target) return;
+    if (!source || source === target) {
+      return;
+    }
     setOpenTabs((current) => {
       const from = current.indexOf(source),
         to = current.indexOf(target);
-      if (from < 0 || to < 0) return current;
+      if (from < 0 || to < 0) {
+        return current;
+      }
       const next = [...current];
       next.splice(from, 1);
       next.splice(to, 0, source);
@@ -1197,7 +1802,9 @@ export default function App() {
 
   const importPaper = async (event) => {
     event.preventDefault();
-    if (!arxivInput.trim() || importBusy) return;
+    if (!arxivInput.trim() || importBusy) {
+      return;
+    }
     setImportBusy(true);
     setImportError('');
     try {
@@ -1208,7 +1815,9 @@ export default function App() {
           body: JSON.stringify({ url: arxivInput.trim() }),
         });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Could not import this article.');
+        if (!response.ok) {
+          throw new Error(data.error || 'Could not import this article.');
+        }
         const doc = data.document;
         await savePdf(doc.id, articleBlob(data.article));
         paperTextCache.current.delete(doc.id);
@@ -1217,8 +1826,12 @@ export default function App() {
           { ...doc, status: current.find((item) => item.id === doc.id)?.status || doc.status },
           ...current.filter((item) => item.id !== doc.id),
         ]);
-        if (projectId) movePaperToFolder(doc.id, projectId);
-        if (doc.id === docId) setPdfRevision((revision) => revision + 1);
+        if (projectId) {
+          movePaperToFolder(doc.id, projectId);
+        }
+        if (doc.id === docId) {
+          setPdfRevision((revision) => revision + 1);
+        }
         openPaper(doc.id);
         setLibraryKind('all');
         setLibraryStatus('all');
@@ -1231,20 +1844,23 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: arxivInput.trim() }),
       });
-      if (!response.ok)
+      if (!response.ok) {
         throw new Error((await response.json()).error || 'Could not import this paper.');
+      }
       const paper = JSON.parse(decodeURIComponent(response.headers.get('X-Paper-Metadata')));
-      if (response.headers.get('X-PaperLens-PDF') !== 'PPL1')
+      if (response.headers.get('X-PaperLens-PDF') !== 'PPL1') {
         throw new Error(
           'The local app returned an unsupported PDF response. Restart PaperReader and try again.',
         );
+      }
       const bytes = new Uint8Array(await response.arrayBuffer());
       if (
         bytes.length < 9 ||
         String.fromCharCode(...bytes.subarray(0, 4)) !== 'PPL1' ||
         String.fromCharCode(...bytes.subarray(4, 9)) !== '%PDF-'
-      )
+      ) {
         throw new Error('The downloaded paper is not a readable PDF.');
+      }
       const blob = new Blob([bytes.subarray(4)], { type: 'application/pdf' });
       await savePdf(paper.id, blob);
       paper.kind = 'paper';
@@ -1252,8 +1868,12 @@ export default function App() {
       paper.status = docs.find((doc) => doc.id === paper.id)?.status || 'unread';
       paperTextCache.current.delete(paper.id);
       setDocs((current) => [paper, ...current.filter((doc) => doc.id !== paper.id)]);
-      if (projectId) movePaperToFolder(paper.id, projectId);
-      if (paper.id === docId) setPdfRevision((revision) => revision + 1);
+      if (projectId) {
+        movePaperToFolder(paper.id, projectId);
+      }
+      if (paper.id === docId) {
+        setPdfRevision((revision) => revision + 1);
+      }
       openPaper(paper.id);
       setAddPaperOpen(false);
       setArxivInput('');
@@ -1267,7 +1887,9 @@ export default function App() {
   const importWebpageFile = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file || importBusy) return;
+    if (!file || importBusy) {
+      return;
+    }
     if (file.size > 5_000_000) {
       setImportError('Saved HTML files must be smaller than 5 MB.');
       return;
@@ -1275,17 +1897,26 @@ export default function App() {
     setImportBusy(true);
     setImportError('');
     try {
+      const getUrl = () => {
+        if (/^https?:\/\//i.test(arxivInput.trim())) {
+          return arxivInput.trim();
+        }
+        return '';
+      };
+
       const response = await fetch('/api/articles/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           html: await file.text(),
           filename: file.name,
-          url: /^https?:\/\//i.test(arxivInput.trim()) ? arxivInput.trim() : '',
+          url: getUrl(),
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Could not load this saved webpage.');
+      if (!response.ok) {
+        throw new Error(data.error || 'Could not load this saved webpage.');
+      }
       await savePdf(data.document.id, articleBlob(data.article));
       paperTextCache.current.delete(data.document.id);
       paperRefsCache.current.delete(data.document.id);
@@ -1293,8 +1924,12 @@ export default function App() {
         data.document,
         ...current.filter((doc) => doc.id !== data.document.id),
       ]);
-      if (projectId) movePaperToFolder(data.document.id, projectId);
-      if (data.document.id === docId) setPdfRevision((value) => value + 1);
+      if (projectId) {
+        movePaperToFolder(data.document.id, projectId);
+      }
+      if (data.document.id === docId) {
+        setPdfRevision((value) => value + 1);
+      }
       openPaper(data.document.id);
       setLibraryKind('all');
       setLibraryStatus('all');
@@ -1311,7 +1946,9 @@ export default function App() {
     const files = [...(event.target.files || [])].filter(
       (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'),
     );
-    if (!files.length) return;
+    if (!files.length) {
+      return;
+    }
     const next = [];
     try {
       for (const file of files) {
@@ -1333,7 +1970,9 @@ export default function App() {
       return;
     }
     setDocs((current) => [...next, ...current]);
-    if (projectId) next.forEach((doc) => movePaperToFolder(doc.id, projectId));
+    if (projectId) {
+      next.forEach((doc) => movePaperToFolder(doc.id, projectId));
+    }
     setOpenTabs((current) => [...new Set([...current, ...next.map((doc) => doc.id)])]);
     openPaper(next[0].id);
     setAddPaperOpen(false);
@@ -1342,7 +1981,9 @@ export default function App() {
 
   // Passage selection and image attachments
   const captureSelection = useCallback(() => {
-    if (regionMode) return;
+    if (regionMode) {
+      return;
+    }
     const selected = window.getSelection();
     const text = selected?.toString().replace(/\s+/g, ' ').trim();
     if (
@@ -1362,32 +2003,37 @@ export default function App() {
     const pageElement = start.parentElement?.closest('[data-pdf-page]');
     const sourcePage = Number(pageElement?.dataset.pdfPage) || page;
     const startSpan = start.parentElement?.closest('.react-pdf__Page__textContent > span');
-    const anchorSpanIndex =
-      startSpan && pageElement
-        ? [...pageElement.querySelectorAll('.react-pdf__Page__textContent > span')].indexOf(
-            startSpan,
-          )
-        : -1;
+    let anchorSpanIndex;
+    if (startSpan && pageElement) {
+      anchorSpanIndex = [
+        ...pageElement.querySelectorAll('.react-pdf__Page__textContent > span'),
+      ].indexOf(startSpan);
+    } else {
+      anchorSpanIndex = -1;
+    }
     const pdfPage = pageElement?.querySelector('.react-pdf__Page, .article-section-content');
     const box = pdfPage?.getBoundingClientRect();
-    const rects = box
-      ? [...selected.getRangeAt(0).getClientRects()]
-          .filter(
-            (part) =>
-              part.width > 1 &&
-              part.height > 1 &&
-              part.left >= box.left - 2 &&
-              part.right <= box.right + 2 &&
-              part.top >= box.top - 2 &&
-              part.bottom <= box.bottom + 2,
-          )
-          .map((part) => ({
-            x: (part.left - box.left) / box.width,
-            y: (part.top - box.top) / box.height,
-            w: part.width / box.width,
-            h: part.height / box.height,
-          }))
-      : [];
+    let rects;
+    if (box) {
+      rects = [...selected.getRangeAt(0).getClientRects()]
+        .filter(
+          (part) =>
+            part.width > 1 &&
+            part.height > 1 &&
+            part.left >= box.left - 2 &&
+            part.right <= box.right + 2 &&
+            part.top >= box.top - 2 &&
+            part.bottom <= box.bottom + 2,
+        )
+        .map((part) => ({
+          x: (part.left - box.left) / box.width,
+          y: (part.top - box.top) / box.height,
+          w: part.width / box.width,
+          h: part.height / box.height,
+        }));
+    } else {
+      rects = [];
+    }
     setSelection({
       text: text.slice(0, 1800),
       page: sourcePage,
@@ -1400,6 +2046,20 @@ export default function App() {
   }, [page, regionMode]);
 
   const captureAnswerSelection = () => {
+    const getStartNodeTypeNodeELEMENTNODE = () => {
+      if (start.nodeType === Node.ELEMENT_NODE) {
+        return start;
+      }
+      return start.parentElement;
+    };
+
+    const getRectTop = () => {
+      if (rect.top > 52) {
+        return rect.top - 44;
+      }
+      return rect.bottom + 8;
+    };
+
     const selected = window.getSelection();
     const text = selected?.toString().trim();
     if (!text || !selected.rangeCount) {
@@ -1408,9 +2068,7 @@ export default function App() {
     }
     const range = selected.getRangeAt(0);
     const start = range.startContainer;
-    const answer = (start.nodeType === Node.ELEMENT_NODE ? start : start.parentElement)?.closest(
-      '.answer-content',
-    );
+    const answer = getStartNodeTypeNodeELEMENTNODE()?.closest('.answer-content');
     if (
       !answer ||
       !conversationRef.current?.contains(answer) ||
@@ -1429,20 +2087,27 @@ export default function App() {
     setAnswerSelection({
       text,
       x: Math.max(8, Math.min(rect.left, window.innerWidth - 142)),
-      y: Math.max(
-        8,
-        Math.min(rect.top > 52 ? rect.top - 44 : rect.bottom + 8, window.innerHeight - 48),
-      ),
+      y: Math.max(8, Math.min(getRectTop(), window.innerHeight - 48)),
     });
   };
   const addAnswerToChat = () => {
-    if (!answerSelection) return;
+    if (!answerSelection) {
+      return;
+    }
     const quote = answerSelection.text
       .replace(/\r\n/g, '\n')
       .split('\n')
       .map((line) => `> ${line}`)
       .join('\n');
-    setComposer((current) => `${current.trimEnd()}${current.trim() ? '\n\n' : ''}${quote}\n\n`);
+    setComposer((current) => {
+      const getCurrentTrim = () => {
+        if (current.trim()) {
+          return '\n\n';
+        }
+        return '';
+      };
+      return `${current.trimEnd()}${getCurrentTrim()}${quote}\n\n`;
+    });
     setAnswerSelection(null);
     window.getSelection()?.removeAllRanges();
     requestAnimationFrame(() => {
@@ -1453,11 +2118,15 @@ export default function App() {
   };
 
   const startRegion = (event) => {
-    if (!regionMode || event.button !== 0) return;
+    if (!regionMode || event.button !== 0) {
+      return;
+    }
     const frame = event.target.closest?.('.react-pdf__Page');
     const pageBlock = frame?.closest('[data-pdf-page]');
     const bounds = frame?.getBoundingClientRect();
-    if (!frame || !pageBlock || !bounds) return;
+    if (!frame || !pageBlock || !bounds) {
+      return;
+    }
     event.preventDefault();
     window.getSelection()?.removeAllRanges();
     regionStart.current = {
@@ -1470,7 +2139,9 @@ export default function App() {
   };
   const moveRegion = (event) => {
     const start = regionStart.current;
-    if (!start) return;
+    if (!start) {
+      return;
+    }
     const left = Math.min(start.x, event.clientX),
       top = Math.min(start.y, event.clientY);
     setRegionDrag({
@@ -1482,7 +2153,9 @@ export default function App() {
   };
   const finishRegion = (event) => {
     const start = regionStart.current;
-    if (!start) return;
+    if (!start) {
+      return;
+    }
     regionStart.current = null;
     setRegionDrag(null);
     setRegionMode(false);
@@ -1496,7 +2169,9 @@ export default function App() {
       start.bounds.height,
       Math.max(start.y, event.clientY) - start.bounds.top,
     );
-    if (right - x < 8 || bottom - y < 8) return;
+    if (right - x < 8 || bottom - y < 8) {
+      return;
+    }
     setAnnotationDraft({
       docId,
       page: start.page,
@@ -1518,12 +2193,16 @@ export default function App() {
   };
 
   const pageContextFor = async (targetId) => {
-    if (paperTextCache.current.has(targetId)) return paperTextCache.current.get(targetId);
+    if (paperTextCache.current.has(targetId)) {
+      return paperTextCache.current.get(targetId);
+    }
     const extraction = (async () => {
-      let blob =
-        targetId === 'sample'
-          ? await fetch('/sample-paper.pdf').then((response) => response.blob())
-          : await getPdf(targetId);
+      let blob;
+      if (targetId === 'sample') {
+        blob = await fetch('/sample-paper.pdf').then((response) => response.blob());
+      } else {
+        blob = await getPdf(targetId);
+      }
       if (!blob && targetId === GUIDE_PAPER.id) {
         const response = await fetch('/scaling-inherently-interpretable-language-models.pdf');
         if (response.ok) {
@@ -1531,12 +2210,15 @@ export default function App() {
           await savePdf(targetId, blob);
         }
       }
-      if (!blob) throw new Error('A project document is missing from local storage.');
-      if (docs.find((doc) => doc.id === targetId)?.kind === 'article')
+      if (!blob) {
+        throw new Error('A project document is missing from local storage.');
+      }
+      if (docs.find((doc) => doc.id === targetId)?.kind === 'article') {
         return (await readArticle(blob)).sections.map((section) => ({
           page: section.page,
           text: section.text,
         }));
+      }
       const bytes = new Uint8Array(await blob.arrayBuffer());
       const fingerprint = Array.from(
         new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)),
@@ -1544,7 +2226,9 @@ export default function App() {
       ).join('');
       const version = `pdf-text-v1:${pdfjs.version}`;
       const saved = await getPaperText(targetId).catch(() => null);
-      if (saved?.fingerprint === fingerprint && saved.version === version) return saved.pages;
+      if (saved?.fingerprint === fingerprint && saved.version === version) {
+        return saved.pages;
+      }
       // A separate PDF instance lets extraction finish while the reader changes tabs.
       const document = await pdfjs.getDocument({ data: bytes }).promise;
       try {
@@ -1555,7 +2239,15 @@ export default function App() {
           extracted.push({
             page: n,
             text: content.items
-              .map((item) => `${item.str}${item.hasEOL ? '\n' : ' '}`)
+              .map((item) => {
+                const getItemHasEOL = () => {
+                  if (item.hasEOL) {
+                    return '\n';
+                  }
+                  return ' ';
+                };
+                return `${item.str}${getItemHasEOL()}`;
+              })
               .join('')
               .slice(0, 18000),
           });
@@ -1577,21 +2269,28 @@ export default function App() {
   const pageContext = () => pageContextFor(docId);
 
   useEffect(() => {
-    if (!readerReady) return;
+    if (!readerReady) {
+      return;
+    }
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
         const contextPages = await pageContextFor(docId);
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
         const response = await fetch('/api/papers/index', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ docId, contextPages }),
         });
-        if (!response.ok || cancelled) return;
+        if (!response.ok || cancelled) {
+          return;
+        }
         const data = await response.json();
-        if (!cancelled)
+        if (!cancelled) {
           paperRefsCache.current.set(docId, { ref: data.paperRef, pages: contextPages });
+        }
       } catch {
         /* A question can retry preparation; background caching must not interrupt reading. */
       }
@@ -1604,16 +2303,21 @@ export default function App() {
 
   const addImages = (files) => {
     const candidates = [...files].filter((file) => file.type.startsWith('image/'));
-    if (!candidates.length) return;
+    if (!candidates.length) {
+      return;
+    }
     const accepted = candidates.filter(
       (file) =>
         ['image/png', 'image/jpeg', 'image/webp'].includes(file.type) && file.size <= 3_000_000,
     );
-    if (accepted.length !== candidates.length)
+    if (accepted.length !== candidates.length) {
       setAttachmentError('Use PNG, JPEG, or WebP images smaller than 3 MB each.');
-    else setAttachmentError('');
-    if (accepted.length > Math.max(0, 3 - attachments.length))
+    } else {
+      setAttachmentError('');
+    }
+    if (accepted.length > Math.max(0, 3 - attachments.length)) {
       setAttachmentError('Attach up to three images per question.');
+    }
     setAttachments((current) => {
       const room = Math.max(0, 3 - current.length);
       return [
@@ -1627,22 +2331,37 @@ export default function App() {
   const removeAttachment = (id) =>
     setAttachments((current) => {
       const removed = current.find((item) => item.id === id);
-      if (removed) URL.revokeObjectURL(removed.url);
+      if (removed) {
+        URL.revokeObjectURL(removed.url);
+      }
       return current.filter((item) => item.id !== id);
     });
   const pasteImage = (event) => {
     const files = [...(event.clipboardData?.files || [])].filter((file) =>
       file.type.startsWith('image/'),
     );
-    if (!files.length) return;
+    if (!files.length) {
+      return;
+    }
     event.preventDefault();
     addImages(files);
     const text = event.clipboardData.getData('text/plain');
-    if (text)
-      setComposer((current) => `${current}${current && !current.endsWith(' ') ? ' ' : ''}${text}`);
+    if (text) {
+      setComposer((current) => {
+        const getCurrentCurrentEndsWith = () => {
+          if (current && !current.endsWith(' ')) {
+            return ' ';
+          }
+          return '';
+        };
+        return `${current}${getCurrentCurrentEndsWith()}${text}`;
+      });
+    }
   };
   const attachCurrentPage = async () => {
-    if (!pdf || pageImageBusy) return;
+    if (!pdf || pageImageBusy) {
+      return;
+    }
     setPageImageBusy(true);
     setAttachmentError('');
     try {
@@ -1656,7 +2375,9 @@ export default function App() {
       canvas.height = Math.ceil(viewport.height);
       await source.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-      if (!blob) throw new Error('Could not capture this page.');
+      if (!blob) {
+        throw new Error('Could not capture this page.');
+      }
       addImages([new File([blob], `paper-page-${page}.png`, { type: 'image/png' })]);
     } catch (error) {
       setAttachmentError(error.message || 'Could not attach this PDF page.');
@@ -1673,20 +2394,33 @@ export default function App() {
     existingThread = activeThread,
     imageAttachments = attachments,
   } = {}) => {
-    if (existingThread?.busy) return;
+    const getImageAttachments = () => {
+      if (imageAttachments.length) {
+        return 'Explain this image in the context of the paper.';
+      }
+      return '';
+    };
+
+    if (existingThread?.busy) {
+      return;
+    }
     const selectedText = anchor?.text || existingThread?.selection || '';
     const anchorPage = anchor?.page || existingThread?.page || page;
-    const prompt =
-      question.trim() ||
-      (imageAttachments.length ? 'Explain this image in the context of the paper.' : '');
+    const prompt = question.trim() || getImageAttachments();
     if (!prompt) {
       textareaRef.current?.focus();
       return;
     }
     const id = existingThread?.id || uid();
-    const scopeProject = projects.find(
-      (project) => project.id === (existingThread?.projectId || (askProject ? projectId : '')),
-    );
+    const scopeProject = projects.find((project) => {
+      const getAskProject = () => {
+        if (askProject) {
+          return projectId;
+        }
+        return '';
+      };
+      return project.id === (existingThread?.projectId || getAskProject());
+    });
     const previous = existingThread?.messages || [];
     const turn = {
       id: uid(),
@@ -1695,8 +2429,13 @@ export default function App() {
       imageIds: imageAttachments.map((item) => item.id),
       at: Date.now(),
     };
-    const title = selectedText ? ellipsis(selectedText, 45) : ellipsis(prompt, 45);
-    if (!existingThread)
+    let title;
+    if (selectedText) {
+      title = ellipsis(selectedText, 45);
+    } else {
+      title = ellipsis(prompt, 45);
+    }
+    if (!existingThread) {
       setThreads((current) => [
         {
           id,
@@ -1714,20 +2453,23 @@ export default function App() {
         },
         ...current,
       ]);
-    else
+    } else {
       setThreads((current) =>
-        current.map((t) =>
-          t.id === id
-            ? {
-                ...t,
-                messages: [...t.messages, turn],
-                busy: true,
-                partial: '',
-                stage: 'Preparing paper',
-              }
-            : t,
-        ),
+        current.map((t) => {
+          if (t.id === id) {
+            return {
+              ...t,
+              messages: [...t.messages, turn],
+              busy: true,
+              partial: '',
+              stage: 'Preparing paper',
+            };
+          } else {
+            return t;
+          }
+        }),
       );
+    }
     setThreadId(id);
     setZenMode(false);
     setSidebarOpen(true);
@@ -1737,32 +2479,35 @@ export default function App() {
     setMenuOpen(false);
     setAttachments([]);
     setAttachmentError('');
-    if (imageAttachments.length)
+    if (imageAttachments.length) {
       setImageUrls((current) => ({
         ...current,
         ...Object.fromEntries(imageAttachments.map((item) => [item.id, item.url])),
       }));
+    }
     window.getSelection()?.removeAllRanges();
     if (!hasKey) {
       openSettings('providers');
       setThreads((current) =>
-        current.map((t) =>
-          t.id === id
-            ? {
-                ...t,
-                busy: false,
-                messages: [
-                  ...t.messages,
-                  {
-                    id: uid(),
-                    role: 'error',
-                    content:
-                      'Configure an API key in Settings or in the server .env file, then ask again.',
-                  },
-                ],
-              }
-            : t,
-        ),
+        current.map((t) => {
+          if (t.id === id) {
+            return {
+              ...t,
+              busy: false,
+              messages: [
+                ...t.messages,
+                {
+                  id: uid(),
+                  role: 'error',
+                  content:
+                    'Configure an API key in Settings or in the server .env file, then ask again.',
+                },
+              ],
+            };
+          } else {
+            return t;
+          }
+        }),
       );
       return;
     }
@@ -1773,35 +2518,51 @@ export default function App() {
     try {
       const clientStarted = performance.now();
       const imagePreparationStarted = performance.now();
-      for (const item of imageAttachments) await saveImage(item.id, item.blob);
-      const imageIds = imageAttachments.length
-        ? imageAttachments.map((item) => item.id)
-        : [...previous].reverse().find((message) => message.imageIds?.length)?.imageIds || [];
+      for (const item of imageAttachments) {
+        await saveImage(item.id, item.blob);
+      }
+      let imageIds;
+      if (imageAttachments.length) {
+        imageIds = imageAttachments.map((item) => item.id);
+      } else {
+        imageIds =
+          [...previous].reverse().find((message) => message.imageIds?.length)?.imageIds || [];
+      }
       const images = await Promise.all(
         imageIds.map(async (imageId) => {
           const blob =
             imageAttachments.find((item) => item.id === imageId)?.blob || (await getImage(imageId));
-          if (!blob)
+          if (!blob) {
             throw new Error(
               'The image from this doubt is no longer available. Please attach it again.',
             );
+          }
           return imageDataUrl(blob);
         }),
       );
       const imagePreparationMs = Math.round(performance.now() - imagePreparationStarted);
       const pdfPreparationStarted = performance.now();
-      const projectPapers = scopeProject
-        ? await Promise.all(
-            (scopeProject.paperIds || []).map(async (paperId) => ({
-              docId: paperId,
-              title: docs.find((doc) => doc.id === paperId)?.name || 'Document',
-              contextPages: await pageContextFor(paperId),
-            })),
-          )
-        : null;
-      if (scopeProject && !projectPapers.length)
+      let projectPapers;
+      if (scopeProject) {
+        projectPapers = await Promise.all(
+          (scopeProject.paperIds || []).map(async (paperId) => ({
+            docId: paperId,
+            title: docs.find((doc) => doc.id === paperId)?.name || 'Document',
+            contextPages: await pageContextFor(paperId),
+          })),
+        );
+      } else {
+        projectPapers = null;
+      }
+      if (scopeProject && !projectPapers.length) {
         throw new Error('Add papers to this project before asking across it.');
-      const contextPages = scopeProject ? [] : await pageContext();
+      }
+      let contextPages;
+      if (scopeProject) {
+        contextPages = [];
+      } else {
+        contextPages = await pageContext();
+      }
       const pdfPreparationMs = Math.round(performance.now() - pdfPreparationStarted);
       const requestStarted = performance.now();
       controller.signal.throwIfAborted();
@@ -1832,19 +2593,31 @@ export default function App() {
         {
           signal: controller.signal,
           onEvent: (event) => {
-            if (event.type === 'reset') partial = '';
-            if (event.type === 'token') partial += event.token;
+            if (event.type === 'reset') {
+              partial = '';
+            }
+            if (event.type === 'token') {
+              partial += event.token;
+            }
             const now = performance.now();
             if (event.type !== 'token' || now - lastPaint > 50) {
               lastPaint = now;
               const content = partial;
-              setStreamViews((current) => ({
-                ...current,
-                [id]: {
-                  partial: content,
-                  stage: event.type === 'stage' ? event.stage : current[id]?.stage,
-                },
-              }));
+              setStreamViews((current) => {
+                const getStage = () => {
+                  if (event.type === 'stage') {
+                    return event.stage;
+                  }
+                  return current[id]?.stage;
+                };
+                return {
+                  ...current,
+                  [id]: {
+                    partial: content,
+                    stage: getStage(),
+                  },
+                };
+              });
             }
           },
         },
@@ -1860,68 +2633,83 @@ export default function App() {
         },
       };
       setThreads((current) =>
-        current.map((t) =>
-          t.id === id
-            ? {
-                ...t,
-                busy: false,
-                partial: '',
-                stage: '',
-                messages: [
-                  ...t.messages,
-                  {
-                    id: uid(),
-                    role: 'assistant',
-                    content: data.answer,
-                    agents: data.agents,
-                    sources: data.sources,
-                    evidence: data.evidence,
-                    paperPages: data.paperPages,
-                    plan: data.plan,
-                    retrieval: data.retrieval,
-                    timings,
-                    model: data.model,
-                    provider: data.provider,
-                    modelName: data.modelName,
-                    freeOnly: data.freeOnly,
-                    modelSwitch: data.modelSwitch,
-                    at: Date.now(),
-                  },
-                ],
-              }
-            : t,
-        ),
+        current.map((t) => {
+          if (t.id === id) {
+            return {
+              ...t,
+              busy: false,
+              partial: '',
+              stage: '',
+              messages: [
+                ...t.messages,
+                {
+                  id: uid(),
+                  role: 'assistant',
+                  content: data.answer,
+                  agents: data.agents,
+                  sources: data.sources,
+                  evidence: data.evidence,
+                  paperPages: data.paperPages,
+                  plan: data.plan,
+                  retrieval: data.retrieval,
+                  timings,
+                  model: data.model,
+                  provider: data.provider,
+                  modelName: data.modelName,
+                  freeOnly: data.freeOnly,
+                  modelSwitch: data.modelSwitch,
+                  at: Date.now(),
+                },
+              ],
+            };
+          } else {
+            return t;
+          }
+        }),
       );
     } catch (error) {
       setThreads((current) =>
-        current.map((t) =>
-          t.id === id
-            ? {
-                ...t,
-                busy: false,
-                partial: '',
-                stage: '',
-                messages: [
-                  ...t.messages,
-                  ...(controller.signal.aborted && partial
-                    ? [
-                        {
-                          id: uid(),
-                          role: 'assistant',
-                          content: `${partial}\n\n*Stopped — incomplete answer; source references have not been checked.*`,
-                          at: Date.now(),
-                        },
-                      ]
-                    : []),
+        current.map((t) => {
+          if (t.id === id) {
+            const getControllerSignalAbortedPartial = () => {
+              if (controller.signal.aborted && partial) {
+                return [
                   {
                     id: uid(),
-                    role: 'error',
-                    content: controller.signal.aborted ? 'Stopped.' : error.message,
+                    role: 'assistant',
+                    content: `${partial}\n\n*Stopped — incomplete answer; source references have not been checked.*`,
+                    at: Date.now(),
                   },
-                ],
+                ];
               }
-            : t,
-        ),
+              return [];
+            };
+            const getContent = () => {
+              if (controller.signal.aborted) {
+                return 'Stopped.';
+              }
+              return error.message;
+            };
+
+            return {
+              ...t,
+              busy: false,
+              partial: '',
+              stage: '',
+              messages: [
+                ...t.messages,
+                ...getControllerSignalAbortedPartial(),
+                {
+                  id: uid(),
+                  role: 'error',
+                  content: getContent(),
+                },
+              ],
+            };
+          } else {
+            return t;
+          }
+        }),
       );
     } finally {
       askControllers.current.delete(id);
@@ -1930,7 +2718,9 @@ export default function App() {
         delete next[id];
         return next;
       });
-      if (freeOnlyMode) refreshFreeUsage();
+      if (freeOnlyMode) {
+        refreshFreeUsage();
+      }
     }
   };
 
@@ -1987,7 +2777,9 @@ export default function App() {
     const imageIds = new Set(ids);
     for (const imageId of imageIds) {
       deleteImage(imageId).catch(() => {});
-      if (imageUrls[imageId]) URL.revokeObjectURL(imageUrls[imageId]);
+      if (imageUrls[imageId]) {
+        URL.revokeObjectURL(imageUrls[imageId]);
+      }
     }
     setImageUrls((current) =>
       Object.fromEntries(Object.entries(current).filter(([id]) => !imageIds.has(id))),
@@ -2008,7 +2800,16 @@ export default function App() {
     }
   };
   const removeDoc = async (id) => {
-    if (id === 'sample') return;
+    const getRemaining = () => {
+      if (remaining.length) {
+        return remaining;
+      }
+      return [SAMPLE.id];
+    };
+
+    if (id === 'sample') {
+      return;
+    }
     threads
       .filter((thread) => thread.docId === id)
       .forEach((thread) => askControllers.current.get(thread.id)?.abort());
@@ -2028,14 +2829,18 @@ export default function App() {
     setThreads((current) => current.filter((thread) => thread.docId !== id));
     setAnnotations((current) => current.filter((item) => item.docId !== id));
     const remaining = openTabs.filter((tab) => tab !== id);
-    if (docId === id) openPaper(remaining[0] || SAMPLE.id);
-    setOpenTabs(remaining.length ? remaining : [SAMPLE.id]);
+    if (docId === id) {
+      openPaper(remaining[0] || SAMPLE.id);
+    }
+    setOpenTabs(getRemaining());
     delete readingState.current[id];
     paperTextCache.current.delete(id);
   };
   // Annotations and linked notes
   const startAnnotation = (kind = 'Highlight', passage = selection) => {
-    if (!passage) return;
+    if (!passage) {
+      return;
+    }
     const selected = passage;
     const clear = () => {
       setSelection(null);
@@ -2083,7 +2888,9 @@ export default function App() {
   };
   const saveAnnotation = (event) => {
     event.preventDefault();
-    if (!annotationDraft?.text.trim()) return;
+    if (!annotationDraft?.text.trim()) {
+      return;
+    }
     const { tagsText, linkToProject, ...draft } = annotationDraft;
     const item = {
       ...draft,
@@ -2100,54 +2907,71 @@ export default function App() {
       item.embedded &&
       (item.text === annotations.find((existing) => existing.id === item.id)?.note ||
         item.text === annotationDraft.kind)
-    )
+    ) {
       item.text = item.note || item.kind;
-    setAnnotations((current) =>
-      annotationDraft.id
-        ? current.map((existing) => (existing.id === item.id ? item : existing))
-        : [...current, item],
-    );
+    }
+    setAnnotations((current) => {
+      if (annotationDraft.id) {
+        return current.map((existing) => {
+          if (existing.id === item.id) {
+            return item;
+          } else {
+            return existing;
+          }
+        });
+      } else {
+        return [...current, item];
+      }
+    });
     setProjects((current) =>
       current.map((project) => ({
         ...project,
-        entries: (project.entries || []).map((entry) =>
-          entry.annotationId === item.id
-            ? {
-                ...entry,
-                question: `${item.kind || 'Highlight'}: ${ellipsis(item.text, 70)}`,
-                summary: annotationSummary(item),
-              }
-            : entry,
-        ),
+        entries: (project.entries || []).map((entry) => {
+          if (entry.annotationId === item.id) {
+            return {
+              ...entry,
+              question: `${item.kind || 'Highlight'}: ${ellipsis(item.text, 70)}`,
+              summary: annotationSummary(item),
+            };
+          } else {
+            return entry;
+          }
+        }),
       })),
     );
-    if (annotationDraft.linkToProject) linkAnnotationToNotes(item);
+    if (annotationDraft.linkToProject) {
+      linkAnnotationToNotes(item);
+    }
     setAnnotationDraft(null);
   };
   const linkAnnotationToNotes = (item) => {
     const targetId = annotationProjectId || projectId;
-    if (!targetId) return;
+    if (!targetId) {
+      return;
+    }
     const summary = annotationSummary(item);
     setProjects((current) =>
-      current.map((project) =>
-        project.id === targetId
-          ? {
-              ...project,
-              paperIds: [...new Set([...(project.paperIds || []), item.docId])],
-              entries: [
-                ...(project.entries || []).filter((entry) => entry.annotationId !== item.id),
-                {
-                  id: uid(),
-                  annotationId: item.id,
-                  paperId: item.docId,
-                  page: item.page,
-                  question: `${item.kind || 'Highlight'}: ${ellipsis(item.text, 70)}`,
-                  summary,
-                },
-              ],
-            }
-          : project,
-      ),
+      current.map((project) => {
+        if (project.id === targetId) {
+          return {
+            ...project,
+            paperIds: [...new Set([...(project.paperIds || []), item.docId])],
+            entries: [
+              ...(project.entries || []).filter((entry) => entry.annotationId !== item.id),
+              {
+                id: uid(),
+                annotationId: item.id,
+                paperId: item.docId,
+                page: item.page,
+                question: `${item.kind || 'Highlight'}: ${ellipsis(item.text, 70)}`,
+                summary,
+              },
+            ],
+          };
+        } else {
+          return project;
+        }
+      }),
     );
   };
   const hideAnnotationPreview = () => {
@@ -2167,20 +2991,24 @@ export default function App() {
     }
     clearTimeout(annotationHoverTimer.current);
     const rect = mark.getBoundingClientRect();
-    setHoveredAnnotation((current) =>
-      current?.item.id === item.id
-        ? current
-        : {
-            item,
-            left: Math.max(12, Math.min(rect.left, window.innerWidth - 312)),
-            top: rect.bottom + 8,
-            above: rect.bottom > window.innerHeight - 260,
-          },
-    );
+    setHoveredAnnotation((current) => {
+      if (current?.item.id === item.id) {
+        return current;
+      } else {
+        return {
+          item,
+          left: Math.max(12, Math.min(rect.left, window.innerWidth - 312)),
+          top: rect.bottom + 8,
+          above: rect.bottom > window.innerHeight - 260,
+        };
+      }
+    });
   };
   const scrollAnnotationHit = useCallback((number) => {
     const pending = pendingAnnotationJump.current;
-    if (!pending || pending.page !== number) return;
+    if (!pending || pending.page !== number) {
+      return;
+    }
     const { id } = pending;
     const root = readerRef.current;
     const hit = [
@@ -2213,13 +3041,17 @@ export default function App() {
     a.click();
   };
   const downloadAnnotatedPdf = async () => {
-    if (!pdf || !pdfFile || pdfExportBusy) return;
+    if (!pdf || !pdfFile || pdfExportBusy) {
+      return;
+    }
     setPdfExportBusy(true);
     setBackupError('');
     try {
       const { createAnnotatedPdf } = await import('./annotatedPdf.js');
       const response = await fetch(pdfFile);
-      if (!response.ok) throw new Error('Could not read the original PDF.');
+      if (!response.ok) {
+        throw new Error('Could not read the original PDF.');
+      }
       const bytes = await createAnnotatedPdf(await response.arrayBuffer(), pdf, docAnnotations);
       downloadBlob(
         new Blob([bytes], { type: 'application/pdf' }),
@@ -2233,28 +3065,37 @@ export default function App() {
   };
   // Library backup and restoration
   const exportLibrary = async () => {
-    if (backupBusy) return;
+    if (backupBusy) {
+      return;
+    }
     setBackupBusy(true);
     setBackupError('');
     try {
       const { BACKUP_KEYS, createLibraryBackup } = await import('./libraryBackup.js');
       const papers = [];
       for (const doc of docs) {
-        let blob =
-          doc.id === SAMPLE.id
-            ? await fetch('/sample-paper.pdf').then((response) => {
-                if (!response.ok) throw new Error(`Could not read ${doc.name}.`);
-                return response.blob();
-              })
-            : await getPdf(doc.id);
+        let blob;
+        if (doc.id === SAMPLE.id) {
+          blob = await fetch('/sample-paper.pdf').then((response) => {
+            if (!response.ok) {
+              throw new Error(`Could not read ${doc.name}.`);
+            }
+            return response.blob();
+          });
+        } else {
+          blob = await getPdf(doc.id);
+        }
         if (!blob && doc.id === GUIDE_PAPER.id) {
           const response = await fetch('/scaling-inherently-interpretable-language-models.pdf');
-          if (response.ok) blob = await response.blob();
+          if (response.ok) {
+            blob = await response.blob();
+          }
         }
-        if (!blob)
+        if (!blob) {
           throw new Error(
             `The saved document for ${doc.name} is missing. Restore it before exporting.`,
           );
+        }
         papers.push({ id: doc.id, blob });
       }
       const state = Object.fromEntries(
@@ -2274,10 +3115,11 @@ export default function App() {
         threads.flatMap((thread) => thread.messages.flatMap((message) => message.imageIds || [])),
       )) {
         const blob = await getImage(id);
-        if (!blob)
+        if (!blob) {
           throw new Error(
             'An image attached to a doubt is missing. Please remove that doubt or restore the image before exporting.',
           );
+        }
         images.push({ id, blob });
       }
       const backup = await createLibraryBackup(state, papers, images);
@@ -2291,7 +3133,9 @@ export default function App() {
   const importLibrary = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file || backupBusy) return;
+    if (!file || backupBusy) {
+      return;
+    }
     setBackupBusy(true);
     setBackupError('');
     try {
@@ -2304,28 +3148,39 @@ export default function App() {
           !window.confirm(
             `Import project “${project.name}” with ${projectBundle.docs.length} papers and ${projectBundle.annotations.length} annotations? Chats and doubts are not included.`,
           )
-        )
+        ) {
           return;
+        }
         const docIds = new Map();
         for (const doc of projectBundle.docs) {
           let id = doc.id;
-          if (docs.some((existing) => existing.id === id)) id = uid();
+          if (docs.some((existing) => existing.id === id)) {
+            id = uid();
+          }
           docIds.set(doc.id, id);
         }
-        for (const paper of projectBundle.papers) await savePdf(docIds.get(paper.id), paper.blob);
+        for (const paper of projectBundle.papers) {
+          await savePdf(docIds.get(paper.id), paper.blob);
+        }
         const importedDocs = projectBundle.docs.map((doc) => ({ ...doc, id: docIds.get(doc.id) }));
         const annotationIds = new Map(projectBundle.annotations.map((item) => [item.id, uid()]));
         const importedProject = {
           ...project,
           id: uid(),
           paperIds: (project.paperIds || []).map((id) => docIds.get(id)).filter(Boolean),
-          entries: (project.entries || []).map((entry) => ({
-            ...entry,
-            paperId: docIds.get(entry.paperId) || entry.paperId,
-            ...(annotationIds.has(entry.annotationId)
-              ? { annotationId: annotationIds.get(entry.annotationId) }
-              : {}),
-          })),
+          entries: (project.entries || []).map((entry) => {
+            const getAnnotationIdsHasEntryAnnotationId = () => {
+              if (annotationIds.has(entry.annotationId)) {
+                return { annotationId: annotationIds.get(entry.annotationId) };
+              }
+              return {};
+            };
+            return {
+              ...entry,
+              paperId: docIds.get(entry.paperId) || entry.paperId,
+              ...getAnnotationIdsHasEntryAnnotationId(),
+            };
+          }),
         };
         const importedAnnotations = projectBundle.annotations.map((item) => ({
           ...item,
@@ -2343,22 +3198,37 @@ export default function App() {
         !window.confirm(
           `Restore this backup? It contains ${backup.counts.papers} papers, ${backup.counts.projects} projects, ${backup.counts.annotations} annotations, and ${backup.counts.doubts} doubts. Your current PaperReader library in this browser will be replaced.`,
         )
-      )
+      ) {
         return;
-      for (const paper of backup.papers)
-        if (paper.id !== SAMPLE.id) await savePdf(paper.id, paper.blob);
-      for (const image of backup.images) await saveImage(image.id, image.blob);
+      }
+      for (const paper of backup.papers) {
+        if (paper.id !== SAMPLE.id) {
+          await savePdf(paper.id, paper.blob);
+        }
+      }
+      for (const image of backup.images) {
+        await saveImage(image.id, image.blob);
+      }
       const incoming = new Set(backup.papers.map((paper) => paper.id));
-      for (const doc of docs)
-        if (!incoming.has(doc.id) && doc.id !== SAMPLE.id) await deletePdf(doc.id);
+      for (const doc of docs) {
+        if (!incoming.has(doc.id) && doc.id !== SAMPLE.id) {
+          await deletePdf(doc.id);
+        }
+      }
       const incomingImages = new Set(backup.images.map((image) => image.id));
       for (const id of new Set(
         threads.flatMap((thread) => thread.messages.flatMap((message) => message.imageIds || [])),
-      ))
-        if (!incomingImages.has(id)) await deleteImage(id);
+      )) {
+        if (!incomingImages.has(id)) {
+          await deleteImage(id);
+        }
+      }
       for (const name of BACKUP_KEYS) {
-        if (backup.state[name]) localStorage.setItem(name, backup.state[name]);
-        else localStorage.removeItem(name);
+        if (backup.state[name]) {
+          localStorage.setItem(name, backup.state[name]);
+        } else {
+          localStorage.removeItem(name);
+        }
       }
       window.location.reload();
     } catch (error) {
@@ -2369,7 +3239,9 @@ export default function App() {
   };
   // Reader navigation, source previews, and search
   const goToPage = (target) => {
-    if (isArticle) setArticleView('reader');
+    if (isArticle) {
+      setArticleView('reader');
+    }
     const number = Math.max(1, Math.min(pdf?.numPages || pages, Number(target) || 1));
     setPage(number);
     setNavigationTarget({ docId, page: number, stamp: Date.now() });
@@ -2377,18 +3249,29 @@ export default function App() {
   const previewPdfReference = useCallback(async ({ dest, pageNumber, anchor }) => {
     const document = pdfHandle.current;
     const sourceId = currentDocId.current;
-    if (!document) return;
+    if (!document) {
+      return;
+    }
     try {
-      const resolved = typeof dest === 'string' ? await document.getDestination(dest) : dest;
+      let resolved;
+      if (typeof dest === 'string') {
+        resolved = await document.getDestination(dest);
+      } else {
+        resolved = dest;
+      }
       const reference = resolved?.[0];
-      const target =
-        pageNumber ||
-        (typeof reference === 'number'
-          ? reference + 1
-          : reference
-            ? (await document.getPageIndex(reference)) + 1
-            : 1);
-      if (document !== pdfHandle.current || (anchor && !anchor.matches(':hover'))) return;
+      let target = pageNumber;
+      if (!target) {
+        target = 1;
+        if (typeof reference === 'number') {
+          target = reference + 1;
+        } else if (reference) {
+          target = (await document.getPageIndex(reference)) + 1;
+        }
+      }
+      if (document !== pdfHandle.current || (anchor && !anchor.matches(':hover'))) {
+        return;
+      }
       setPdfReference({
         pdf: document,
         pageNumber: target,
@@ -2398,7 +3281,9 @@ export default function App() {
         anchor,
       });
     } catch {
-      if (!anchor) setDocError('This PDF reference could not be opened.');
+      if (!anchor) {
+        setDocError('This PDF reference could not be opened.');
+      }
     }
   }, []);
   useEffect(() => {
@@ -2415,7 +3300,9 @@ export default function App() {
   const openEvidenceInPaper = (source) => {
     setArticleView('reader');
     const targetId = source.docId || docId;
-    if (targetId !== docId) openPaper(targetId);
+    if (targetId !== docId) {
+      openPaper(targetId);
+    }
     setPage(source.page);
     setEvidenceFocus({
       docId: targetId,
@@ -2428,25 +3315,35 @@ export default function App() {
   };
 
   const handleReaderScroll = () => {
-    if (!readerReady || originalView || scrollFrame.current) return;
+    if (!readerReady || originalView || scrollFrame.current) {
+      return;
+    }
     scrollFrame.current = requestAnimationFrame(() => {
       scrollFrame.current = null;
       const root = readerRef.current;
-      if (!root) return;
+      if (!root) {
+        return;
+      }
       const line = root.getBoundingClientRect().top + Math.min(180, root.clientHeight * 0.3);
       const blocks = [...root.querySelectorAll('[data-pdf-page]')];
       const active = blocks.find((block) => {
         const bounds = block.getBoundingClientRect();
         return bounds.top <= line && bounds.bottom > line;
       });
-      if (active) setPage(Number(active.dataset.pdfPage));
+      if (active) {
+        setPage(Number(active.dataset.pdfPage));
+      }
       const position = captureReadingPosition(root);
-      if (position) readingState.current[docId] = { ...readingState.current[docId], position };
+      if (position) {
+        readingState.current[docId] = { ...readingState.current[docId], position };
+      }
     });
   };
 
   const scrollSearchHit = (number) => {
-    if (pendingSearchJump.current?.page !== number) return;
+    if (pendingSearchJump.current?.page !== number) {
+      return;
+    }
     const root = readerRef.current;
     const hit = root?.querySelector(`[data-pdf-page="${number}"] .search-hit`);
     if (hit) {
@@ -2469,7 +3366,9 @@ export default function App() {
   );
 
   const goToSearchMatch = (index, matches = searchMatches) => {
-    if (!matches.length) return;
+    if (!matches.length) {
+      return;
+    }
     const next = (index + matches.length) % matches.length;
     setSearchMatchIndex(next);
     pendingSearchJump.current = { page: matches[next].page };
@@ -2478,25 +3377,34 @@ export default function App() {
   };
 
   const searchInPaper = async () => {
-    if (!readerReady || !paperSearch.trim()) return;
+    if (!readerReady || !paperSearch.trim()) {
+      return;
+    }
     const request = ++searchRequest.current;
     setSearchBusy(true);
     setSearchError('');
     try {
       const allPages = await pageContext();
-      if (request !== searchRequest.current || currentDocId.current !== docId) return;
+      if (request !== searchRequest.current || currentDocId.current !== docId) {
+        return;
+      }
       const query = paperSearch.toLowerCase().replace(/\s+/g, ' ').trim();
       const matches = allPages
         .filter((p) => p.text.toLowerCase().replace(/\s+/g, ' ').includes(query))
         .map((p) => ({ page: p.page }));
       setSearchMatches(matches);
       setSearchMatchIndex(0);
-      if (matches.length) goToSearchMatch(0, matches);
+      if (matches.length) {
+        goToSearchMatch(0, matches);
+      }
     } catch (error) {
-      if (request === searchRequest.current)
+      if (request === searchRequest.current) {
         setSearchError(error.message || 'Could not search this PDF.');
+      }
     } finally {
-      if (request === searchRequest.current) setSearchBusy(false);
+      if (request === searchRequest.current) {
+        setSearchBusy(false);
+      }
     }
   };
 
@@ -2513,10 +3421,358 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [paperSearch, paperSearchOpen, pdf, article, docId]);
 
+  function renderDocumentContent() {
+    function getArticleSearchQuery() {
+      if (paperSearchOpen) {
+        return paperSearch;
+      }
+      if (evidenceFocus?.docId === docId) {
+        return evidenceFocus.quote;
+      }
+      return '';
+    }
+
+    if (!hasActiveDoc) {
+      return (
+        <div className="empty-reader">
+          <div className="empty-reader-mark">
+            <BookOpenText size={29} />
+          </div>
+          <span className="eyebrow">LIBRARY</span>
+          <h2>Open a document</h2>
+          <p>Open a document from your library or add a PDF or webpage.</p>
+          <div>
+            <button className="primary-action" onClick={() => setLeftOpen(true)}>
+              <LibraryBig size={16} /> Open library
+            </button>
+            <button
+              className="empty-reader-add"
+              onClick={() => {
+                setImportError('');
+                setAddPaperOpen(true);
+              }}
+            >
+              <Plus size={16} /> Add a paper or article
+            </button>
+          </div>
+        </div>
+      );
+    }
+    if (originalView) {
+      return (
+        <OriginalWebpage
+          url={article.sourceUrl}
+          zoom={zoom}
+          hidden={webpageHidden}
+          annotations={docAnnotations}
+          onSelection={selectWebpagePassage}
+          onAnnotation={(id) => {
+            const item = docAnnotations.find((item) => item.id === id);
+            if (item) {
+              setHoveredAnnotation(null);
+              setAnnotationProjectId(projectId || '');
+              setAnnotationDraft({ ...item });
+            }
+          }}
+          onHover={(event) => {
+            const item = docAnnotations.find((item) => item.id === event.id);
+            if (!item) {
+              hideAnnotationPreview();
+              return;
+            }
+            clearTimeout(annotationHoverTimer.current);
+            setSidebarOpen(true);
+            setHoveredAnnotation({
+              item,
+              left: Math.max(12, window.innerWidth - 320),
+              top: Math.min(window.innerHeight - 200, event.y + 8),
+            });
+          }}
+        />
+      );
+    }
+    if (article) {
+      return (
+        <ArticleReader
+          article={article}
+          zoom={zoom}
+          query={getArticleSearchQuery()}
+          annotationsByPage={annotationsByPage}
+        />
+      );
+    }
+    if (pdfFile) {
+      const getPaperSearchOpenSearchQuery = () => {
+        if (paperSearchOpen) {
+          return paperSearch;
+        }
+        return '';
+      };
+      const getEvidenceFocusDocIdDocIdEvidenceFocus = () => {
+        if (evidenceFocus?.docId === docId) {
+          return evidenceFocus;
+        }
+        return null;
+      };
+
+      return (
+        <Document
+          key={`${docId}:${pdfRevision}`}
+          file={pdfFile}
+          onItemClick={previewPdfReference}
+          onLoadSuccess={async (loaded) => {
+            if (currentDocId.current !== docId) {
+              return;
+            }
+            const first = await loaded.getPage(1);
+            if (currentDocId.current !== docId) {
+              return;
+            }
+            const viewport = first.getViewport({ scale: 1 });
+            setPageRatio(viewport.height / viewport.width);
+            setPdf(loaded);
+            setPages(loaded.numPages);
+            setPage((n) => Math.min(loaded.numPages, Math.max(1, n)));
+            setDocError('');
+            const scanKey = `${docId}:${pdfRevision}`;
+            if (!scannedPdfAnnotations.current.has(scanKey)) {
+              scannedPdfAnnotations.current.add(scanKey);
+              readPdfAnnotations(loaded, docId)
+                .then((imported) => {
+                  if (!imported.length) {
+                    return;
+                  }
+                  setAnnotations((current) => {
+                    const known = new Set(current.map((item) => item.id));
+                    return [...current, ...imported.filter((item) => !known.has(item.id))];
+                  });
+                })
+                .catch(() => scannedPdfAnnotations.current.delete(scanKey));
+            }
+          }}
+          onLoadError={(err) => setDocError(`Unable to render PDF: ${err.message}`)}
+          loading={
+            <div className="pdf-loading">
+              <div className="spinner" />
+              Opening paper…
+            </div>
+          }
+        >
+          {pdf && (
+            <PdfPages
+              total={pages}
+              width={pageWidth * zoom}
+              ratio={pageRatio}
+              scrollRoot={readerRef}
+              searchQuery={getPaperSearchOpenSearchQuery()}
+              matchingPages={matchingPages}
+              evidenceFocus={getEvidenceFocusDocIdDocIdEvidenceFocus()}
+              annotationsByPage={annotationsByPage}
+              onTextReady={onPageTextReady}
+              onReference={previewPdfReference}
+            />
+          )}
+        </Document>
+      );
+    }
+    return (
+      <div className="pdf-loading">
+        <div className="spinner" />
+        Opening paper…
+      </div>
+    );
+  }
+
+  function renderChatBody() {
+    const getDraftSelectionClassName = () => {
+      if (draftSelection) {
+        return 'has-draft';
+      }
+      return '';
+    };
+
+    if (activeThread) {
+      const getIsArticleDocuments = () => {
+        if (isArticle) {
+          return [{ ...activeDoc, id: undefined }];
+        }
+        return [];
+      };
+
+      return (
+        <div
+          className="conversation"
+          ref={conversationRef}
+          key={activeThread.id}
+          onMouseUp={captureAnswerSelection}
+          onKeyUp={captureAnswerSelection}
+          onScroll={() => {
+            if (answerSelection) {
+              captureAnswerSelection();
+            }
+          }}
+        >
+          <div className="thread-top">
+            <span className={`mode-badge ${MODES[activeThread.mode]?.color}`}>
+              {React.createElement(MODES[activeThread.mode]?.icon || Sparkles, { size: 13 })}
+              {MODES[activeThread.mode]?.short}
+            </span>
+            <span>
+              {locationLabel} {activeThread.page}
+            </span>
+          </div>
+          {activeThread.selection && (
+            <button
+              className="quote-card"
+              onClick={() => goToPage(activeThread.page)}
+              title="Jump to source page"
+            >
+              <span>
+                SELECTED PASSAGE · {locationLabel.toUpperCase()} {activeThread.page}
+              </span>
+              <p>“{activeThread.selection}”</p>
+              <span className="jump">
+                Jump to source <ArrowRight size={13} />
+              </span>
+            </button>
+          )}
+          <div className="messages">
+            {activeThread.messages.map((message) => {
+              if (message.role === 'user') {
+                return (
+                  <div className="user-message" key={message.id} data-message-id={message.id}>
+                    {message.imageIds?.length > 0 && (
+                      <div className="message-images">
+                        {message.imageIds.map(
+                          (id) =>
+                            imageUrls[id] && (
+                              <img key={id} src={imageUrls[id]} alt="Attached figure" />
+                            ),
+                        )}
+                      </div>
+                    )}
+                    {message.content}
+                  </div>
+                );
+              } else if (message.role === 'error') {
+                return (
+                  <div className="error-message" key={message.id}>
+                    {message.content}
+                  </div>
+                );
+              } else {
+                return (
+                  <AnswerMessage
+                    key={message.id}
+                    message={message}
+                    mode={MODES[activeThread.mode]}
+                    models={availableAnswerModels}
+                    documents={docs}
+                    activeDoc={activeDoc}
+                    docId={docId}
+                    locationLabel={locationLabel}
+                    projects={projects}
+                    notes={{
+                      projectId: noteProjectByMessage[message.id] || projectId,
+                      showProjectPicker: !activeProject,
+                      saving: noteSaving[message.id],
+                      error: noteErrors[message.id],
+                      onSelectProject: (id) =>
+                        setNoteProjectByMessage((current) => ({
+                          ...current,
+                          [message.id]: id,
+                        })),
+                      onSave: () => saveAnswerToNotes(message, activeThread),
+                    }}
+                    onCitation={jumpToEvidence}
+                    onPage={goToPage}
+                  />
+                );
+              }
+            })}
+            {activeThread.busy && activeThread.partial && (
+              <RichText
+                className="answer-content streaming-answer"
+                aria-live="polite"
+                text={activeThread.partial}
+                documents={getIsArticleDocuments()}
+              />
+            )}
+            {activeThread.busy && (
+              <div className="thinking">
+                <span className="thinking-icon">
+                  <Sparkles size={16} />
+                </span>
+                <div>
+                  <strong>{activeThread.stage || 'Preparing answer'}</strong>
+                  <span>You can stop this request at any time.</span>
+                </div>
+                <button
+                  className="stop-answer"
+                  onClick={() => askControllers.current.get(activeThread.id)?.abort()}
+                >
+                  Stop
+                </button>
+                <div className="thinking-dots">
+                  <i />
+                  <i />
+                  <i />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className={`companion-home ${getDraftSelectionClassName()}`}>
+        {draftSelection && (
+          <div className="draft-selection">
+            <div className="draft-heading">
+              <span className={`mode-badge ${MODES[mode].color}`}>
+                {React.createElement(MODES[mode].icon, { size: 13 })}
+                {MODES[mode].short}
+              </span>
+              <button
+                className="icon-button"
+                title="Clear selection"
+                onClick={() => {
+                  setDraftSelection(null);
+                  setComposer('');
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <span className="draft-eyebrow">
+              YOUR SELECTION · {locationLabel.toUpperCase()} {draftSelection.page}
+            </span>
+            <blockquote>“{draftSelection.text}”</blockquote>
+            {draftSelection.native && (
+              <div className="draft-annotation-actions">
+                <button onClick={() => startAnnotation('Highlight', draftSelection)}>
+                  <Highlighter size={14} /> Highlight
+                </button>
+                <button onClick={() => startAnnotation('Comment', draftSelection)}>
+                  <StickyNote size={14} /> Annotate
+                </button>
+              </div>
+            )}
+            <h3>Ask your own question</h3>
+            <p>
+              Edit the suggested question below or write exactly what you want to know. Sending it
+              creates a separate doubt.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className={`app-shell${zenMode ? ' zen-mode' : ''}`}>
+    <div className={`app-shell${getZenModeClassName()}`}>
       <aside
-        className={`library-panel ${leftOpen ? '' : 'collapsed'}`}
+        className={`library-panel ${getLeftOpenClassName()}`}
         style={{ '--library-width': `${fittedLibraryWidth}px` }}
       >
         <button
@@ -2610,22 +3866,31 @@ export default function App() {
                     ['all', 'All'],
                     ['paper', 'Papers'],
                     ['article', 'Articles'],
-                  ].map(([kind, label]) => (
-                    <button
-                      key={kind}
-                      aria-pressed={libraryKind === kind}
-                      onClick={() => setLibraryKind(kind)}
-                    >
-                      {label}{' '}
-                      <small>
-                        {kind === 'all'
-                          ? docs.length
-                          : docs.filter(
-                              (doc) => (doc.kind === 'article' ? 'article' : 'paper') === kind,
-                            ).length}
-                      </small>
-                    </button>
-                  ))}
+                  ].map(([kind, label]) => {
+                    const getKindAll = () => {
+                      if (kind === 'all') {
+                        return docs.length;
+                      }
+                      return docs.filter((doc) => {
+                        const getDocKindArticle = () => {
+                          if (doc.kind === 'article') {
+                            return 'article';
+                          }
+                          return 'paper';
+                        };
+                        return getDocKindArticle() === kind;
+                      }).length;
+                    };
+                    return (
+                      <button
+                        key={kind}
+                        aria-pressed={libraryKind === kind}
+                        onClick={() => setLibraryKind(kind)}
+                      >
+                        {label} <small>{getKindAll()}</small>
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="library-organize">
                   <select
@@ -2670,7 +3935,9 @@ export default function App() {
               onToggle={toggleTreeFolder}
               onSelectProject={(id, showNotes) => {
                 setProjectId(id);
-                if (showNotes) setSidebarSections((current) => ({ ...current, notes: true }));
+                if (showNotes) {
+                  setSidebarSections((current) => ({ ...current, notes: true }));
+                }
               }}
               onMove={movePaperToFolder}
               onOpen={openPaper}
@@ -2695,14 +3962,16 @@ export default function App() {
               onChange={(notes) => updateProjectNotes(activeProject.id, notes)}
               onRemoveEntry={(id) =>
                 setProjects((current) =>
-                  current.map((project) =>
-                    project.id === activeProject.id
-                      ? {
-                          ...project,
-                          entries: (project.entries || []).filter((entry) => entry.id !== id),
-                        }
-                      : project,
-                  ),
+                  current.map((project) => {
+                    if (project.id === activeProject.id) {
+                      return {
+                        ...project,
+                        entries: (project.entries || []).filter((entry) => entry.id !== id),
+                      };
+                    } else {
+                      return project;
+                    }
+                  }),
                 )
               }
               onOpenAnnotation={(entry) =>
@@ -2726,50 +3995,7 @@ export default function App() {
               <Plus size={16} />
             </button>
           </div>
-          {sectionOpen('doubts') &&
-            (docThreads.length ? (
-              <div className="thread-list">
-                {docThreads.map((thread) => {
-                  const Icon = MODES[thread.mode]?.icon || Sparkles;
-                  return (
-                    <div
-                      className={`thread-item ${threadId === thread.id ? 'active' : ''}`}
-                      key={thread.id}
-                    >
-                      <button onClick={() => jumpToThread(thread)}>
-                        <span className={`thread-icon ${MODES[thread.mode]?.color}`}>
-                          <Icon size={15} />
-                        </span>
-                        <span>
-                          <strong>{thread.title}</strong>
-                          <small>
-                            {MODES[thread.mode]?.short} ·{' '}
-                            {docs.find((doc) => doc.id === thread.docId)?.kind === 'article'
-                              ? '§'
-                              : 'p.'}{' '}
-                            {thread.page}
-                            {thread.busy ? ' · Thinking…' : ''}
-                          </small>
-                        </span>
-                      </button>
-                      <button
-                        className="delete-item"
-                        title={`Delete ${thread.title}`}
-                        aria-label={`Delete ${thread.title}`}
-                        onClick={() => removeThread(thread.id)}
-                      >
-                        <X size={13} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="empty-doubts">
-                <p>No questions yet.</p>
-                <span>Select a passage or ask in AI chat.</span>
-              </div>
-            ))}
+          {sectionOpen('doubts') && renderDocThreads()}
           <div className="section-heading annotation-heading">
             <button
               className="section-toggle"
@@ -2779,42 +4005,7 @@ export default function App() {
               <ChevronDown size={14} /> Annotations <small>{docAnnotations.length}</small>
             </button>
           </div>
-          {sectionOpen('annotations') &&
-            (docAnnotations.length ? (
-              <div className="annotation-list">
-                {docAnnotations.map((item) => (
-                  <div className="annotation-item" key={item.id}>
-                    <button onClick={() => jumpToAnnotation(item)} title="Jump to annotation">
-                      <span className={`annotation-dot annotation-${item.color}`} />
-                      <span>
-                        <strong>{ellipsis(item.text, 70)}</strong>
-                        <small>
-                          {isArticle ? '§' : 'p.'} {item.page}
-                          {item.embedded ? ` · PDF ${item.kind}` : ''}
-                          {item.note && item.note !== item.text
-                            ? ` · ${ellipsis(item.note, 55)}`
-                            : ''}
-                          {item.tags?.length ? ` · ${item.tags.join(', ')}` : ''}
-                        </small>
-                      </span>
-                    </button>
-                    <button
-                      className="annotation-edit"
-                      onClick={() => {
-                        setAnnotationProjectId(projectId || '');
-                        setAnnotationDraft({ ...item });
-                      }}
-                      title="Edit annotation"
-                      aria-label="Edit annotation"
-                    >
-                      <StickyNote size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="annotation-empty">Select text in the PDF to highlight or add a note.</p>
-            ))}
+          {sectionOpen('annotations') && renderDocAnnotations()}
         </div>
         <div className="library-backup">
           <input
@@ -2829,7 +4020,7 @@ export default function App() {
             onClick={exportLibrary}
             title="Export all papers, projects, doubts and annotations as a ZIP"
           >
-            <ArrowDownToLine size={14} /> {backupBusy ? 'Working…' : 'Export'}
+            <ArrowDownToLine size={14} /> {getBackupBusy()}
           </button>
           <button
             disabled={backupBusy}
@@ -2854,7 +4045,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main className={`reader-column${readerControlsHidden ? ' controls-hidden' : ''}`}>
+      <main className={`reader-column${getReaderControlsHiddenClassName()}`}>
         <PanelHandle
           edge="left"
           open={leftOpen}
@@ -2870,43 +4061,29 @@ export default function App() {
           style={{ '--overlay-panel-width': `${fittedCompanionWidth}px` }}
         />
         <div className="reader-controls" hidden={readerControlsHidden}>
-          <header className="topbar">
-            <div className="crumb">
-              <span className="crumb-muted">Library</span>
-              <ChevronRight size={14} />
-              <strong>{hasActiveDoc ? ellipsis(activeDoc.name, 37) : 'Library'}</strong>
-            </div>
-            <div className="top-actions">
-              <UpdateNotice onClick={() => openSettings('updates')} />
-              <DarkModeButton />
-
-              <button
-                className="icon-button"
-                title="Zen mode (Z)"
-                aria-label="Enter Zen mode"
-                onClick={() => setZenMode(true)}
-              >
-                <Maximize2 size={18} />
-              </button>
-              <span className="saved-badge">
-                <Check size={13} /> Saved locally
-              </span>
-              <button
-                className="icon-button top-settings labelled-settings"
-                onClick={() => openSettings()}
-                title="Settings"
-              >
-                <Settings2 size={18} /> Settings
-              </button>
-            </div>
-          </header>
           <div className="paper-tabs" role="tablist" aria-label="Open papers">
             {openTabs.map((id) => {
+              const getIdDocIdClassName = () => {
+                if (id === docId) {
+                  return 'active';
+                }
+                return '';
+              };
+
+              const renderDocKindArticle = () => {
+                if (doc.kind === 'article') {
+                  return <Globe size={14} />;
+                }
+                return <FileText size={14} />;
+              };
+
               const doc = docs.find((item) => item.id === id);
-              if (!doc) return null;
+              if (!doc) {
+                return null;
+              }
               return (
                 <div
-                  className={`paper-tab ${id === docId ? 'active' : ''}`}
+                  className={`paper-tab ${getIdDocIdClassName()}`}
                   key={id}
                   draggable
                   onDragStart={(event) => {
@@ -2930,7 +4107,7 @@ export default function App() {
                     onClick={() => openPaper(id)}
                     title={doc.name}
                   >
-                    {doc.kind === 'article' ? <Globe size={14} /> : <FileText size={14} />}
+                    {renderDocKindArticle()}
                     <span>{doc.name}</span>
                   </button>
                   <button
@@ -2966,23 +4143,11 @@ export default function App() {
             </button>
           </div>
           {!readerControlsHidden && (
-            <div className={`reader-toolbar${!hasActiveDoc ? ' empty-reader-toolbar' : ''}`}>
-              <div className="reader-doc-icon">
-                {hasActiveDoc ? (
-                  isArticle ? (
-                    <Globe size={18} />
-                  ) : (
-                    <FileText size={18} />
-                  )
-                ) : (
-                  <BookOpenText size={18} />
-                )}
-              </div>
+            <div className={`reader-toolbar${getHasActiveDocClassName()}`}>
+              <div className="reader-doc-icon">{renderDocumentIcon()}</div>
               <div className="reader-title">
-                <strong>{hasActiveDoc ? activeDoc.name : 'No paper open'}</strong>
-                <span>
-                  {hasActiveDoc ? activeDoc.subtitle : 'Your papers are safe in the library.'}
-                </span>
+                <strong>{getHasActiveDoc2()}</strong>
+                <span>{getHasActiveDoc3()}</span>
               </div>
               {hasActiveDoc && (
                 <>
@@ -3006,9 +4171,13 @@ export default function App() {
                     value={activeDoc.status || 'unread'}
                     onChange={(event) =>
                       setDocs((current) =>
-                        current.map((doc) =>
-                          doc.id === docId ? { ...doc, status: event.target.value } : doc,
-                        ),
+                        current.map((doc) => {
+                          if (doc.id === docId) {
+                            return { ...doc, status: event.target.value };
+                          } else {
+                            return doc;
+                          }
+                        }),
                       )
                     }
                   >
@@ -3025,7 +4194,7 @@ export default function App() {
                       <ChevronLeft size={17} />
                     </button>
                     <span>
-                      {isArticle ? '§ ' : ''}
+                      {getIsArticle2()}
                       <strong>{page}</strong> / {pages}
                     </span>
                     <button
@@ -3057,7 +4226,7 @@ export default function App() {
                   <div className="toolbar-separator" />
                   <button
                     hidden={isArticle}
-                    className={`tool-icon ${regionMode ? 'active' : ''}`}
+                    className={`tool-icon ${getRegionModeClassName()}`}
                     title="Draw a box around a figure or table"
                     onClick={() => {
                       setRegionMode((value) => !value);
@@ -3083,11 +4252,7 @@ export default function App() {
                   >
                     <Keyboard size={18} />
                   </button>
-                  <button
-                    className="tool-icon"
-                    title={isArticle ? 'Download saved article' : 'Download original PDF'}
-                    onClick={download}
-                  >
+                  <button className="tool-icon" title={getIsArticleTitle()} onClick={download}>
                     <ArrowDownToLine size={18} />
                   </button>
                   <button
@@ -3101,6 +4266,34 @@ export default function App() {
                   </button>
                 </>
               )}
+              <div className="toolbar-global-actions" role="group" aria-label="App controls">
+                <UpdateNotice onClick={() => openSettings('updates')} />
+                <DarkModeButton />
+                <button
+                  className="tool-icon"
+                  title="Zen mode (Z)"
+                  aria-label="Enter Zen mode"
+                  onClick={() => setZenMode(true)}
+                >
+                  <Maximize2 size={18} />
+                </button>
+                <span
+                  className="toolbar-saved-status"
+                  title="Saved locally"
+                  aria-label="Saved locally"
+                >
+                  <Check size={15} />
+                </span>
+                <button
+                  className="tool-icon toolbar-settings"
+                  onClick={() => openSettings()}
+                  title="Settings"
+                  aria-label="Settings"
+                >
+                  <Settings2 size={18} />
+                  <span>Settings</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -3127,29 +4320,28 @@ export default function App() {
             <Search size={17} />
             <input
               autoFocus
-              placeholder={isArticle ? 'Search this article' : 'Search this paper'}
+              placeholder={getIsArticlePlaceholder()}
               value={paperSearch}
               onChange={(event) => setPaperSearch(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault();
-                  if (searchMatches.length)
-                    goToSearchMatch(searchMatchIndex + (event.shiftKey ? -1 : 1));
-                  else searchInPaper();
+                  if (searchMatches.length) {
+                    const getEventShiftKeyOnKeyDown = () => {
+                      if (event.shiftKey) {
+                        return -1;
+                      }
+                      return 1;
+                    };
+
+                    goToSearchMatch(searchMatchIndex + getEventShiftKeyOnKeyDown());
+                  } else {
+                    searchInPaper();
+                  }
                 }
               }}
             />
-            <span className="find-status">
-              {searchBusy
-                ? 'Searching…'
-                : searchError
-                  ? 'Search failed'
-                  : !paperSearch.trim()
-                    ? ''
-                    : searchMatches.length
-                      ? `${searchMatchIndex + 1}/${searchMatches.length} pages`
-                      : 'No matches'}
-            </span>
+            <span className="find-status">{getSearchStatus()}</span>
             <button
               className="icon-button"
               title="Previous matching page"
@@ -3181,7 +4373,7 @@ export default function App() {
           </div>
         )}
         <div
-          className={`reader-scroll${originalView ? ' original-mode' : ''}${regionMode ? ' region-mode' : ''}`}
+          className={`reader-scroll${getOriginalViewClassName()}${getRegionModeClassName2()}`}
           ref={readerRef}
           onPointerDown={startRegion}
           onPointerMove={moveRegion}
@@ -3195,7 +4387,9 @@ export default function App() {
           onMouseUp={captureSelection}
           onKeyUp={captureSelection}
           onClick={(event) => {
-            if (window.getSelection()?.toString()) return;
+            if (window.getSelection()?.toString()) {
+              return;
+            }
             const mark = event.target.closest?.('[data-annotation-id]');
             const item = annotations.find((entry) => entry.id === mark?.dataset.annotationId);
             if (item) {
@@ -3213,132 +4407,7 @@ export default function App() {
               </button>
             </div>
           )}
-          <div className="paper-surface">
-            {!hasActiveDoc ? (
-              <div className="empty-reader">
-                <div className="empty-reader-mark">
-                  <BookOpenText size={29} />
-                </div>
-                <span className="eyebrow">LIBRARY</span>
-                <h2>Open a document</h2>
-                <p>Open a document from your library or add a PDF or webpage.</p>
-                <div>
-                  <button className="primary-action" onClick={() => setLeftOpen(true)}>
-                    <LibraryBig size={16} /> Open library
-                  </button>
-                  <button
-                    className="empty-reader-add"
-                    onClick={() => {
-                      setImportError('');
-                      setAddPaperOpen(true);
-                    }}
-                  >
-                    <Plus size={16} /> Add a paper or article
-                  </button>
-                </div>
-              </div>
-            ) : originalView ? (
-              <OriginalWebpage
-                url={article.sourceUrl}
-                zoom={zoom}
-                hidden={webpageHidden}
-                annotations={docAnnotations}
-                onSelection={selectWebpagePassage}
-                onAnnotation={(id) => {
-                  const item = docAnnotations.find((item) => item.id === id);
-                  if (item) {
-                    setHoveredAnnotation(null);
-                    setAnnotationProjectId(projectId || '');
-                    setAnnotationDraft({ ...item });
-                  }
-                }}
-                onHover={(event) => {
-                  const item = docAnnotations.find((item) => item.id === event.id);
-                  if (!item) {
-                    hideAnnotationPreview();
-                    return;
-                  }
-                  clearTimeout(annotationHoverTimer.current);
-                  setSidebarOpen(true);
-                  setHoveredAnnotation({
-                    item,
-                    left: Math.max(12, window.innerWidth - 320),
-                    top: Math.min(window.innerHeight - 200, event.y + 8),
-                  });
-                }}
-              />
-            ) : article ? (
-              <ArticleReader
-                article={article}
-                zoom={zoom}
-                query={
-                  paperSearchOpen
-                    ? paperSearch
-                    : evidenceFocus?.docId === docId
-                      ? evidenceFocus.quote
-                      : ''
-                }
-                annotationsByPage={annotationsByPage}
-              />
-            ) : pdfFile ? (
-              <Document
-                key={`${docId}:${pdfRevision}`}
-                file={pdfFile}
-                onItemClick={previewPdfReference}
-                onLoadSuccess={async (loaded) => {
-                  if (currentDocId.current !== docId) return;
-                  const first = await loaded.getPage(1);
-                  if (currentDocId.current !== docId) return;
-                  const viewport = first.getViewport({ scale: 1 });
-                  setPageRatio(viewport.height / viewport.width);
-                  setPdf(loaded);
-                  setPages(loaded.numPages);
-                  setPage((n) => Math.min(loaded.numPages, Math.max(1, n)));
-                  setDocError('');
-                  const scanKey = `${docId}:${pdfRevision}`;
-                  if (!scannedPdfAnnotations.current.has(scanKey)) {
-                    scannedPdfAnnotations.current.add(scanKey);
-                    readPdfAnnotations(loaded, docId)
-                      .then((imported) => {
-                        if (!imported.length) return;
-                        setAnnotations((current) => {
-                          const known = new Set(current.map((item) => item.id));
-                          return [...current, ...imported.filter((item) => !known.has(item.id))];
-                        });
-                      })
-                      .catch(() => scannedPdfAnnotations.current.delete(scanKey));
-                  }
-                }}
-                onLoadError={(err) => setDocError(`Unable to render PDF: ${err.message}`)}
-                loading={
-                  <div className="pdf-loading">
-                    <div className="spinner" />
-                    Opening paper…
-                  </div>
-                }
-              >
-                {pdf && (
-                  <PdfPages
-                    total={pages}
-                    width={pageWidth * zoom}
-                    ratio={pageRatio}
-                    scrollRoot={readerRef}
-                    searchQuery={paperSearchOpen ? paperSearch : ''}
-                    matchingPages={matchingPages}
-                    evidenceFocus={evidenceFocus?.docId === docId ? evidenceFocus : null}
-                    annotationsByPage={annotationsByPage}
-                    onTextReady={onPageTextReady}
-                    onReference={previewPdfReference}
-                  />
-                )}
-              </Document>
-            ) : (
-              <div className="pdf-loading">
-                <div className="spinner" />
-                Opening paper…
-              </div>
-            )}
-          </div>
+          <div className="paper-surface">{renderDocumentContent()}</div>
           {regionDrag && (
             <div
               className="region-drag-box"
@@ -3360,8 +4429,8 @@ export default function App() {
             className={`annotation-preview annotation-${hoveredAnnotation.item.color}`}
             style={{
               left: hoveredAnnotation.left,
-              top: hoveredAnnotation.above ? hoveredAnnotation.top - 16 : hoveredAnnotation.top,
-              transform: hoveredAnnotation.above ? 'translateY(-100%)' : undefined,
+              top: getHoveredAnnotationAboveStyle(),
+              transform: getHoveredAnnotationAboveStyle2(),
             }}
             role="tooltip"
             tabIndex={0}
@@ -3376,10 +4445,7 @@ export default function App() {
             }}
           >
             <strong>
-              {hoveredAnnotation.item.embedded
-                ? `PDF ${hoveredAnnotation.item.kind.toUpperCase()}`
-                : 'YOUR ANNOTATION'}{' '}
-              · PAGE {hoveredAnnotation.item.page}
+              {getHoveredAnnotationItemEmbedded()} · PAGE {hoveredAnnotation.item.page}
             </strong>
             <p>{hoveredAnnotation.item.note || 'Highlight only'}</p>
             <small>Click to edit · {hoveredAnnotation.item.tags?.join(', ') || 'No tags'}</small>
@@ -3433,7 +4499,7 @@ export default function App() {
       </main>
 
       <aside
-        className={`companion-panel ${sidebarOpen ? '' : 'closed'}`}
+        className={`companion-panel ${getSidebarOpenClassName()}`}
         style={{
           '--explanation-font-size': `${answerFontSize}px`,
           '--companion-width': `${fittedCompanionWidth}px`,
@@ -3471,161 +4537,7 @@ export default function App() {
             </div>
           </div>
         </div>
-        {activeThread ? (
-          <div
-            className="conversation"
-            ref={conversationRef}
-            key={activeThread.id}
-            onMouseUp={captureAnswerSelection}
-            onKeyUp={captureAnswerSelection}
-            onScroll={() => {
-              if (answerSelection) captureAnswerSelection();
-            }}
-          >
-            <div className="thread-top">
-              <span className={`mode-badge ${MODES[activeThread.mode]?.color}`}>
-                {React.createElement(MODES[activeThread.mode]?.icon || Sparkles, { size: 13 })}
-                {MODES[activeThread.mode]?.short}
-              </span>
-              <span>
-                {locationLabel} {activeThread.page}
-              </span>
-            </div>
-            {activeThread.selection && (
-              <button
-                className="quote-card"
-                onClick={() => goToPage(activeThread.page)}
-                title="Jump to source page"
-              >
-                <span>
-                  SELECTED PASSAGE · {locationLabel.toUpperCase()} {activeThread.page}
-                </span>
-                <p>“{activeThread.selection}”</p>
-                <span className="jump">
-                  Jump to source <ArrowRight size={13} />
-                </span>
-              </button>
-            )}
-            <div className="messages">
-              {activeThread.messages.map((message) =>
-                message.role === 'user' ? (
-                  <div className="user-message" key={message.id} data-message-id={message.id}>
-                    {message.imageIds?.length > 0 && (
-                      <div className="message-images">
-                        {message.imageIds.map(
-                          (id) =>
-                            imageUrls[id] && (
-                              <img key={id} src={imageUrls[id]} alt="Attached figure" />
-                            ),
-                        )}
-                      </div>
-                    )}
-                    {message.content}
-                  </div>
-                ) : message.role === 'error' ? (
-                  <div className="error-message" key={message.id}>
-                    {message.content}
-                  </div>
-                ) : (
-                  <AnswerMessage
-                    key={message.id}
-                    message={message}
-                    mode={MODES[activeThread.mode]}
-                    models={availableAnswerModels}
-                    documents={docs}
-                    activeDoc={activeDoc}
-                    docId={docId}
-                    locationLabel={locationLabel}
-                    projects={projects}
-                    notes={{
-                      projectId: noteProjectByMessage[message.id] || projectId,
-                      showProjectPicker: !activeProject,
-                      saving: noteSaving[message.id],
-                      error: noteErrors[message.id],
-                      onSelectProject: (id) =>
-                        setNoteProjectByMessage((current) => ({ ...current, [message.id]: id })),
-                      onSave: () => saveAnswerToNotes(message, activeThread),
-                    }}
-                    onCitation={jumpToEvidence}
-                    onPage={goToPage}
-                  />
-                ),
-              )}
-              {activeThread.busy && activeThread.partial && (
-                <RichText
-                  className="answer-content streaming-answer"
-                  aria-live="polite"
-                  text={activeThread.partial}
-                  documents={isArticle ? [{ ...activeDoc, id: undefined }] : []}
-                />
-              )}
-              {activeThread.busy && (
-                <div className="thinking">
-                  <span className="thinking-icon">
-                    <Sparkles size={16} />
-                  </span>
-                  <div>
-                    <strong>{activeThread.stage || 'Preparing answer'}</strong>
-                    <span>You can stop this request at any time.</span>
-                  </div>
-                  <button
-                    className="stop-answer"
-                    onClick={() => askControllers.current.get(activeThread.id)?.abort()}
-                  >
-                    Stop
-                  </button>
-                  <div className="thinking-dots">
-                    <i />
-                    <i />
-                    <i />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className={`companion-home ${draftSelection ? 'has-draft' : ''}`}>
-            {draftSelection && (
-              <div className="draft-selection">
-                <div className="draft-heading">
-                  <span className={`mode-badge ${MODES[mode].color}`}>
-                    {React.createElement(MODES[mode].icon, { size: 13 })}
-                    {MODES[mode].short}
-                  </span>
-                  <button
-                    className="icon-button"
-                    title="Clear selection"
-                    onClick={() => {
-                      setDraftSelection(null);
-                      setComposer('');
-                    }}
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-                <span className="draft-eyebrow">
-                  YOUR SELECTION · {locationLabel.toUpperCase()} {draftSelection.page}
-                </span>
-                <blockquote>“{draftSelection.text}”</blockquote>
-                {draftSelection.native && (
-                  <div className="draft-annotation-actions">
-                    <button onClick={() => startAnnotation('Highlight', draftSelection)}>
-                      <Highlighter size={14} /> Highlight
-                    </button>
-                    <button onClick={() => startAnnotation('Comment', draftSelection)}>
-                      <StickyNote size={14} /> Annotate
-                    </button>
-                  </div>
-                )}
-                <h3>Ask your own question</h3>
-                <p>
-                  Edit the suggested question below or write exactly what you want to know. Sending
-                  it creates a separate doubt.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+        {renderChatBody()}
         <div className="composer-wrap">
           <div className="composer">
             <div className="composer-top">
@@ -3643,14 +4555,18 @@ export default function App() {
                 className="answer-depth-toggle"
                 aria-label="Deep research"
                 aria-pressed={answerDepth === 'deep'}
-                title={
-                  answerDepth === 'deep'
-                    ? 'Deep research enabled. Click for document-only answers.'
-                    : 'Quick document-only answers. Click to enable deep research.'
+                title={getAnswerDepthDeepTitle()}
+                onClick={() =>
+                  setAnswerDepth((depth) => {
+                    if (depth === 'deep') {
+                      return 'quick';
+                    } else {
+                      return 'deep';
+                    }
+                  })
                 }
-                onClick={() => setAnswerDepth((depth) => (depth === 'deep' ? 'quick' : 'deep'))}
               >
-                {answerDepth === 'deep' ? 'Deep' : 'Quick'}
+                {getAnswerDepthDeep()}
               </button>
               {activeThread && (
                 <button className="new-thread-link" onClick={() => startBlank(mode)}>
@@ -3666,9 +4582,13 @@ export default function App() {
                         key={name}
                         onClick={() => {
                           setMode(name);
-                          if (!composer.trim()) setComposer(getDefaultPrompt(name, defaultPrompts));
+                          if (!composer.trim()) {
+                            setComposer(getDefaultPrompt(name, defaultPrompts));
+                          }
                           setMenuOpen(false);
-                          if (activeThread) setThreadId(null);
+                          if (activeThread) {
+                            setThreadId(null);
+                          }
                         }}
                       >
                         <span className={item.color}>
@@ -3708,24 +4628,13 @@ export default function App() {
                   disabled={Boolean(activeThread)}
                   onChange={(event) => setAskProject(event.target.checked)}
                 />{' '}
-                Ask across{' '}
-                {activeThread?.projectId
-                  ? projects.find((project) => project.id === activeThread.projectId)?.name ||
-                    'project'
-                  : activeProject?.name}{' '}
-                documents
+                Ask across {getActiveThreadProjectId()} documents
               </label>
             )}
             <textarea
               ref={textareaRef}
               onPaste={pasteImage}
-              placeholder={
-                activeThread
-                  ? 'Ask a follow-up about this doubt…'
-                  : draftSelection
-                    ? 'Write your question about the selected text…'
-                    : `Ask anything about this ${isArticle ? 'article' : 'paper'}…`
-              }
+              placeholder={getQuestionPlaceholder()}
               rows={2}
               value={composer}
               onChange={(e) => setComposer(e.target.value)}
@@ -3765,13 +4674,7 @@ export default function App() {
                   <ScanEye size={17} />
                 </button>
               </div>
-              <span>
-                {activeThread
-                  ? `Using ${locationLabel.toLowerCase()} ${activeThread.page} + this thread`
-                  : draftSelection
-                    ? `Selected text · ${locationLabel.toLowerCase()} ${draftSelection.page}`
-                    : `Using ${locationLabel.toLowerCase()} ${page} context`}
-              </span>
+              <span>{getQuestionContextLabel()}</span>
               <button
                 className="send-button"
                 onClick={() => sendAsk()}
@@ -3825,7 +4728,9 @@ export default function App() {
         <div
           className="citation-preview-backdrop"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setCitationPreview(null);
+            if (event.target === event.currentTarget) {
+              setCitationPreview(null);
+            }
           }}
         >
           <section
@@ -3837,11 +4742,7 @@ export default function App() {
             <header>
               <div>
                 <span>
-                  SOURCE PREVIEW ·{' '}
-                  {docs.find((doc) => doc.id === citationPreview.source.docId)?.kind === 'article'
-                    ? 'SECTION'
-                    : 'PAGE'}{' '}
-                  {citationPreview.source.page}
+                  SOURCE PREVIEW · {getDocsFindDocDoc()} {citationPreview.source.page}
                 </span>
                 <strong>{citationPreview.title}</strong>
               </div>
@@ -4038,7 +4939,9 @@ export default function App() {
         <div
           className="modal-backdrop"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !importBusy) setAddPaperOpen(false);
+            if (event.target === event.currentTarget && !importBusy) {
+              setAddPaperOpen(false);
+            }
           }}
         >
           <form className="settings-modal add-paper-modal" onSubmit={importPaper}>
@@ -4080,14 +4983,8 @@ export default function App() {
                 Blog / webpage
               </button>
             </div>
-            <p>
-              {importKind === 'article'
-                ? 'Save a public blog, tutorial, documentation page, or webpage as a readable article. Select passages to ask questions or add annotations.'
-                : 'Paste an arXiv link or paper ID, or upload a PDF.'}
-            </p>
-            <label htmlFor="arxiv-input">
-              {importKind === 'article' ? 'ARTICLE URL' : 'ARXIV LINK OR PAPER ID'}
-            </label>
+            <p>{getImportKindArticle()}</p>
+            <label htmlFor="arxiv-input">{getImportKindArticle2()}</label>
             <input
               id="arxiv-input"
               autoFocus
@@ -4097,17 +4994,9 @@ export default function App() {
                 setArxivInput(event.target.value);
                 setImportError('');
               }}
-              placeholder={
-                importKind === 'article'
-                  ? 'https://example.com/research-post'
-                  : 'https://arxiv.org/abs/2502.09992'
-              }
+              placeholder={getImportKindArticlePlaceholder()}
             />
-            <div className="import-hint">
-              {importKind === 'article'
-                ? 'For login-only or JavaScript pages, save the loaded page as HTML in your browser, then import it below.'
-                : 'Abstract, PDF and HTML links work, including specific versions.'}
-            </div>
+            <div className="import-hint">{getImportKindArticle3()}</div>
             {importError && (
               <div className="import-error" role="alert">
                 {importError}
@@ -4118,16 +5007,7 @@ export default function App() {
               type="submit"
               disabled={importBusy || !arxivInput.trim()}
             >
-              {importBusy ? (
-                <>
-                  <span className="spinner" /> Importing…
-                </>
-              ) : (
-                <>
-                  <Plus size={16} />{' '}
-                  {importKind === 'article' ? 'Save article' : 'Import from arXiv'}
-                </>
-              )}
+              {renderImportBusy()}
             </button>
             <div className="import-divider">
               <span>or use a file</span>
@@ -4163,53 +5043,7 @@ export default function App() {
       )}
 
       <Appearance hidden />
-      {settingsOpen &&
-        (desktopApp ? (
-          <ProviderSettings
-            initialTab={settingsTab}
-            onClose={() => setSettingsOpen(false)}
-            onSaved={refreshProviderState}
-            answerModel={answerModel}
-            setAnswerModel={setAnswerModel}
-            availableAnswerModels={availableAnswerModels}
-            promptPreferences={{ prompts: defaultPrompts, onChange: setDefaultPrompts }}
-            inferencePreferences={{
-              providerPriority,
-              setProviderPriority,
-              groqModel,
-              setGroqModel,
-              groqModels: ANSWER_MODELS,
-              customProvider,
-            }}
-            freeOnlyMode={freeOnlyMode}
-            freeUsage={freeUsage}
-            refreshFreeUsage={refreshFreeUsage}
-          />
-        ) : (
-          <BrowserProviderSettings
-            initialTab={settingsTab}
-            onClose={() => setSettingsOpen(false)}
-            customProvider={customProvider}
-            freeOnlyMode={freeOnlyMode}
-            serverKey={serverKey}
-            apiKey={key}
-            setApiKey={setKey}
-            freeUsage={freeUsage}
-            refreshFreeUsage={refreshFreeUsage}
-            answerModel={answerModel}
-            setAnswerModel={setAnswerModel}
-            availableAnswerModels={availableAnswerModels}
-            promptPreferences={{ prompts: defaultPrompts, onChange: setDefaultPrompts }}
-            inferencePreferences={{
-              providerPriority,
-              setProviderPriority,
-              groqModel,
-              setGroqModel,
-              groqModels: ANSWER_MODELS,
-              customProvider,
-            }}
-          />
-        ))}
+      {settingsOpen && renderDesktopApp()}
     </div>
   );
 }

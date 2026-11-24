@@ -8,7 +8,9 @@ export async function askWithPaperCache(
 ) {
   const reference = (paper) => {
     const saved = refs.get(paper.docId);
-    if (!saved || saved.pages !== paper.contextPages) return paper;
+    if (!saved || saved.pages !== paper.contextPages) {
+      return paper;
+    }
     const { contextPages, ...metadata } = paper;
     return { ...metadata, paperRef: saved.ref };
   };
@@ -19,33 +21,51 @@ export async function askWithPaperCache(
       body: JSON.stringify(body),
       signal,
     });
-    if (!response.ok || !response.headers?.get('content-type')?.includes('text/event-stream'))
+    if (!response.ok || !response.headers?.get('content-type')?.includes('text/event-stream')) {
       return { response, data: await response.json() };
+    }
     let data;
     for await (const raw of eventStream(response.body)) {
       const event = JSON.parse(raw);
-      if (event.type === 'error') throw new Error(event.error);
-      if (event.type === 'done') data = event.data;
-      else onEvent?.(event);
+      if (event.type === 'error') {
+        throw new Error(event.error);
+      }
+      if (event.type === 'done') {
+        data = event.data;
+      } else {
+        onEvent?.(event);
+      }
     }
-    if (!data) throw new Error('The response was interrupted. Please try again.');
+    if (!data) {
+      throw new Error('The response was interrupted. Please try again.');
+    }
     return { response, data };
   };
   const project = payload.projectPapers?.length > 0;
-  const request = project
-    ? { ...payload, projectPapers: payload.projectPapers.map(reference) }
-    : reference(payload);
+  let request;
+  if (project) {
+    request = { ...payload, projectPapers: payload.projectPapers.map(reference) };
+  } else {
+    request = reference(payload);
+  }
   let { response, data } = await send(request);
   if (response.status === 409 && data.code === 'PAPER_CACHE_MISS') {
     refs.clear();
     ({ response, data } = await send(payload));
   }
-  if (!response.ok) throw new Error(data.error || 'Could not generate an answer.');
+  if (!response.ok) {
+    throw new Error(data.error || 'Could not generate an answer.');
+  }
   for (const item of data.paperRefs || []) {
-    const paper = project
-      ? payload.projectPapers.find((paper) => paper.docId === item.docId)
-      : payload;
-    if (paper) refs.set(item.docId, { ref: item.paperRef, pages: paper.contextPages });
+    let paper;
+    if (project) {
+      paper = payload.projectPapers.find((paper) => paper.docId === item.docId);
+    } else {
+      paper = payload;
+    }
+    if (paper) {
+      refs.set(item.docId, { ref: item.paperRef, pages: paper.contextPages });
+    }
   }
   return data;
 }

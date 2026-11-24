@@ -13,7 +13,9 @@ import { createLibraryFolderService } from './libraryFolders.js';
 
 // Preserve the original keyring identity and Chromium profile across the rename.
 app.setName('paperlens');
-if (process.platform === 'linux') app.setDesktopName('paperlens.desktop');
+if (process.platform === 'linux') {
+  app.setDesktopName('paperlens.desktop');
+}
 const profileDirectory = join(app.getPath('appData'), 'paperlens');
 mkdirSync(profileDirectory, { recursive: true });
 app.setPath('userData', profileDirectory);
@@ -26,16 +28,26 @@ let mainWindow;
 let recordExit = () => {};
 
 const primaryInstance = app.requestSingleInstanceLock();
-if (!primaryInstance) app.quit();
-else {
+if (!primaryInstance) {
+  app.quit();
+} else {
   recordExit = installDiagnostics({ app, directory: join(profileDirectory, 'logs') });
   app.on('second-instance', () => {
-    if (mainWindow?.isMinimized()) mainWindow.restore();
+    if (mainWindow?.isMinimized()) {
+      mainWindow.restore();
+    }
     mainWindow?.focus();
   });
 }
 
 async function startDesktop() {
+  const getUpdater = () => {
+    if (updatesSupported) {
+      return electronUpdater.autoUpdater;
+    }
+    return null;
+  };
+
   if (process.platform === 'linux' && app.isPackaged && process.env.APPIMAGE) {
     try {
       await registerAppImage({
@@ -85,13 +97,15 @@ async function startDesktop() {
     (process.platform === 'win32' ||
       (process.platform === 'linux' && Boolean(process.env.APPIMAGE)));
   const updates = createUpdateService({
-    updater: updatesSupported ? electronUpdater.autoUpdater : null,
+    updater: getUpdater(),
     version: app.getVersion(),
     supported: updatesSupported,
     notify: (status) => {
-      for (const window of BrowserWindow.getAllWindows())
-        if (!window.isDestroyed() && !window.webContents.isDestroyed())
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
           window.webContents.send('updates:status', status);
+        }
+      }
     },
     confirmInstall: async () => {
       const result = await dialog.showMessageBox({
@@ -107,12 +121,15 @@ async function startDesktop() {
     },
   });
   ipcMain.handle('updates:status', (event) => {
-    if (!trusted(event)) throw new Error('Untrusted update request.');
+    if (!trusted(event)) {
+      throw new Error('Untrusted update request.');
+    }
     return updates.status();
   });
   ipcMain.handle('updates:action', async (event, action) => {
-    if (!trusted(event) || !['check', 'download', 'install', 'releases'].includes(action))
+    if (!trusted(event) || !['check', 'download', 'install', 'releases'].includes(action)) {
       throw new Error('Invalid update request.');
+    }
     if (action === 'releases') {
       await shell.openExternal('https://github.com/achaudhary2304/paperreader/releases/latest');
       return updates.status();
@@ -132,34 +149,45 @@ async function startDesktop() {
   });
 
   ipcMain.handle('provider-settings:get', (event) => {
-    if (!trusted(event)) throw new Error('Untrusted settings request.');
+    if (!trusted(event)) {
+      throw new Error('Untrusted settings request.');
+    }
     return providerSettings.status();
   });
   ipcMain.handle('provider-settings:save', (event, changes) => {
-    if (!trusted(event)) throw new Error('Untrusted settings request.');
+    if (!trusted(event)) {
+      throw new Error('Untrusted settings request.');
+    }
     return providerSettings.save(changes);
   });
   ipcMain.handle('library:choose-folder', async (event) => {
-    if (!trusted(event)) throw new Error('Untrusted library folder request.');
+    if (!trusted(event)) {
+      throw new Error('Untrusted library folder request.');
+    }
     return libraryFolders.choose(BrowserWindow.fromWebContents(event.sender));
   });
   ipcMain.handle('library:scan-folders', (event) => {
-    if (!trusted(event)) throw new Error('Untrusted library folder request.');
+    if (!trusted(event)) {
+      throw new Error('Untrusted library folder request.');
+    }
     return libraryFolders.scanAll();
   });
   ipcMain.handle('library:scan-folder', (event, folderId) => {
-    if (!trusted(event) || typeof folderId !== 'string')
+    if (!trusted(event) || typeof folderId !== 'string') {
       throw new Error('Untrusted library folder request.');
+    }
     return libraryFolders.scan(folderId);
   });
   ipcMain.handle('library:read-pdf', (event, fileId) => {
-    if (!trusted(event) || typeof fileId !== 'string')
+    if (!trusted(event) || typeof fileId !== 'string') {
       throw new Error('Untrusted library file request.');
+    }
     return libraryFolders.readPdf(fileId);
   });
   ipcMain.handle('library:remove-folder', async (event, folderId) => {
-    if (!trusted(event) || typeof folderId !== 'string')
+    if (!trusted(event) || typeof folderId !== 'string') {
       throw new Error('Untrusted library folder request.');
+    }
     await libraryFolders.remove(folderId);
   });
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) =>
@@ -185,31 +213,42 @@ async function startDesktop() {
     mainWindow = null;
   });
   window.webContents.on('render-process-gone', async (_event, details) => {
-    if (details.reason === 'clean-exit' || window.isDestroyed()) return;
+    if (details.reason === 'clean-exit' || window.isDestroyed()) {
+      return;
+    }
     try {
+      const getMessage = () => {
+        if (details.reason === 'oom') {
+          return 'The reader ran out of memory.';
+        }
+        return 'The reader process stopped unexpectedly.';
+      };
+
       const result = await dialog.showMessageBox(window, {
         type: 'error',
         title: 'Reader stopped unexpectedly',
-        message:
-          details.reason === 'oom'
-            ? 'The reader ran out of memory.'
-            : 'The reader process stopped unexpectedly.',
+        message: getMessage(),
         detail:
           'You can reload the reader. Saved papers, notes, and chats remain on this computer. Local diagnostics are in the app profile’s logs folder.',
         buttons: ['Reload reader', 'Keep window open'],
         defaultId: 0,
         cancelId: 1,
       });
-      if (result.response === 0 && !window.isDestroyed()) window.webContents.reload();
+      if (result.response === 0 && !window.isDestroyed()) {
+        window.webContents.reload();
+      }
     } catch {
       recordExit('recovery-dialog-failed');
     }
   });
-  installEditCommands(window.webContents);
+  installEditCommands(window.webContents, {
+    onZoom: (direction) => window.webContents.send('reader:zoom', direction),
+  });
   installWebpageView(window, origin);
   ipcMain.handle('reader:zen', (event, active) => {
-    if (!trusted(event) || typeof active !== 'boolean')
+    if (!trusted(event) || typeof active !== 'boolean') {
       throw new Error('Invalid Zen mode request.');
+    }
     window.setMenuBarVisibility(!active);
   });
   session.defaultSession.webRequest.onBeforeSendHeaders(
@@ -221,13 +260,17 @@ async function startDesktop() {
   );
   window.loadURL(origin);
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//.test(url)) shell.openExternal(url);
+    if (/^https?:\/\//.test(url)) {
+      shell.openExternal(url);
+    }
     return { action: 'deny' };
   });
   window.webContents.on('will-navigate', (event, url) => {
     if (new URL(url).origin !== origin) {
       event.preventDefault();
-      if (/^https?:\/\//.test(url)) shell.openExternal(url);
+      if (/^https?:\/\//.test(url)) {
+        shell.openExternal(url);
+      }
     }
   });
   Menu.setApplicationMenu(
@@ -278,7 +321,7 @@ async function startDesktop() {
   );
 }
 
-if (primaryInstance)
+if (primaryInstance) {
   app
     .whenReady()
     .then(startDesktop)
@@ -287,6 +330,7 @@ if (primaryInstance)
       dialog.showErrorBox('PaperReader could not start', error.message);
       app.quit();
     });
+}
 
 app.on('window-all-closed', () => app.quit());
 app.on('before-quit', () => server?.close());

@@ -5,7 +5,9 @@ function useUpdates() {
   const [status, setStatus] = useState(null);
   const [error, setError] = useState('');
   useEffect(() => {
-    if (!bridge?.getUpdateStatus) return;
+    if (!bridge?.getUpdateStatus) {
+      return;
+    }
     let active = true;
     const receive = (state) => {
       if (active) {
@@ -28,7 +30,9 @@ function useUpdates() {
 
 export default function UpdateSettings() {
   const { bridge, status, setStatus, error, setError } = useUpdates();
-  if (!bridge?.getUpdateStatus) return null;
+  if (!bridge?.getUpdateStatus) {
+    return null;
+  }
   const action = (name) =>
     bridge
       .updateAction(name)
@@ -85,11 +89,20 @@ export default function UpdateSettings() {
 }
 
 export function UpdateNotice({ onClick }) {
+  const getStatusPhaseReady = () => {
+    if (status.phase === 'ready') {
+      return 'Restart to update';
+    }
+    return 'Update available';
+  };
+
   const { status } = useUpdates();
-  if (!['available', 'ready'].includes(status?.phase)) return null;
+  if (!['available', 'ready'].includes(status?.phase)) {
+    return null;
+  }
   return (
     <button className="update-notice" onClick={onClick}>
-      {status.phase === 'ready' ? 'Restart to update' : 'Update available'}
+      {getStatusPhaseReady()}
     </button>
   );
 }

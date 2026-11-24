@@ -11,7 +11,9 @@ const SWITCH_MESSAGES = {
 const seconds = (ms) => `${(Number(ms) / 1000).toFixed(2)}s`;
 
 function AnswerTimings({ timings, retrieval }) {
-  if (!timings) return null;
+  if (!timings) {
+    return null;
+  }
   return (
     <details className="answer-timings">
       <summary>
@@ -25,20 +27,36 @@ function AnswerTimings({ timings, retrieval }) {
           </span>
         )}
         {['client', 'server'].map((group) =>
-          Object.entries(timings[group] || {}).map(([name, ms]) => (
-            <span key={`${group}-${name}`}>
-              {group === 'client' ? 'Client' : 'Server'} · {name}
-              <b>{seconds(ms)}</b>
-            </span>
-          )),
+          Object.entries(timings[group] || {}).map(([name, ms]) => {
+            const getGroupClient = () => {
+              if (group === 'client') {
+                return 'Client';
+              }
+              return 'Server';
+            };
+            return (
+              <span key={`${group}-${name}`}>
+                {getGroupClient()} · {name}
+                <b>{seconds(ms)}</b>
+              </span>
+            );
+          }),
         )}
-        {(timings.inference || []).map((item, index) => (
-          <span key={index}>
-            {item.stage} · {item.provider}
-            {item.outcome === 'error' ? ' · failed' : ''}
-            <b>{seconds(item.ms)}</b>
-          </span>
-        ))}
+        {(timings.inference || []).map((item, index) => {
+          const getItemOutcomeError = () => {
+            if (item.outcome === 'error') {
+              return ' · failed';
+            }
+            return '';
+          };
+          return (
+            <span key={index}>
+              {item.stage} · {item.provider}
+              {getItemOutcomeError()}
+              <b>{seconds(item.ms)}</b>
+            </span>
+          );
+        })}
       </div>
     </details>
   );
@@ -59,6 +77,30 @@ export default function AnswerMessage({
   onCitation,
   onPage,
 }) {
+  const getMessageProvider = () => {
+    if (message.provider) {
+      return `${message.provider} · `;
+    }
+    return '';
+  };
+
+  const getMessageRetrieval = () => {
+    if (message.retrieval) {
+      return `SEARCHED ${message.retrieval.indexedPages} PAGES · EVIDENCE`;
+    }
+    return 'PAPER CONTEXT';
+  };
+
+  function getSaveNoteLabel() {
+    if (notes.saving) {
+      return 'Shortening…';
+    }
+    if (saved) {
+      return 'Saved to notes';
+    }
+    return 'Add to project notes';
+  }
+
   const project = projects.find((item) => item.id === notes.projectId);
   const saved = project?.entries?.some((entry) => entry.messageId === message.id);
   const modelName =
@@ -75,7 +117,7 @@ export default function AnswerMessage({
         </span>
         <strong>PaperReader</strong>
         <span>
-          · {mode?.short} · {message.provider ? `${message.provider} · ` : ''} {modelName}
+          · {mode?.short} · {getMessageProvider()} {modelName}
         </span>
       </div>
       {message.modelSwitch && (
@@ -119,8 +161,7 @@ export default function AnswerMessage({
           disabled={!notes.projectId || notes.saving || saved}
           title="Save a concise summary to project notes"
         >
-          <Save size={13} />{' '}
-          {notes.saving ? 'Shortening…' : saved ? 'Saved to notes' : 'Add to project notes'}
+          <Save size={13} /> {getSaveNoteLabel()}
         </button>
       </div>
       {notes.error && (
@@ -131,31 +172,31 @@ export default function AnswerMessage({
       {message.evidence?.length > 0 && (
         <div className="evidence-list">
           <strong>Source passages</strong>
-          {message.evidence.map((source, index) => (
-            <button
-              key={`${source.label}:${source.page}:${index}`}
-              onClick={() => onCitation(source)}
-              title="Jump to this passage"
-            >
-              <span>
-                {source.title || activeDoc.name} ·{' '}
-                {documents.find((doc) => doc.id === (source.docId || docId))?.kind === 'article'
-                  ? '§'
-                  : 'p.'}{' '}
-                {source.page}
-              </span>
-              <q>{source.quote}</q>
-            </button>
-          ))}
+          {message.evidence.map((source, index) => {
+            const getDocumentsFindDocDoc = () => {
+              if (documents.find((doc) => doc.id === (source.docId || docId))?.kind === 'article') {
+                return '§';
+              }
+              return 'p.';
+            };
+            return (
+              <button
+                key={`${source.label}:${source.page}:${index}`}
+                onClick={() => onCitation(source)}
+                title="Jump to this passage"
+              >
+                <span>
+                  {source.title || activeDoc.name} · {getDocumentsFindDocDoc()} {source.page}
+                </span>
+                <q>{source.quote}</q>
+              </button>
+            );
+          })}
         </div>
       )}
       {!message.evidence?.length && message.paperPages?.length > 0 && (
         <div className="paper-pages">
-          <span>
-            {message.retrieval
-              ? `SEARCHED ${message.retrieval.indexedPages} PAGES · EVIDENCE`
-              : 'PAPER CONTEXT'}
-          </span>
+          <span>{getMessageRetrieval()}</span>
           {message.paperPages.map((page) => (
             <button key={page} onClick={() => onPage(page)}>
               {locationLabel} {page}
@@ -166,15 +207,20 @@ export default function AnswerMessage({
       {message.sources?.length > 0 && (
         <div className="source-list">
           <strong>Sources explored</strong>
-          {message.sources.map((source, index) => (
-            <a key={index} href={source.url} target="_blank" rel="noopener noreferrer">
-              <span>{source.kind}</span>
-              {source.title.length > 44
-                ? `${source.title.slice(0, 44).trim()}…`
-                : source.title}{' '}
-              <ExternalLink size={12} />
-            </a>
-          ))}
+          {message.sources.map((source, index) => {
+            const getSourceTitle = () => {
+              if (source.title.length > 44) {
+                return `${source.title.slice(0, 44).trim()}…`;
+              }
+              return source.title;
+            };
+            return (
+              <a key={index} href={source.url} target="_blank" rel="noopener noreferrer">
+                <span>{source.kind}</span>
+                {getSourceTitle()} <ExternalLink size={12} />
+              </a>
+            );
+          })}
         </div>
       )}
     </div>

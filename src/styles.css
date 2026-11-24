@@ -3811,3 +3811,65 @@ textarea:focus-visible {
     right: min(var(--overlay-panel-width), calc(100% - 14px));
   }
 }
+
+/* One document toolbar replaces the separate app header. */
+.reader-column {
+  container-type: inline-size;
+  container-name: reader;
+}
+.reader-toolbar {
+  height: auto;
+  min-height: 54px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  gap: 8px;
+}
+.reader-toolbar .reader-title {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.reader-toolbar .reader-title strong {
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reader-toolbar .toolbar-spacer {
+  display: none;
+}
+.toolbar-global-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.toolbar-global-actions > button {
+  flex-shrink: 0;
+}
+.reader-toolbar .toolbar-settings {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 8px;
+}
+.toolbar-settings span {
+  font-size: 12px;
+}
+.toolbar-saved-status {
+  display: inline-flex;
+  color: var(--theme-muted, #777);
+}
+@container reader (max-width: 700px) {
+  .toolbar-settings span,
+  .toolbar-saved-status {
+    display: none;
+  }
+  .reader-toolbar .reader-title {
+    flex-basis: 120px;
+  }
+  .toolbar-global-actions {
+    gap: 3px;
+  }
+}

@@ -24,12 +24,13 @@ serveStdio(() => {
     let index = indexes.get(args.cacheKey);
     if (!index && args.cacheKey) {
       index = await disk.load(args.cacheKey);
-      if (index)
+      if (index) {
         indexes.set(
           args.cacheKey,
           index,
           index.pages.reduce((sum, page) => sum + page.text.length, 0),
         );
+      }
     }
     if (!index && args.pages) {
       const entry = indexes.put(args.pages);
@@ -47,13 +48,15 @@ serveStdio(() => {
     },
     async (args) => {
       const index = await loadIndex(args);
-      return index
-        ? {
-            content: [
-              { type: 'text', text: JSON.stringify({ ready: true, pages: index.pages.length }) },
-            ],
-          }
-        : missing;
+      if (index) {
+        return {
+          content: [
+            { type: 'text', text: JSON.stringify({ ready: true, pages: index.pages.length }) },
+          ],
+        };
+      } else {
+        return missing;
+      }
     },
   );
   server.registerTool(
@@ -72,7 +75,9 @@ serveStdio(() => {
     },
     async (args) => {
       const index = await loadIndex(args);
-      if (!index) return missing;
+      if (!index) {
+        return missing;
+      }
       return {
         content: [{ type: 'text', text: JSON.stringify(retrieveIndexedEvidence(index, args)) }],
       };

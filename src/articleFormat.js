@@ -5,22 +5,32 @@ export function validateArticle(value) {
     !Array.isArray(value.sections) ||
     !value.sections.length ||
     value.sections.length > 1000
-  )
+  ) {
     throw new Error('Invalid saved article.');
-  const url = value.localFile && !value.sourceUrl ? null : new URL(value.sourceUrl);
-  if (url && (!['https:', 'http:'].includes(url.protocol) || url.username || url.password))
+  }
+  let url;
+  if (value.localFile && !value.sourceUrl) {
+    url = null;
+  } else {
+    url = new URL(value.sourceUrl);
+  }
+  if (url && (!['https:', 'http:'].includes(url.protocol) || url.username || url.password)) {
     throw new Error('Invalid article source URL.');
+  }
   let size = 0;
   for (const [index, section] of value.sections.entries()) {
     if (
       section.page !== index + 1 ||
       typeof section.html !== 'string' ||
       typeof section.text !== 'string'
-    )
+    ) {
       throw new Error('Invalid article section.');
+    }
     size += section.html.length + section.text.length;
   }
-  if (size > 20_000_000) throw new Error('This saved article is too large.');
+  if (size > 20_000_000) {
+    throw new Error('This saved article is too large.');
+  }
   return value;
 }
 export const articleBlob = (value) =>
@@ -35,22 +45,31 @@ export function filterLibrary(
   const project = projects.find((item) => item.id === projectId);
   const needle = query.trim().toLowerCase();
   return docs
-    .filter(
-      (doc) =>
+    .filter((doc) => {
+      const getDocKindArticle = () => {
+        if (doc.kind === 'article') {
+          return 'article';
+        }
+        return 'paper';
+      };
+      return (
         (!project || project.paperIds?.includes(doc.id)) &&
-        (kind === 'all' || (doc.kind === 'article' ? 'article' : 'paper') === kind) &&
+        (kind === 'all' || getDocKindArticle() === kind) &&
         (status === 'all' || (doc.status || 'unread') === status) &&
         [doc.name, doc.subtitle, doc.sourceUrl].some((value) =>
           String(value || '')
             .toLowerCase()
             .includes(needle),
-        ),
-    )
-    .sort((a, b) =>
-      sort === 'title'
-        ? a.name.localeCompare(b.name)
-        : sort === 'source'
-          ? (a.subtitle || '').localeCompare(b.subtitle || '')
-          : (b.addedAt || 0) - (a.addedAt || 0),
-    );
+        )
+      );
+    })
+    .sort((a, b) => {
+      if (sort === 'title') {
+        return a.name.localeCompare(b.name);
+      } else if (sort === 'source') {
+        return (a.subtitle || '').localeCompare(b.subtitle || '');
+      } else {
+        return (b.addedAt || 0) - (a.addedAt || 0);
+      }
+    });
 }

@@ -29,13 +29,19 @@ export function createIndexDiskCache({
 } = {}) {
   const pathFor = (key) => join(directory, `${key}.json.gz`);
   async function load(key) {
-    if (!KEY.test(key || '')) return;
+    if (!KEY.test(key || '')) {
+      return;
+    }
     try {
       const compressed = await readFile(pathFor(key));
       const json = await decompress(compressed, { maxOutputLength: 128 * 1024 * 1024 });
-      const saved = JSON.parse(json.toString(), (_name, value) =>
-        value && Array.isArray(value.$map) ? new Map(value.$map) : value,
-      );
+      const saved = JSON.parse(json.toString(), (_name, value) => {
+        if (value && Array.isArray(value.$map)) {
+          return new Map(value.$map);
+        } else {
+          return value;
+        }
+      });
       if (
         saved.version !== VERSION ||
         saved.key !== key ||
@@ -43,8 +49,9 @@ export function createIndexDiskCache({
         !Array.isArray(saved.index.chunks) ||
         !(saved.index.df instanceof Map) ||
         !Number.isFinite(saved.index.averageLength)
-      )
+      ) {
         return;
+      }
       if (
         saved.index.chunks.some(
           (chunk) =>
@@ -53,8 +60,9 @@ export function createIndexDiskCache({
             !Number.isFinite(chunk.start) ||
             !Number.isFinite(chunk.end),
         )
-      )
+      ) {
         return;
+      }
       await utimes(pathFor(key), new Date(), new Date()).catch(() => {});
       return saved.index;
     } catch {
@@ -62,14 +70,22 @@ export function createIndexDiskCache({
     }
   }
   async function save(key, index) {
-    if (!KEY.test(key || '')) return;
+    if (!KEY.test(key || '')) {
+      return;
+    }
     const temp = join(directory, `.${key}.${randomUUID()}.tmp`);
     try {
-      const json = JSON.stringify({ version: VERSION, key, index }, (_name, value) =>
-        value instanceof Map ? { $map: [...value] } : value,
-      );
+      const json = JSON.stringify({ version: VERSION, key, index }, (_name, value) => {
+        if (value instanceof Map) {
+          return { $map: [...value] };
+        } else {
+          return value;
+        }
+      });
       const compressed = await compress(json, { level: 4 });
-      if (compressed.length > maxBytes) return;
+      if (compressed.length > maxBytes) {
+        return;
+      }
       await mkdir(directory, { recursive: true, mode: 0o700 });
       await writeFile(temp, compressed, { mode: 0o600 });
       await rename(temp, pathFor(key));
@@ -81,7 +97,11 @@ export function createIndexDiskCache({
             .map(async (name) => {
               const path = join(directory, name);
               const info = await stat(path).catch(() => null);
-              return info ? { path, size: info.size, modified: info.mtimeMs } : null;
+              if (info) {
+                return { path, size: info.size, modified: info.mtimeMs };
+              } else {
+                return null;
+              }
             }),
         )
       )
@@ -89,7 +109,9 @@ export function createIndexDiskCache({
         .sort((a, b) => a.modified - b.modified);
       let total = entries.reduce((sum, entry) => sum + entry.size, 0);
       for (const entry of entries) {
-        if (total <= maxBytes) break;
+        if (total <= maxBytes) {
+          break;
+        }
         await unlink(entry.path).catch(() => {});
         total -= entry.size;
       }

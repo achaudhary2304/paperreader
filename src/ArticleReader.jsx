@@ -10,17 +10,21 @@ function sectionHtml(section, query, annotations) {
     FORBID_ATTR: ['style'],
   });
   // Remove all remote image loads, including images in imported backups.
-  for (const img of root.querySelectorAll('img'))
+  for (const img of root.querySelectorAll('img')) {
     if (
       !/^data:image\/(?:png|jpeg|webp|gif|avif);base64,/i.test(img.getAttribute('src') || '') &&
       !/^\/api\/articles\/image\?url=/.test(img.getAttribute('src') || '')
-    )
+    ) {
       img.remove();
+    }
+  }
   for (const anchor of root.querySelectorAll('a')) {
     anchor.target = '_blank';
     anchor.rel = 'noopener noreferrer';
   }
-  if (!query.trim() && !annotations.length) return root.innerHTML;
+  if (!query.trim() && !annotations.length) {
+    return root.innerHTML;
+  }
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const records = [];
   let node,
@@ -31,14 +35,24 @@ function sectionHtml(section, query, annotations) {
     records.push(record);
     for (let i = 0; i < node.textContent.length; i++) {
       const char = node.textContent[i];
-      if (/\s/.test(char) && text.endsWith(' ')) continue;
-      text += /\s/.test(char) ? ' ' : char.toLowerCase();
+      if (/\s/.test(char) && text.endsWith(' ')) {
+        continue;
+      }
+
+      if (/\s/.test(char)) {
+        text += ' ';
+      } else {
+        text += char.toLowerCase();
+      }
+
       offsets.push({ record, index: i });
     }
   }
   for (const item of [...annotations, { text: query, search: true }]) {
     const needle = item.text?.toLowerCase().replace(/\s+/g, ' ').trim();
-    if (!needle) continue;
+    if (!needle) {
+      continue;
+    }
     for (
       let start = text.indexOf(needle);
       start !== -1;
@@ -46,13 +60,18 @@ function sectionHtml(section, query, annotations) {
     ) {
       for (let i = start; i < start + needle.length; i++) {
         const position = offsets[i];
-        if (item.search) position.record.search.add(position.index);
-        else position.record.marks.set(position.index, item);
+        if (item.search) {
+          position.record.search.add(position.index);
+        } else {
+          position.record.marks.set(position.index, item);
+        }
       }
     }
   }
   for (const record of records) {
-    if (!record.marks.size && !record.search.size) continue;
+    if (!record.marks.size && !record.search.size) {
+      continue;
+    }
     const fragment = document.createDocumentFragment();
     let container, previous;
     for (let i = 0; i < record.node.textContent.length; i++) {
@@ -60,16 +79,37 @@ function sectionHtml(section, query, annotations) {
       const search = record.search.has(i);
       const key = `${item?.id || ''}:${search}`;
       if (key !== previous) {
-        container = item || search ? document.createElement('mark') : document.createTextNode('');
         if (item || search) {
-          container.className = `${search ? 'search-hit ' : ''}${item ? `paper-annotation annotation-${['green', 'blue'].includes(item.color) ? item.color : 'yellow'}` : ''}`;
-          if (item) container.dataset.annotationId = item.id;
+          container = document.createElement('mark');
+        } else {
+          container = document.createTextNode('');
+        }
+
+        if (item || search) {
+          let classes = '';
+          if (search) {
+            classes = 'search-hit ';
+          }
+          if (item) {
+            let color = 'yellow';
+            if (['green', 'blue'].includes(item.color)) {
+              color = item.color;
+            }
+            classes += `paper-annotation annotation-${color}`;
+          }
+          container.className = classes;
+          if (item) {
+            container.dataset.annotationId = item.id;
+          }
         }
         fragment.append(container);
         previous = key;
       }
-      if (container.nodeType === 3) container.textContent += record.node.textContent[i];
-      else container.append(record.node.textContent[i]);
+      if (container.nodeType === 3) {
+        container.textContent += record.node.textContent[i];
+      } else {
+        container.append(record.node.textContent[i]);
+      }
     }
     record.node.replaceWith(fragment);
   }
@@ -83,7 +123,7 @@ const ArticleSection = memo(function ArticleSection({ section, query, annotation
     [section, query, annotations],
   );
   useEffect(() => {
-    if (element.current)
+    if (element.current) {
       renderMathInElement(element.current, {
         delimiters: [
           { left: '$$', right: '$$', display: true },
@@ -92,6 +132,7 @@ const ArticleSection = memo(function ArticleSection({ section, query, annotation
         ],
         throwOnError: false,
       });
+    }
   }, [content]);
   return (
     <section
@@ -110,6 +151,13 @@ const ArticleSection = memo(function ArticleSection({ section, query, annotation
 });
 const EMPTY = [];
 export default function ArticleReader({ article, zoom, query, annotationsByPage }) {
+  const getArticleByline = () => {
+    if (article.byline) {
+      return ' · ';
+    }
+    return '';
+  };
+
   return (
     <article className="article-reader" style={{ fontSize: `${18 * zoom}px` }}>
       <header>
@@ -117,7 +165,7 @@ export default function ArticleReader({ article, zoom, query, annotationsByPage 
         <h1>{article.title}</h1>
         <p>
           {article.byline}
-          {article.byline ? ' · ' : ''}
+          {getArticleByline()}
           {article.siteName}
         </p>
         {article.sourceUrl && (
