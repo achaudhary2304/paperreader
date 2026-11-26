@@ -1,6 +1,12 @@
 // Agent implementations are independent of Express. The server supplies the
 // inference function and live provider checks; the graph controls execution.
-export function createResearchAgents({ infer, freeOnly, compatibleConfigured, clean }) {
+export function createResearchAgents({
+  infer,
+  browserInfer = infer,
+  freeOnly,
+  compatibleConfigured,
+  clean,
+}) {
   function route(mode, question) {
     const q = question.toLowerCase();
     const math =
@@ -114,9 +120,15 @@ export function createResearchAgents({ infer, freeOnly, compatibleConfigured, cl
   }
 
   async function browserResearch(key, question, selection, query, onInferenceTiming) {
-    // Free-only mode performs external tool lookups without paid search plugins or extra model calls.
-    if (freeOnly() || compatibleConfigured()) {
+    if (!query?.trim()) {
       return { report: '', sources: [] };
+    }
+    if (!key) {
+      return {
+        report:
+          'Broad web search was unavailable because no Groq key is configured. Only the separately supplied academic and concept sources were searched.',
+        sources: [],
+      };
     }
     try {
       const getReport = () => {
@@ -126,7 +138,7 @@ export function createResearchAgents({ infer, freeOnly, compatibleConfigured, cl
         return '';
       };
 
-      const report = await infer(
+      const report = await browserInfer(
         key,
         [
           {
@@ -169,7 +181,11 @@ export function createResearchAgents({ infer, freeOnly, compatibleConfigured, cl
         })),
       };
     } catch {
-      return { report: '', sources: [] };
+      return {
+        report:
+          'Broad web search failed. Do not imply that the wider web was successfully searched; use only the separately supplied source evidence.',
+        sources: [],
+      };
     }
   }
 

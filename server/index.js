@@ -95,8 +95,33 @@ async function infer(key, messages, options = {}) {
   return clean(result.content, 12000);
 }
 
+// Browser tools require Groq, regardless of which provider writes the final answer.
+async function browserInfer(key, messages, options) {
+  const started = performance.now();
+  const context = requestContext.getStore() || {};
+  try {
+    const result = await groqClient.complete(key, messages, { ...context, ...options });
+    options.onTiming?.({
+      stage: 'Browser research',
+      provider: 'Groq',
+      model: result.model,
+      ms: Math.round(performance.now() - started),
+      outcome: 'ok',
+    });
+    return clean(result.content, 12000);
+  } catch (error) {
+    options.onTiming?.({
+      stage: 'Browser research',
+      provider: 'Groq',
+      ms: Math.round(performance.now() - started),
+      outcome: 'error',
+    });
+    throw error;
+  }
+}
+
 const researchGraph = createResearchGraph({
-  ...createResearchAgents({ infer, freeOnly, compatibleConfigured, clean }),
+  ...createResearchAgents({ infer, browserInfer, freeOnly, compatibleConfigured, clean }),
   conceptResearch: (query) => callLocalTool('research', 'search_concept', { query }),
   literatureResearch: (query) => callLocalTool('research', 'search_academic', { query }),
   infer,
@@ -473,7 +498,7 @@ app.post('/api/ask', async (req, res) => {
       });
       res.flushHeaders();
     }
-    const quick = req.body.answerDepth === 'quick';
+    const quick = req.body.answerDepth === 'quick' && mode !== 'search' && mode !== 'literature';
     let providerPriority;
     if (req.body.providerPriority === 'groq') {
       providerPriority = 'groq';

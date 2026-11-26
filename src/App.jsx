@@ -1,3 +1,4 @@
+import { questionProjectId } from './projectScope.js';
 import { MODES } from './readerModes.js';
 import { zoomShortcut } from '../shared/zoomShortcut.js';
 import PanelHandle from './PanelHandle.jsx';
@@ -394,7 +395,13 @@ export default function App() {
     return 'closed';
   };
 
+  function researchModeRequiresDeep() {
+    return ['search', 'literature'].includes(activeThread?.mode || mode);
+  }
+
   const getAnswerDepthDeepTitle = () => {
+    if (researchModeRequiresDeep())
+      return 'This mode includes external research. Choose Explain for document-only answers.';
     if (answerDepth === 'deep') {
       return 'Deep research enabled. Click for document-only answers.';
     }
@@ -402,7 +409,7 @@ export default function App() {
   };
 
   const getAnswerDepthDeep = () => {
-    if (answerDepth === 'deep') {
+    if (researchModeRequiresDeep() || answerDepth === 'deep') {
       return 'Deep';
     }
     return 'Quick';
@@ -2412,15 +2419,8 @@ export default function App() {
       return;
     }
     const id = existingThread?.id || uid();
-    const scopeProject = projects.find((project) => {
-      const getAskProject = () => {
-        if (askProject) {
-          return projectId;
-        }
-        return '';
-      };
-      return project.id === (existingThread?.projectId || getAskProject());
-    });
+    const scopeId = questionProjectId(existingThread, askProject, projectId);
+    const scopeProject = projects.find((project) => project.id === scopeId);
     const previous = existingThread?.messages || [];
     const turn = {
       id: uid(),
@@ -2741,6 +2741,7 @@ export default function App() {
   const startMode = (selectedMode) => {
     setDraftSelection(selection);
     setMode(selectedMode);
+    if (selectedMode === 'search' || selectedMode === 'literature') setAnswerDepth('deep');
     setThreadId(null);
     setComposer(getDefaultPrompt(selectedMode, defaultPrompts));
     setZenMode(false);
@@ -2756,6 +2757,7 @@ export default function App() {
   const startBlank = (selectedMode) => {
     setZenMode(false);
     setMode(selectedMode);
+    if (selectedMode === 'search' || selectedMode === 'literature') setAnswerDepth('deep');
     setThreadId(null);
     setDraftSelection(null);
     setComposer('');
@@ -4554,7 +4556,8 @@ export default function App() {
                 type="button"
                 className="answer-depth-toggle"
                 aria-label="Deep research"
-                aria-pressed={answerDepth === 'deep'}
+                aria-pressed={researchModeRequiresDeep() || answerDepth === 'deep'}
+                disabled={researchModeRequiresDeep()}
                 title={getAnswerDepthDeepTitle()}
                 onClick={() =>
                   setAnswerDepth((depth) => {
@@ -4582,6 +4585,7 @@ export default function App() {
                         key={name}
                         onClick={() => {
                           setMode(name);
+                          if (name === 'search' || name === 'literature') setAnswerDepth('deep');
                           if (!composer.trim()) {
                             setComposer(getDefaultPrompt(name, defaultPrompts));
                           }
@@ -4624,9 +4628,22 @@ export default function App() {
               <label className="project-scope">
                 <input
                   type="checkbox"
-                  checked={Boolean(activeThread?.projectId || askProject)}
-                  disabled={Boolean(activeThread)}
-                  onChange={(event) => setAskProject(event.target.checked)}
+                  checked={Boolean(questionProjectId(activeThread, askProject, projectId))}
+                  onChange={(event) => {
+                    const enabled = event.target.checked;
+                    setAskProject(enabled);
+                    if (activeThread) {
+                      let scopeId = '';
+                      if (enabled) scopeId = activeThread.projectId || activeProject?.id || '';
+                      setThreads((current) =>
+                        current.map((thread) => {
+                          if (thread.id === activeThread.id)
+                            return { ...thread, projectId: scopeId };
+                          return thread;
+                        }),
+                      );
+                    }
+                  }}
                 />{' '}
                 Ask across {getActiveThreadProjectId()} documents
               </label>

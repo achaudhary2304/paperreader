@@ -153,3 +153,37 @@ test('quick math questions use paper retrieval and one answer call, without exte
   assert.deepEqual(result.sources, []);
   assert.equal(result.plan.math, false);
 });
+
+test('a project question retrieves and labels evidence separately for both documents', async () => {
+  const { graph } = harness();
+  const papers = [
+    {
+      docId: 'one',
+      title: 'First',
+      label: 'P1',
+      pages: [{ page: 1, text: 'ELBO for the first model.' }],
+    },
+    {
+      docId: 'two',
+      title: 'Second',
+      label: 'P2',
+      pages: [{ page: 2, text: 'ELBO for the second model.' }],
+    },
+  ];
+  const result = await graph.invoke({
+    input: {
+      ...input,
+      quick: true,
+      docId: 'one',
+      papers,
+      allPages: papers.flatMap((p) => p.pages),
+    },
+  });
+  assert.deepEqual(
+    result.pages.map((p) => [p.docId, p.label, p.page]),
+    [
+      ['one', 'P1', 1],
+      ['two', 'P2', 2],
+    ],
+  );
+});
