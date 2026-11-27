@@ -1,3 +1,5 @@
+import { searchTerms } from './searchQuery.js';
+
 function clean(value, max = 5000) {
   return String(value ?? '')
     .trim()
@@ -5,43 +7,26 @@ function clean(value, max = 5000) {
 }
 
 function relevantSource(query, source) {
-  const words = [...new Set(query.toLowerCase().match(/[a-z][a-z0-9-]{2,}/g) || [])].filter(
-    (word) =>
-      ![
-        'the',
-        'and',
-        'for',
-        'from',
-        'with',
-        'what',
-        'how',
-        'that',
-        'this',
-        'paper',
-        'percentage',
-        'percent',
-        'known',
-        'unknown',
-        'made',
-        'state',
-        'large',
-        'language',
-        'model',
-        'models',
-        'scaling',
-        'using',
-      ].includes(word),
-  );
+  const words = searchTerms(query);
+  if (!words.length) {
+    return false;
+  }
   const text = `${source.title} ${source.excerpt}`.toLowerCase();
-  const matching = words.filter((word) => text.includes(word));
+  const sourceWords = new Set(searchTerms(text));
+  const matching = words.filter((word) => sourceWords.has(word));
+  let requiredMatches = Math.min(3, Math.ceil(words.length / 2));
+  if (words.length <= 3) {
+    requiredMatches = words.length;
+  }
   const titleMatch = words.some((word) => source.title.toLowerCase().includes(word));
-  return titleMatch && matching.length >= Math.min(2, words.length) && words.length > 0;
+  const phraseMatch = text.replace(/[^\p{L}\p{N}-]+/gu, ' ').includes(words.join(' '));
+  return matching.length >= requiredMatches && (titleMatch || phraseMatch);
 }
 
-export async function wikipediaResearch(query) {
+export async function wikipediaResearch(query, { fetchImpl = fetch } = {}) {
   try {
     const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=2&format=json&origin=*`;
-    const result = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const result = await fetchImpl(url, { signal: AbortSignal.timeout(8000) });
     if (!result.ok) {
       return [];
     }

@@ -1,3 +1,5 @@
+import { fallbackSearchPlan, searchTerms } from './searchQuery.js';
+
 // Agent implementations are independent of Express. The server supplies the
 // inference function and live provider checks; the graph controls execution.
 export function createResearchAgents({
@@ -52,26 +54,19 @@ export function createResearchAgents({
       });
   }
 
-  async function planSearch(key, question, selection, paperHint, history, onInferenceTiming) {
-    if (freeOnly() || compatibleConfigured()) {
-      const previous = history
-        .filter((m) => m.role === 'user')
-        .slice(-2)
-        .map((m) => m.content);
-      const stop = new Set(
-        'what which why how does did the and this that about give tell explain paper percentage percent from with made known unknown'.split(
-          ' ',
-        ),
-      );
-      const words = (question.match(/[A-Za-z][A-Za-z0-9-]+/g) || []).filter(
-        (word) => !stop.has(word.toLowerCase()),
-      );
-      return {
-        paperQueries: [question, selection, ...previous].filter(Boolean),
-        externalQuery: words.slice(0, 8).join(' ') || clean(selection, 120),
-      };
+  function validExternalQuery(proposed, fallback) {
+    if (typeof proposed !== 'string' || !searchTerms(proposed).length) {
+      return fallback;
     }
-    const fallback = { paperQueries: [question], externalQuery: clean(question || selection, 150) };
+    return clean(proposed, 180);
+  }
+
+  async function planSearch(key, question, selection, paperHint, history, onInferenceTiming) {
+    const fallback = fallbackSearchPlan(question, selection, history);
+    // Generic UI questions already have a reliable topic: the selected passage.
+    if (freeOnly() || compatibleConfigured() || !searchTerms(question).length) {
+      return fallback;
+    }
     try {
       const getPaperQueries = () => {
         if (Array.isArray(parsed.paperQueries)) {
@@ -89,7 +84,7 @@ export function createResearchAgents({
           {
             role: 'system',
             content:
-              'Plan evidence retrieval for a research paper question. Return ONLY JSON with paperQueries (2 to 4 short search queries using likely scientific terminology and synonyms) and externalQuery (a concise scientific web query of at most 8 words, including the research field or model name). Preserve names from the user question. Expand everyday descriptions into the appropriate metrics, experimental results, equations, and table terminology; search both the definition and measured results. Treat selected text as background. For follow-ups resolve the topic from earlier user questions. Do not answer the question, invent values, or copy an old assistant answer.',
+              'Plan evidence retrieval for a research paper question. Return ONLY JSON with paperQueries (2 to 4 short search queries using likely scientific terminology and synonyms) and externalQuery (a concise scientific web query of at most 8 words, including the research field or model name). Preserve names from the user question. Expand everyday descriptions into the appropriate metrics, experimental results, equations, and table terminology; search both the definition and measured results. When the question refers to this topic, this passage, or an unnamed method, use the selected text as the primary search topic. Never search generic question wording such as know, topic, beyond, or passage. For follow-ups resolve the topic from earlier user questions. Do not answer the question, invent values, or copy an old assistant answer.',
           },
           {
             role: 'user',
@@ -112,7 +107,7 @@ export function createResearchAgents({
       const parsed = JSON.parse(result.slice(result.indexOf('{'), result.lastIndexOf('}') + 1));
       return {
         paperQueries: getPaperQueries(),
-        externalQuery: clean(parsed.externalQuery, 180) || fallback.externalQuery,
+        externalQuery: validExternalQuery(parsed.externalQuery, fallback.externalQuery),
       };
     } catch {
       return fallback;
