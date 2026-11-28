@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://achaudhary2304.github.io/paperreader/sitemap.xml
